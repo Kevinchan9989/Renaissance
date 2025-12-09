@@ -1,0 +1,133 @@
+import { useState } from 'react';
+import { ScriptType } from '../types';
+import { detectScriptType } from '../utils/parsers';
+import { X } from 'lucide-react';
+
+interface CreateScriptModalProps {
+  onClose: () => void;
+  onCreate: (name: string, type: ScriptType, content: string) => void;
+}
+
+export default function CreateScriptModal({ onClose, onCreate }: CreateScriptModalProps) {
+  const [name, setName] = useState('');
+  const [type, setType] = useState<ScriptType>('postgresql');
+  const [content, setContent] = useState('');
+  const [autoDetect, setAutoDetect] = useState(true);
+
+  const handleContentChange = (value: string) => {
+    setContent(value);
+    if (autoDetect && value.trim()) {
+      const detected = detectScriptType(value);
+      setType(detected);
+    }
+  };
+
+  const handleSubmit = () => {
+    if (!name.trim()) {
+      alert('Please enter a script name');
+      return;
+    }
+    if (!content.trim()) {
+      alert('Please enter script content');
+      return;
+    }
+    onCreate(name.trim(), type, content);
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()} style={{ minWidth: '600px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <h2 className="modal-title" style={{ margin: 0 }}>Create New Script</h2>
+          <button className="btn" onClick={onClose} style={{ padding: '4px 8px' }}>
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="modal-body">
+          <div className="form-group">
+            <label className="form-label">Script Name</label>
+            <input
+              type="text"
+              className="form-input"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g., OMEGA Production Schema"
+            />
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Script Type</label>
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+              <select
+                className="form-select"
+                value={type}
+                onChange={(e) => {
+                  setType(e.target.value as ScriptType);
+                  setAutoDetect(false);
+                }}
+                style={{ flex: 1 }}
+              >
+                <option value="postgresql">PostgreSQL</option>
+                <option value="oracle">Oracle SQL</option>
+                <option value="dbml">DBML</option>
+              </select>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#666' }}>
+                <input
+                  type="checkbox"
+                  checked={autoDetect}
+                  onChange={(e) => setAutoDetect(e.target.checked)}
+                />
+                Auto-detect
+              </label>
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">DDL / DBML Content</label>
+            <textarea
+              className="editor-textarea"
+              value={content}
+              onChange={(e) => handleContentChange(e.target.value)}
+              placeholder={getPlaceholder(type)}
+              style={{ minHeight: '250px' }}
+            />
+          </div>
+        </div>
+
+        <div className="modal-footer">
+          <button className="btn" onClick={onClose}>Cancel</button>
+          <button className="btn btn-success" onClick={handleSubmit}>Create Script</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function getPlaceholder(type: ScriptType): string {
+  switch (type) {
+    case 'postgresql':
+      return `-- PostgreSQL DDL
+CREATE TABLE schema.table_name (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW()
+);`;
+    case 'oracle':
+      return `-- Oracle SQL DDL
+CREATE TABLE schema.table_name (
+    id NUMBER(10) PRIMARY KEY,
+    name VARCHAR2(100) NOT NULL,
+    created_at DATE DEFAULT SYSDATE
+);`;
+    case 'dbml':
+      return `// DBML Schema
+Table schema.table_name {
+    id int [pk, increment]
+    name varchar(100) [not null]
+    created_at timestamp [default: \`now()\`]
+}`;
+    default:
+      return '';
+  }
+}

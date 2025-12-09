@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DDL Dictionary (JSON & Postgres SQL)</title>
+    <style>
+        /* =========================================
+           1. LAYOUT & GLOBAL
+           ========================================= */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0; padding: 0; display: flex; height: 100vh; overflow: hidden;
+            background-color: #f9f9f9; color: #333;
+            transition: background 0.3s, color 0.3s;
+        }
+
+        /* --- SIDEBAR --- */
+        .sidebar {
+            width: 320px; background-color: #2c3e50; color: white;
+            display: flex; flex-direction: column; border-right: 1px solid #ccc; flex-shrink: 0;
+        }
+        .search-box { padding: 15px; background-color: #233140; border-bottom: 1px solid #1a252f; }
+        .search-box input {
+            width: 100%; padding: 8px; border-radius: 4px; border: none;
+            background-color: #3e5368; color: white; box-sizing: border-box; font-family: inherit;
+        }
+        .search-box input:focus { outline: 2px solid #3498db; }
+        .sidebar-content { flex-grow: 1; overflow-y: auto; overflow-x: hidden; }
+
+        /* SCHEMA HEADER */
+        .schema-block { border-bottom: 1px solid #34495e; }
+        .schema-header {
+            padding: 12px 15px; background-color: #2c3e50; cursor: pointer;
+            font-weight: bold; font-size: 13px; color: #ecf0f1;
+            display: flex; justify-content: space-between; align-items: center; user-select: none;
+        }
+        .schema-header:hover { background-color: #34495e; }
+        .schema-header .arrow { font-size: 10px; transition: transform 0.2s; }
+        .schema-header.collapsed .arrow { transform: rotate(-90deg); }
+
+        /* TABLE LIST */
+        .table-list { list-style: none; padding: 0; margin: 0; background-color: #263544; display: block; }
+        .table-list.hidden { display: none; }
+        .table-list li {
+            padding: 10px 15px 10px 30px; cursor: pointer; border-bottom: 1px solid #304050;
+            transition: background 0.2s; font-size: 13px; color: #bdc3c7;
+        }
+        .table-list li:hover { background-color: #3e5368; color: white; }
+        .table-list li.active { background-color: #3498db; color: white; font-weight: 600; border-left: 4px solid #fff; padding-left: 26px; }
+
+        /* --- MAIN AREA --- */
+        .main-container { flex-grow: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; }
+
+        /* Toolbar */
+        .toolbar {
+            padding: 10px 20px; background-color: #e0e0e0; border-bottom: 1px solid #ccc;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .toolbar-group { display: flex; gap: 10px; align-items: center; }
+        
+        button.btn { padding: 6px 12px; border: 1px solid #aaa; background: #fff; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: 600; }
+        button.btn:hover { background: #f0f0f0; }
+        button.btn-primary { background: #007bff; color: white; border: none; }
+        button.btn-primary:hover { background: #0056b3; }
+        button.btn-success { background: #28a745; color: white; border: none; }
+        button.btn-success:hover { background: #218838; }
+        button.btn-danger { background: #dc3545; color: white; border: none; }
+
+        #fileInput { display: none; }
+
+        /* Content Areas */
+        .content-scroll { padding: 25px; overflow-y: auto; flex-grow: 1; background-color: #fff; }
+        
+        #editorPanel { display: none; flex-direction: column; height: 100%; background-color: #f0f0f0; }
+        
+        /* Editor Header & Sub Tabs */
+        .editor-header { 
+            padding: 10px 20px; font-size: 0.9em; color: #666; background: #f8f8f8; border-bottom: 1px solid #ddd;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .sub-tabs { display: flex; gap: 5px; background: #e0e0e0; padding: 3px; border-radius: 4px; }
+        .sub-tab-btn { padding: 4px 12px; border: none; border-radius: 3px; cursor: pointer; font-size: 12px; font-weight: bold; color: #555; background: transparent; }
+        .sub-tab-btn.active { background: white; color: #333; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+
+        /* Editors */
+        #jsonEditor, #sqlEditor { 
+            width: 100%; flex-grow: 1; font-family: Consolas, monospace; font-size: 13px; padding: 10px; 
+            box-sizing: border-box; border: none; resize: none; background-color: #fafafa; display: none; 
+        }
+        #jsonEditor.active, #sqlEditor.active { display: block; }
+
+        /* Split View */
+        #splitContainer { display: none; flex-grow: 1; overflow-y: auto; padding: 20px; background: #f4f4f4; }
+        .code-block { background: white; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); overflow: hidden; }
+        .code-header { 
+            padding: 8px 15px; background: #e9ecef; border-bottom: 1px solid #ddd; font-family: sans-serif; 
+            font-weight: bold; color: #495057; display: flex; justify-content: space-between; align-items: center; font-size: 13px;
+        }
+        textarea.split-editor {
+            width: 100%; min-height: 250px; font-family: Consolas, monospace; font-size: 12px; padding: 15px;
+            box-sizing: border-box; border: none; resize: vertical; outline: none; background-color: #fff; color: #333; white-space: pre;
+        }
+        .copy-btn-sm { padding: 2px 8px; font-size: 11px; border: 1px solid #ccc; border-radius: 3px; cursor: pointer; background: #fff; }
+
+        /* --- TABLE STYLES --- */
+        #viewPanel h1, #viewPanel h2 { color: #333; border-bottom: 2px solid #eee; padding-bottom: 5px; font-family: Calibri, Arial, sans-serif; margin-top: 25px; }
+        #viewPanel h1 { margin-top: 0; }
+        .ddl-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; min-width: 700px; font-family: Calibri, Arial, sans-serif; font-size: 11pt; }
+        .ddl-table th, .ddl-table td { border: 1px solid #ddd; padding: 8px 10px; vertical-align: top; text-align: left; }
+        .ddl-table th { background-color: #f0f0f0; font-weight: bold; }
+        .metadata-table th { width: 180px; }
+        .column-table th { text-align: center; vertical-align: middle; }
+        .code-cell { font-family: Consolas, monospace; font-weight: bold; color: #000; }
+        .mapping-cell { color: #007bff; font-family: Consolas, monospace; }
+
+        /* Key Tags */
+        .key-tag { font-size: 0.75em; padding: 1px 4px; border-radius: 3px; margin-left: 5px; font-weight: bold; }
+        .pk-tag { color: #d63031; background: #ffe6e6; border: 1px solid #fab1a0; }
+        .fk-tag { color: #0984e3; background: #e7f5ff; border: 1px solid #74c0fc; }
+        .uq-tag { color: #fdcb6e; background: #fff3cd; border: 1px solid #ffeeba; }
+
+        td[contenteditable="true"]:focus { background-color: #fff; outline: 2px solid #007bff; padding: 5px; position: relative; z-index: 10; }
+
+        /* DARK THEME */
+        body.dark-theme .content-scroll, body.dark-theme #splitContainer { background-color: #1e1e1e; color: #d4d4d4; }
+        body.dark-theme .toolbar { background-color: #252526; border-bottom: 1px solid #333; }
+        body.dark-theme button.btn { background-color: #333; color: #eee; border-color: #555; }
+        body.dark-theme button.btn:hover { background-color: #444; }
+        body.dark-theme button.btn-primary { background-color: #007bff; }
+        body.dark-theme #viewPanel h1, body.dark-theme #viewPanel h2 { color: #eee; border-bottom-color: #444; }
+        body.dark-theme .ddl-table th { background-color: #2d2d30; color: #eee; border-color: #444; }
+        body.dark-theme .ddl-table td { border-color: #444; color: #ccc; }
+        body.dark-theme .code-cell { color: #9cdcfe; }
+        body.dark-theme #jsonEditor, body.dark-theme #sqlEditor { background-color: #1e1e1e; color: #d4d4d4; border-color: #444; }
+        body.dark-theme .editor-header { background-color: #252526; border-color: #444; color: #aaa; }
+        body.dark-theme .sub-tabs { background-color: #333; }
+        body.dark-theme .sub-tab-btn.active { background: #444; color: #fff; }
+        body.dark-theme .code-block { background: #252526; border-color: #444; }
+        body.dark-theme .code-header { background: #333; border-color: #444; color: #eee; }
+        body.dark-theme textarea.split-editor { background-color: #1e1e1e; color: #d4d4d4; }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <div class="search-box">
+            <input type="text" id="searchInput" placeholder="Search tables or schemas..." onkeyup="filterTables()">
+        </div>
+        <div id="sidebarContent" class="sidebar-content"></div>
+    </div>
+
+    <div class="main-container">
+        
+        <div class="toolbar">
+            <div class="toolbar-group">
+                <button class="btn" onclick="toggleView('view')" id="btnView">View Table</button>
+                <button class="btn" onclick="toggleView('edit')" id="btnEdit">Source Editor</button>
+            </div>
+            <div class="toolbar-group">
+                <button class="btn" onclick="toggleTheme()">&#9728; Theme</button>
+                <button class="btn btn-success" id="btnParseSQL" style="display:none;" onclick="convertSqlToJson()">&#9654; Convert SQL</button>
+                <button class="btn btn-primary" id="btnSave" style="display:none;" onclick="saveChanges()">Apply & Save</button>
+                <button class="btn" id="btnDownload" style="display:none;" onclick="downloadJson()">Download</button>
+                <button class="btn btn-danger" id="btnReset" style="display:none;" onclick="factoryReset()">Reset</button>
+            </div>
+        </div>
+
+        <div id="viewPanel" class="content-scroll">
+            <div style="text-align: center; margin-top: 50px; color: #999;">
+                <p>&larr; Select a table from the sidebar to view details.</p>
+            </div>
+        </div>
+
+        <div id="editorPanel">
+            <div class="editor-header">
+                <div class="sub-tabs">
+                    <button class="sub-tab-btn active" id="tabRaw" onclick="switchEditorMode('raw')">Raw JSON</button>
+                    <button class="sub-tab-btn" id="tabSplit" onclick="switchEditorMode('split')">Split by Schema</button>
+                    <button class="sub-tab-btn" id="tabSql" onclick="switchEditorMode('sql')">SQL Input (Postgres)</button>
+                </div>
+                <span id="editorInfo" style="font-size:11px;">Editing JSON updates data automatically on save.</span>
+            </div>
+            
+            <textarea id="jsonEditor" class="active" spellcheck="false" placeholder="Paste JSON here..."></textarea>
+            <textarea id="sqlEditor" spellcheck="false" placeholder="-- Paste your Postgres DDL here --&#10;CREATE TABLE schema.table ( ... );&#10;ALTER TABLE ..."></textarea>
+            <div id="splitContainer"></div>
+        </div>
+
+        <input type="file" id="fileInput" accept=".json" onchange="handleFileImport(this)">
+    </div>
+
+    <script>
+        // =========================================================
+        // DATA & STATE
+        // =========================================================
+        const DEFAULT_DATA = { "targets": [], "sources": [] };
+        let appData = {};
+        let currentTableId = null;
+        const STORAGE_KEY = 'ddl_manager_pg_v1';
+
+        // --- 1. Startup Logic ---
+        window.onload = function() {
+            const savedData = localStorage.getItem(STORAGE_KEY);
+            if (savedData) {
+                try {
+                    let loaded = JSON.parse(savedData);
+                    if(Array.isArray(loaded)) appData = { targets: loaded, sources: [] };
+                    else appData = loaded;
+                } catch (e) { appData = JSON.parse(JSON.stringify(DEFAULT_DATA)); }
+            } else { appData = JSON.parse(JSON.stringify(DEFAULT_DATA)); }
+            
+            renderSidebar();
+            document.getElementById('jsonEditor').value = JSON.stringify(appData, null, 2);
+            if(localStorage.getItem('ddl_theme') === 'dark') document.body.classList.add('dark-theme');
+            toggleView('view');
+        };
+
+        // --- 2. SQL PARSING LOGIC (Postgres) ---
+        function cleanName(str) { return str ? str.replace(/["`]/g, '') : ''; }
+
+        function convertSqlToJson() {
+            const sql = document.getElementById('sqlEditor').value;
+            if(!sql.trim()) { alert("Please paste SQL DDL first."); return; }
+            
+            // 1. Clean Comments
+            const cleanSql = sql.replace(/--.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+            
+            const tables = [];
+            const tablesMap = {}; // Helper for mapping
+
+            // 2. Parse CREATE TABLE
+            const createRegex = /CREATE\s+TABLE\s+(?:["`]?(\w+)["`]?\.)?["`]?(\w+)["`]?\s*\(([\s\S]*?)\);/gi;
+            let match;
+
+            let idCounter = 1;
+
+            while ((match = createRegex.exec(cleanSql)) !== null) {
+                const schema = match[1] || 'public';
+                const tableName = match[2];
+                const body = match[3];
+
+                const tableObj = {
+                    id: idCounter++,
+                    schema: schema,
+                    tableName: tableName,
+                    description: "",
+                    constraints: [],
+                    columns: []
+                };
+
+                const lines = splitSqlParams(body);
+                const pkCols = new Set();
+                const uniqueCols = new Set();
+
+                lines.forEach(line => {
+                    line = line.trim();
+                    if(!line) return;
+
+                    // Inline Constraint (Primary Key / Unique)
+                    if(line.toUpperCase().startsWith('CONSTRAINT')) {
+                        const pkMatch = line.match(/CONSTRAINT\s+(\w+)\s+PRIMARY\s+KEY\s*\(([^)]+)\)/i);
+                        if(pkMatch) {
+                            const cols = pkMatch[2].split(',').map(c => cleanName(c.trim())).join(', ');
+                            tableObj.constraints.push({ name: pkMatch[1], type: 'Primary Key', localCols: cols });
+                            pkMatch[2].split(',').forEach(c => pkCols.add(cleanName(c.trim())));
+                            return;
+                        }
+                        const uqMatch = line.match(/CONSTRAINT\s+(\w+)\s+UNIQUE\s*\(([^)]+)\)/i);
+                        if(uqMatch) {
+                            const cols = uqMatch[2].split(',').map(c => cleanName(c.trim())).join(', ');
+                            tableObj.constraints.push({ name: uqMatch[1], type: 'Unique', localCols: cols });
+                            uqMatch[2].split(',').forEach(c => uniqueCols.add(cleanName(c.trim())));
+                            return;
+                        }
+                    }
+
+                    // Column Definition
+                    // Regex looks for: "name" type ...
+                    const colMatch = line.match(/^["`]?(\w+)["`]?\s+([^\s]+)(.*)$/);
+                    if(colMatch && !line.toUpperCase().startsWith('CONSTRAINT') && !line.toUpperCase().startsWith('PRIMARY KEY')) {
+                        const name = colMatch[1];
+                        let type = colMatch[2];
+                        let rest = colMatch[3];
+
+                        // Handle Types with arguments e.g. numeric(5, 2)
+                        if(rest.trim().startsWith('(')) {
+                            const closingParen = rest.indexOf(')');
+                            type += rest.substring(0, closingParen + 1);
+                            rest = rest.substring(closingParen + 1);
+                        }
+
+                        const nullable = rest.toUpperCase().includes('NOT NULL') ? 'No' : 'Yes';
+                        
+                        let defVal = null;
+                        if(rest.toUpperCase().includes('GENERATED BY DEFAULT AS IDENTITY')) {
+                            defVal = 'IDENTITY';
+                        } else {
+                            const defMatch = rest.match(/DEFAULT\s+([^,]+)/i);
+                            if(defMatch) {
+                                // Clean up postgres casting like 'N'::bpchar
+                                defVal = defMatch[1].trim().replace(/::\w+/g, '').replace(/'/g, '');
+                            }
+                        }
+
+                        tableObj.columns.push({
+                            name: name,
+                            type: type,
+                            nullable: nullable,
+                            default: defVal,
+                            explanation: "",
+                            mapping: ""
+                        });
+                    }
+                });
+
+                tables.push(tableObj);
+                tablesMap[`${schema}.${tableName}`] = tableObj;
+            }
+
+            // 3. Parse ALTER TABLE for Foreign Keys
+            const alterRegex = /ALTER\s+TABLE\s+(?:["`]?(\w+)["`]?\.)?["`]?(\w+)["`]?\s+ADD\s+CONSTRAINT\s+(\w+)\s+FOREIGN\s+KEY\s*\(([^)]+)\)\s*REFERENCES\s+(?:["`]?(\w+)["`]?\.)?["`]?(\w+)["`]?\s*\(([^)]+)\)/gi;
+            let alterMatch;
+            while((alterMatch = alterRegex.exec(cleanSql)) !== null) {
+                const tSchema = alterMatch[1] || 'public';
+                const tName = alterMatch[2];
+                const cName = alterMatch[3];
+                const localCols = alterMatch[4].split(',').map(c => cleanName(c.trim())).join(', ');
+                const refSchema = alterMatch[5] || 'public';
+                const refTable = alterMatch[6];
+                const refCols = alterMatch[7].split(',').map(c => cleanName(c.trim())).join(', ');
+
+                const targetObj = tablesMap[`${tSchema}.${tName}`];
+                if(targetObj) {
+                    targetObj.constraints.push({
+                        name: cName,
+                        type: 'Foreign Key',
+                        localCols: localCols,
+                        ref: `${refSchema}.${refTable}(${refCols})`
+                    });
+                }
+            }
+
+            if(tables.length === 0) {
+                alert("No tables found. Check syntax.");
+                return;
+            }
+
+            // Update App Data
+            appData.targets = tables;
+            
+            // Switch to JSON view to show result
+            switchEditorMode('raw');
+            document.getElementById('jsonEditor').value = JSON.stringify(appData, null, 2);
+            saveChanges(); // Auto apply
+            alert(`Parsed ${tables.length} tables successfully!`);
+            toggleView('view');
+        }
+
+        // Helper to split SQL parameters by comma but ignore commas inside parens
+        function splitSqlParams(txt) {
+            const res = [];
+            let buf = "";
+            let depth = 0;
+            for(let i=0; i<txt.length; i++) {
+                const char = txt[i];
+                if(char === '(') depth++;
+                else if(char === ')') depth--;
+                
+                if(char === ',' && depth === 0) {
+                    res.push(buf); buf = "";
+                } else {
+                    buf += char;
+                }
+            }
+            if(buf.trim()) res.push(buf);
+            return res;
+        }
+
+        // --- 3. UI LOGIC ---
+
+        function switchEditorMode(mode) {
+            document.getElementById('tabRaw').classList.remove('active');
+            document.getElementById('tabSplit').classList.remove('active');
+            document.getElementById('tabSql').classList.remove('active');
+            
+            document.getElementById('jsonEditor').classList.remove('active');
+            document.getElementById('sqlEditor').classList.remove('active');
+            document.getElementById('splitContainer').style.display = 'none';
+
+            document.getElementById('btnParseSQL').style.display = 'none';
+            document.getElementById('btnSave').style.display = 'inline-block';
+            document.getElementById('editorInfo').innerText = "Editing JSON updates data automatically on save.";
+
+            if (mode === 'raw') {
+                document.getElementById('tabRaw').classList.add('active');
+                document.getElementById('jsonEditor').classList.add('active');
+                document.getElementById('jsonEditor').value = JSON.stringify(appData, null, 2);
+            } else if (mode === 'split') {
+                document.getElementById('tabSplit').classList.add('active');
+                document.getElementById('splitContainer').style.display = 'block';
+                renderSplitView();
+            } else if (mode === 'sql') {
+                document.getElementById('tabSql').classList.add('active');
+                document.getElementById('sqlEditor').classList.add('active');
+                document.getElementById('btnParseSQL').style.display = 'inline-block';
+                document.getElementById('btnSave').style.display = 'none'; // SQL needs explicit parse first
+                document.getElementById('editorInfo').innerText = "Paste Postgres DDL then click 'Convert SQL'. Warning: Overwrites existing data.";
+            }
+        }
+
+        function toggleView(mode) {
+            const view = document.getElementById('viewPanel');
+            const edit = document.getElementById('editorPanel');
+            const editBtns = ['btnSave', 'btnDownload', 'btnReset'];
+            
+            if (mode === 'view') {
+                view.style.display = 'block'; edit.style.display = 'none';
+                editBtns.forEach(id => document.getElementById(id).style.display = 'none');
+                document.getElementById('btnParseSQL').style.display = 'none';
+                document.getElementById('btnView').classList.add('btn-primary');
+                document.getElementById('btnEdit').classList.remove('btn-primary');
+                renderSidebar();
+                if(currentTableId) loadTable(currentTableId);
+            } else {
+                view.style.display = 'none'; edit.style.display = 'flex';
+                editBtns.forEach(id => document.getElementById(id).style.display = 'inline-block');
+                document.getElementById('btnView').classList.remove('btn-primary');
+                document.getElementById('btnEdit').classList.add('btn-primary');
+                // Default to Raw JSON when opening editor
+                switchEditorMode('raw');
+            }
+        }
+
+        function renderSidebar() {
+            const container = document.getElementById('sidebarContent');
+            container.innerHTML = '';
+            const groups = {};
+            (appData.targets || []).forEach(item => {
+                const schema = item.schema || '(No Schema)';
+                if (!groups[schema]) groups[schema] = [];
+                groups[schema].push(item);
+            });
+
+            Object.keys(groups).sort().forEach(schema => {
+                groups[schema].sort((a, b) => a.tableName.localeCompare(b.tableName));
+                const block = document.createElement('div');
+                block.className = 'schema-block';
+                block.dataset.schemaName = schema.toLowerCase();
+                
+                const header = document.createElement('div');
+                header.className = 'schema-header';
+                header.innerHTML = `<span>${schema}</span> <span class="arrow">▼</span>`;
+                header.onclick = () => { block.querySelector('ul').classList.toggle('hidden'); header.classList.toggle('collapsed'); };
+
+                const ul = document.createElement('ul');
+                ul.className = 'table-list';
+                
+                groups[schema].forEach(table => {
+                    const li = document.createElement('li');
+                    li.textContent = table.tableName;
+                    li.dataset.id = table.id;
+                    li.dataset.name = table.tableName.toLowerCase();
+                    li.onclick = (e) => { e.stopPropagation(); loadTable(table.id); };
+                    ul.appendChild(li);
+                });
+                block.appendChild(header); block.appendChild(ul);
+                container.appendChild(block);
+            });
+        }
+
+        function loadTable(id) {
+            currentTableId = id;
+            const table = appData.targets.find(t => t.id === id);
+            if (!table) return;
+
+            document.querySelectorAll('.table-list li').forEach(li => {
+                li.classList.remove('active');
+                if (li.dataset.id == id) li.classList.add('active');
+            });
+
+            let html = '<h2>Table Description</h2>';
+            html += '<table class="ddl-table metadata-table"><tbody>';
+            html += `<tr><th>Schema</th><td>${table.schema}</td></tr>`;
+            html += `<tr><th>Table Name</th><td>${table.tableName}</td></tr>`;
+            html += `<tr><th>Purpose</th><td contenteditable="true" onblur="updateField(${id}, 'description', this)">${table.description || ''}</td></tr>`;
+            html += '</tbody></table>';
+
+            if (table.constraints && table.constraints.length > 0) {
+                html += '<h2>Constraints</h2>';
+                html += '<table class="ddl-table"><thead><tr><th>Name</th><th>Type</th><th>Columns</th></tr></thead><tbody>';
+                table.constraints.forEach(c => {
+                    let ref = c.ref ? `<br><small>Ref: ${c.ref}</small>` : '';
+                    html += `<tr><td>${c.name}</td><td>${c.type}</td><td>${c.localCols}${ref}</td></tr>`;
+                });
+                html += '</tbody></table>';
+            }
+
+            html += '<h2>Column Details</h2>';
+            html += '<table class="ddl-table column-table"><thead><tr><th>Column</th><th>Type</th><th>Nullable</th><th>Explanation</th><th>Default</th><th>Mapping</th></tr></thead><tbody>';
+
+            // Gather PK/FK/Unique for tagging
+            const pkCols = new Set();
+            const fkCols = new Set();
+            const uqCols = new Set();
+            
+            if(table.constraints) {
+                table.constraints.forEach(c => {
+                    const cols = c.localCols.split(',').map(s=>s.trim());
+                    if(c.type === 'Primary Key') cols.forEach(x => pkCols.add(x));
+                    if(c.type === 'Foreign Key') cols.forEach(x => fkCols.add(x));
+                    if(c.type === 'Unique') cols.forEach(x => uqCols.add(x));
+                });
+            }
+
+            if(table.columns) {
+                table.columns.forEach(col => {
+                    let tags = '';
+                    if(pkCols.has(col.name)) tags += ' (PK)';
+					if(fkCols.has(col.name)) tags += ' (FK)';
+					if(uqCols.has(col.name)) tags += ' (UQ)';
+
+                    html += `<tr>
+                        <td class="code-cell">${col.name}${tags}</td>
+                        <td>${col.type}</td>
+                        <td>${col.nullable}</td>
+                        <td contenteditable="true" onblur="updateColumn(${id}, '${col.name}', 'explanation', this)">${col.explanation || ''}</td>
+                        <td contenteditable="true" onblur="updateColumn(${id}, '${col.name}', 'default', this)">${col.default || '-'}</td>
+                        <td class="mapping-cell" contenteditable="true" onblur="updateColumn(${id}, '${col.name}', 'mapping', this)">${col.mapping || ''}</td>
+                    </tr>`;
+                });
+            }
+            html += '</tbody></table>';
+            document.getElementById('viewPanel').innerHTML = html;
+        }
+
+        // --- 4. UPDATE & SPLIT LOGIC ---
+        function updateField(id, field, el) {
+            const table = appData.targets.find(t => t.id === id);
+            if(table) table[field] = el.innerText.trim();
+        }
+
+        function updateColumn(tableId, colName, field, el) {
+            const table = appData.targets.find(t => t.id === tableId);
+            if(table) {
+                const col = table.columns.find(c => c.name === colName);
+                if(col) col[field] = el.innerText.trim();
+            }
+        }
+
+        function saveChanges() {
+            try {
+                // If in raw mode, parse editor first
+                if(document.getElementById('jsonEditor').classList.contains('active')) {
+                    const raw = document.getElementById('jsonEditor').value;
+                    let data = JSON.parse(raw);
+                    if(Array.isArray(data)) data = { targets: data, sources: [] };
+                    appData = data;
+                }
+                
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+                alert("Saved!");
+                renderSidebar();
+                if(currentTableId) loadTable(currentTableId);
+            } catch(e) { alert("Error saving: " + e.message); }
+        }
+
+        function renderSplitView() {
+            const container = document.getElementById('splitContainer');
+            container.innerHTML = '';
+            const groups = {};
+            (appData.targets || []).forEach(item => {
+                const schema = item.schema || '(No Schema)';
+                if (!groups[schema]) groups[schema] = [];
+                groups[schema].push(item);
+            });
+
+            Object.keys(groups).sort().forEach(schema => {
+                const schemaJson = { "targets": groups[schema] };
+                const block = document.createElement('div');
+                block.className = 'code-block';
+                block.innerHTML = `
+                    <div class="code-header">
+                        <span>Schema: <strong>${schema}</strong></span>
+                        <button class="copy-btn-sm" onclick="copySplitText(this)">Copy</button>
+                    </div>`;
+                
+                const txt = document.createElement('textarea');
+                txt.className = 'split-editor';
+                txt.value = JSON.stringify(schemaJson, null, 2);
+                txt.onblur = function() {
+                    try {
+                        const edited = JSON.parse(this.value).targets;
+                        const others = appData.targets.filter(t => (t.schema||'(No Schema)') !== schema);
+                        appData.targets = [...others, ...edited];
+                        document.getElementById('jsonEditor').value = JSON.stringify(appData, null, 2);
+                    } catch(e) { alert("Invalid JSON in split block"); }
+                };
+                
+                block.appendChild(txt);
+                container.appendChild(block);
+            });
+        }
+
+        function copySplitText(btn) {
+            const txt = btn.parentElement.nextElementSibling;
+            txt.select();
+            navigator.clipboard.writeText(txt.value);
+            btn.textContent = "Copied!";
+            setTimeout(() => btn.textContent = "Copy", 1000);
+        }
+
+        function factoryReset() { 
+            if(confirm("Reset data?")) { localStorage.removeItem(STORAGE_KEY); location.reload(); } 
+        }
+
+        function downloadJson() {
+             const blob = new Blob([JSON.stringify(appData,null,2)], {type:'application/json'});
+             const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'data_dictionary.json';
+             a.click();
+        }
+
+        function filterTables() {
+            const term = document.getElementById('searchInput').value.toLowerCase();
+            document.querySelectorAll('.schema-block').forEach(block => {
+                let vis = false;
+                block.querySelectorAll('li').forEach(li => {
+                    if(li.dataset.name.includes(term) || block.dataset.schemaName.includes(term)) { li.style.display=''; vis=true; }
+                    else li.style.display='none';
+                });
+                block.style.display = vis ? 'block' : 'none';
+                if(term && vis) { block.querySelector('ul').classList.remove('hidden'); block.querySelector('.schema-header').classList.remove('collapsed'); }
+            });
+        }
+
+        function toggleTheme() {
+            document.body.classList.toggle('dark-theme');
+            localStorage.setItem('ddl_theme', document.body.classList.contains('dark-theme') ? 'dark' : 'light');
+        }
+    </script>
+</body>
+</html>
