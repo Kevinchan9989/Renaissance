@@ -80,7 +80,7 @@ export const LIGHT_THEME = {
   },
 };
 
-// Dark Theme
+// Dark Theme (Tailwind Slate - default)
 export const DARK_THEME = {
   text: {
     primary: '#f3f4f6',
@@ -108,4 +108,37 @@ export const DARK_THEME = {
   },
 };
 
+// VS Code Gray Theme Variant
+export const VSCODE_GRAY_THEME = {
+  text: {
+    primary: '#d4d4d4',
+    secondary: '#858585',
+  },
+  connection: {
+    active: '#569cd6',
+    default: '#505050',
+  },
+  table: {
+    background: '#252526',
+    headerBackground: '#2d2d30',
+    border: '#3c3c3c',
+    shadow: 'rgba(0, 0, 0, 0.4)',
+  },
+  canvas: {
+    background: '#1e1e1e',
+    grid: '#252526',
+  },
+  accent: {
+    primary: '#569cd6',
+    success: '#4ec9b0',
+    warning: '#dcdcaa',
+    danger: '#f48771',
+  },
+};
+
 export type ThemeColors = typeof LIGHT_THEME;
+export type DarkThemeVariant = 'slate' | 'vscode-gray';
+
+// Helper function to get the appropriate dark theme
+export const getDarkTheme = (variant: DarkThemeVariant): ThemeColors =>
+  variant === 'vscode-gray' ? VSCODE_GRAY_THEME : DARK_THEME;

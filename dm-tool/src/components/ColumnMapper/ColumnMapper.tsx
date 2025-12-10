@@ -20,7 +20,7 @@ import {
 import {
   getRuleSetsForDatabases,
 } from '../../constants/typeMatrix';
-import { TABLE_COLORS, SIZING, FONTS, LIGHT_THEME, DARK_THEME } from '../../constants/erd';
+import { TABLE_COLORS, SIZING, FONTS, LIGHT_THEME, getDarkTheme, DarkThemeVariant } from '../../constants/erd';
 import {
   Trash2,
   ChevronDown,
@@ -31,6 +31,7 @@ import {
   List,
   Grid3X3,
   MousePointer,
+  Layers,
 } from 'lucide-react';
 
 // Export mapping state interface for Sidebar integration
@@ -49,6 +50,7 @@ export interface MappingStateForSidebar {
 interface ColumnMapperProps {
   scripts: Script[];
   isDarkTheme: boolean;
+  darkThemeVariant?: DarkThemeVariant;
   onMappingStateChange?: (state: MappingStateForSidebar) => void;
 }
 
@@ -63,21 +65,34 @@ interface TableNode {
   colorIndex: number;
 }
 
-// Pending state for click-to-map
-interface PendingMapping {
-  side: 'source' | 'target';
+// State for column search popup (click-to-map with search)
+interface ColumnSearchPopup {
+  side: 'source' | 'target';  // Which side was clicked
   tableName: string;
   columnName: string;
+  x: number;  // Screen position for popup
+  y: number;
+}
+
+// State for showing "navigate to mapped column" popup
+interface MappedColumnPopup {
+  mapping: ColumnMapping;
+  side: 'source' | 'target';
+  clickedColumn: string;
+  clickedTable: string;
+  x: number;
+  y: number;
 }
 
 // Lighter colors for mapping lines (using table colors)
 const LINE_COLORS = TABLE_COLORS.map(c => c.regular);
 
 // Tab for canvas view
-type CanvasTab = 'canvas' | 'linkage';
+type CanvasTab = 'canvas' | 'linkage' | 'summary';
 
-// Get theme based on dark mode
-const getTheme = (isDark: boolean) => isDark ? DARK_THEME : LIGHT_THEME;
+// Get theme based on dark mode and variant
+const getTheme = (isDark: boolean, variant: DarkThemeVariant = 'slate') =>
+  isDark ? getDarkTheme(variant) : LIGHT_THEME;
 
 // Calculate table width based on content
 const calculateTableWidth = (table: Table): number => {
@@ -120,6 +135,7 @@ function getMappingColorIndex(mapping: ColumnMapping): number {
 export default function ColumnMapper({
   scripts,
   isDarkTheme,
+  darkThemeVariant = 'slate',
   onMappingStateChange,
 }: ColumnMapperProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -149,8 +165,12 @@ export default function ColumnMapper({
   // Canvas state - start with 0 to avoid initial flash
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
 
-  // Pending mapping state for click-to-map
-  const [pendingMapping, setPendingMapping] = useState<PendingMapping | null>(null);
+  // Column search popup state for click-to-map
+  const [columnSearchPopup, setColumnSearchPopup] = useState<ColumnSearchPopup | null>(null);
+  const [searchPopupTerm, setSearchPopupTerm] = useState('');
+
+  // Popup state for already-mapped columns
+  const [mappedColumnPopup, setMappedColumnPopup] = useState<MappedColumnPopup | null>(null);
 
   // Selection state
   const [selectedMappingId, setSelectedMappingId] = useState<string | null>(null);
@@ -159,6 +179,7 @@ export default function ColumnMapper({
   // Drag state for drag-to-map
   const [dragState, setDragState] = useState({
     isDragging: false,
+    hasMoved: false, // Track if mouse actually moved (to distinguish click from drag)
     startNodeId: null as string | null,
     startColumn: null as string | null,
     startType: null as 'source' | 'target' | null,
@@ -174,7 +195,7 @@ export default function ColumnMapper({
   const [searchTerm] = useState('');
   const [expandedTables, setExpandedTables] = useState<Set<string>>(new Set());
 
-  const theme = getTheme(isDarkTheme);
+  const theme = getTheme(isDarkTheme, darkThemeVariant);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -408,6 +429,33 @@ export default function ColumnMapper({
     );
   }, [project, sourceTableName, targetTableName]);
 
+  // Get available columns for search popup (unmapped columns from opposite side)
+  const availableColumnsForSearch = useMemo(() => {
+    if (!columnSearchPopup) return [];
+
+    // Get the opposite side's table
+    const oppositeSide = columnSearchPopup.side === 'source' ? 'target' : 'source';
+    const oppositeTable = oppositeSide === 'source' ? sourceTable : targetTable;
+
+    if (!oppositeTable) return [];
+
+    // Get columns that are already mapped on the opposite side
+    const mappedCols = new Set(
+      currentMappings.map(m => oppositeSide === 'source' ? m.sourceColumn : m.targetColumn)
+    );
+
+    // Filter to unmapped columns and apply search term
+    const searchLower = searchPopupTerm.toLowerCase();
+    return oppositeTable.columns
+      .filter(col => !mappedCols.has(col.name))
+      .filter(col => col.name.toLowerCase().includes(searchLower) || col.type.toLowerCase().includes(searchLower))
+      .map(col => ({
+        tableName: oppositeTable.tableName,
+        columnName: col.name,
+        columnType: col.type,
+      }));
+  }, [columnSearchPopup, sourceTable, targetTable, currentMappings, searchPopupTerm]);
+
   // Handle mapping creation (from click-to-map or drag)
   const createMapping = useCallback((
     srcTableName: string,
@@ -456,35 +504,103 @@ export default function ColumnMapper({
     setSelectedMappingId(newMapping.id);
   }, [project, sourceScript, targetScript, sourceScriptId, targetScriptId]);
 
-  // Handle column click (for click-to-map)
-  const handleColumnClick = useCallback((
+  // Helper function to check if a column is already mapped
+  const findExistingMapping = useCallback((
     side: 'source' | 'target',
     tableName: string,
     columnName: string
-  ) => {
-    // If same column clicked again, cancel pending
-    if (pendingMapping &&
-        pendingMapping.side === side &&
-        pendingMapping.tableName === tableName &&
-        pendingMapping.columnName === columnName) {
-      setPendingMapping(null);
-      return;
-    }
+  ): ColumnMapping | null => {
+    if (!project) return null;
 
-    // If we have a pending mapping from the other side, complete the mapping
-    if (pendingMapping && pendingMapping.side !== side) {
-      if (pendingMapping.side === 'source') {
-        createMapping(pendingMapping.tableName, pendingMapping.columnName, tableName, columnName);
+    return project.mappings.find(m => {
+      if (side === 'source') {
+        return m.sourceTable === tableName && m.sourceColumn === columnName;
       } else {
-        createMapping(tableName, columnName, pendingMapping.tableName, pendingMapping.columnName);
+        return m.targetTable === tableName && m.targetColumn === columnName;
       }
-      setPendingMapping(null);
+    }) || null;
+  }, [project]);
+
+  // Handle navigation to mapped column (select the table pair and highlight the mapping)
+  const handleNavigateToMapping = useCallback((mapping: ColumnMapping) => {
+    // Set the source and target tables to show this mapping
+    setSourceTableName(mapping.sourceTable);
+    setTargetTableName(mapping.targetTable);
+    // Select the mapping
+    setSelectedMappingId(mapping.id);
+    // Close the popup
+    setMappedColumnPopup(null);
+  }, []);
+
+  // Handle column click - shows search popup for mapping to opposite side
+  const handleColumnClick = useCallback((
+    side: 'source' | 'target',
+    tableName: string,
+    columnName: string,
+    clickX?: number,
+    clickY?: number
+  ) => {
+    // Close any existing popups
+    setMappedColumnPopup(null);
+
+    // Check if this column is already mapped
+    const existingMapping = findExistingMapping(side, tableName, columnName);
+
+    if (existingMapping) {
+      // If column is already mapped, show popup asking if user wants to navigate
+      setMappedColumnPopup({
+        mapping: existingMapping,
+        side,
+        clickedColumn: columnName,
+        clickedTable: tableName,
+        x: clickX || 200,
+        y: clickY || 200,
+      });
+
+      // Also select the mapping to highlight it
+      setSelectedMappingId(existingMapping.id);
+      setColumnSearchPopup(null);
       return;
     }
 
-    // Start a new pending mapping
-    setPendingMapping({ side, tableName, columnName });
-  }, [pendingMapping, createMapping]);
+    // If clicking same column again, close popup
+    if (columnSearchPopup &&
+        columnSearchPopup.side === side &&
+        columnSearchPopup.tableName === tableName &&
+        columnSearchPopup.columnName === columnName) {
+      setColumnSearchPopup(null);
+      setSearchPopupTerm('');
+      return;
+    }
+
+    // Show search popup for selecting a column from the opposite side
+    setColumnSearchPopup({
+      side,
+      tableName,
+      columnName,
+      x: clickX || 200,
+      y: clickY || 200,
+    });
+    setSearchPopupTerm('');
+  }, [columnSearchPopup, findExistingMapping]);
+
+  // Handle selecting a column from search popup to create mapping
+  const handleSearchPopupSelect = useCallback((targetTableName: string, targetColumnName: string) => {
+    if (!columnSearchPopup) return;
+
+    const { side, tableName: sourceTableName, columnName: sourceColumnName } = columnSearchPopup;
+
+    // Create the mapping
+    if (side === 'source') {
+      createMapping(sourceTableName, sourceColumnName, targetTableName, targetColumnName);
+    } else {
+      createMapping(targetTableName, targetColumnName, sourceTableName, sourceColumnName);
+    }
+
+    // Close the popup
+    setColumnSearchPopup(null);
+    setSearchPopupTerm('');
+  }, [columnSearchPopup, createMapping]);
 
   // Drag handlers for creating mappings
   const handleDragStart = useCallback((
@@ -500,10 +616,12 @@ export default function ColumnMapper({
     const pos = stage.getPointerPosition();
     if (!pos) return;
 
-    setPendingMapping(null); // Clear any pending click-to-map
+    // Note: Don't clear search popup here - it's needed for click-to-map
+    // The click handler will check hasMoved to distinguish clicks from drags
 
     setDragState({
       isDragging: true,
+      hasMoved: false,
       startNodeId: tableName,
       startColumn: columnName,
       startType: side,
@@ -521,12 +639,19 @@ export default function ColumnMapper({
     const pos = stage.getPointerPosition();
     if (!pos) return;
 
+    // Clear search popup when user actually starts dragging
+    if (!dragState.hasMoved) {
+      setColumnSearchPopup(null);
+      setSearchPopupTerm('');
+    }
+
     setDragState(prev => ({
       ...prev,
+      hasMoved: true, // Mark that we've moved (distinguishes click from drag)
       currentX: pos.x,
       currentY: pos.y,
     }));
-  }, [dragState.isDragging]);
+  }, [dragState.isDragging, dragState.hasMoved]);
 
   const handleDragEnd = useCallback((
     targetSide: 'source' | 'target',
@@ -539,6 +664,7 @@ export default function ColumnMapper({
     if (dragState.startType === targetSide) {
       setDragState({
         isDragging: false,
+        hasMoved: false,
         startNodeId: null,
         startColumn: null,
         startType: null,
@@ -559,6 +685,7 @@ export default function ColumnMapper({
 
     setDragState({
       isDragging: false,
+      hasMoved: false,
       startNodeId: null,
       startColumn: null,
       startType: null,
@@ -571,6 +698,7 @@ export default function ColumnMapper({
     if (dragState.isDragging) {
       setDragState({
         isDragging: false,
+        hasMoved: false,
         startNodeId: null,
         startColumn: null,
         startType: null,
@@ -580,15 +708,23 @@ export default function ColumnMapper({
     }
   }, [dragState.isDragging]);
 
-  // Handle click on empty canvas area to cancel pending mapping
+  // Handle click on empty canvas area to close popups
   const handleStageClick = useCallback((e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
     // Only cancel if clicking directly on stage (not on table elements)
     // Check if the click target is the stage itself or the background
     const clickedOnStage = e.target === e.target.getStage();
-    if (clickedOnStage && pendingMapping) {
-      setPendingMapping(null);
+    if (clickedOnStage) {
+      if (columnSearchPopup) {
+        setColumnSearchPopup(null);
+        setSearchPopupTerm('');
+      }
+      if (mappedColumnPopup) {
+        setMappedColumnPopup(null);
+      }
+      // Also clear selection when clicking on empty canvas
+      setSelectedMappingId(null);
     }
-  }, [pendingMapping]);
+  }, [columnSearchPopup, mappedColumnPopup]);
 
   // Handle mapping deletion
   const handleDeleteMapping = useCallback((mappingId: string) => {
@@ -607,6 +743,30 @@ export default function ColumnMapper({
       setSelectedMappingId(null);
     }
   }, [project, selectedMappingId]);
+
+  // Handle keyboard events for Delete key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Delete or Backspace to delete selected mapping
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedMappingId && activeTab === 'canvas') {
+        // Don't delete if user is typing in an input
+        if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') {
+          return;
+        }
+        e.preventDefault();
+        handleDeleteMapping(selectedMappingId);
+      }
+      // Escape to clear selection and close popup
+      if (e.key === 'Escape') {
+        setSelectedMappingId(null);
+        setColumnSearchPopup(null);
+        setSearchPopupTerm('');
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedMappingId, activeTab, handleDeleteMapping]);
 
   // Update mapping remarks
   const handleUpdateRemarks = useCallback((mappingId: string, remarks: string) => {
@@ -632,8 +792,8 @@ export default function ColumnMapper({
     const color = TABLE_COLORS[colorIndex];
     const isDropTarget = dragState.isDragging && dragState.startType !== side;
 
-    // Get mapped columns with their colors
-    const mappedColsWithColors = new Map<string, { colorIndex: number; color: typeof TABLE_COLORS[0] }>();
+    // Get mapped columns with their colors and mapping IDs
+    const mappedColsWithColors = new Map<string, { colorIndex: number; color: typeof TABLE_COLORS[0]; mappingId: string }>();
     currentMappings
       .filter(m => side === 'source'
         ? m.sourceTable === table.tableName
@@ -644,12 +804,13 @@ export default function ColumnMapper({
         const mappingColorIndex = getMappingColorIndex(m);
         mappedColsWithColors.set(colName, {
           colorIndex: mappingColorIndex,
-          color: TABLE_COLORS[mappingColorIndex]
+          color: TABLE_COLORS[mappingColorIndex],
+          mappingId: m.id
         });
       });
 
-    // Get pending column
-    const isPendingTable = pendingMapping?.tableName === table.tableName && pendingMapping?.side === side;
+    // Get column with active search popup
+    const isPopupTable = columnSearchPopup?.tableName === table.tableName && columnSearchPopup?.side === side;
 
     return (
       <Group key={node.id} x={x} y={y}>
@@ -736,7 +897,7 @@ export default function ColumnMapper({
           const mappingInfo = mappedColsWithColors.get(col.name);
           const isMapped = !!mappingInfo;
           const mappingColor = mappingInfo?.color || color; // Use mapping color or fallback to table color
-          const isPending = isPendingTable && pendingMapping?.columnName === col.name;
+          const hasPopupOpen = isPopupTable && columnSearchPopup?.columnName === col.name;
           const isBeingDragged = dragState.isDragging &&
             dragState.startType === side &&
             dragState.startNodeId === table.tableName &&
@@ -745,7 +906,7 @@ export default function ColumnMapper({
                            hoveredRow?.column === col.name &&
                            hoveredRow?.side === side;
           const isValidDropTarget = isDropTarget && isHovered;
-          const canAcceptPending = pendingMapping && pendingMapping.side !== side;
+          const isSelected = selectedMappingId && mappingInfo?.mappingId === selectedMappingId;
 
           return (
             <Group key={col.name} y={colY}>
@@ -755,19 +916,62 @@ export default function ColumnMapper({
                 width={width}
                 height={SIZING.COLUMN_HEIGHT}
                 fill={
-                  isPending ? (side === 'source' ? '#3b82f6' : '#22c55e') :
+                  hasPopupOpen ? (side === 'source' ? '#3b82f6' : '#22c55e') :
                   isBeingDragged ? (side === 'source' ? '#3b82f6' : '#22c55e') :
                   isValidDropTarget ? '#22c55e' :
-                  isHovered && (isDropTarget || canAcceptPending) ? '#22c55e40' :
+                  isSelected ? mappingColor.regular :
+                  isHovered && isDropTarget ? '#22c55e40' :
                   isMapped ? mappingColor.lighter :
                   'transparent'
                 }
-                opacity={isPending || isBeingDragged || isValidDropTarget ? 0.4 : isMapped ? 0.5 : 1}
+                opacity={hasPopupOpen || isBeingDragged || isValidDropTarget ? 0.4 : isSelected ? 0.6 : isMapped ? 0.5 : 1}
+                stroke={isSelected ? mappingColor.regular : undefined}
+                strokeWidth={isSelected ? 2 : 0}
                 onMouseDown={(e) => handleDragStart(side, table.tableName, col.name, e)}
                 onTouchStart={(e) => handleDragStart(side, table.tableName, col.name, e)}
                 onClick={() => {
-                  if (!dragState.isDragging) {
-                    handleColumnClick(side, table.tableName, col.name);
+                  // Only handle as click if mouse hasn't moved (i.e., not a drag)
+                  if (!dragState.hasMoved) {
+                    // If column is mapped, select the mapping
+                    if (mappingInfo?.mappingId) {
+                      setSelectedMappingId(mappingInfo.mappingId);
+                    } else {
+                      // Get click position relative to container for popup positioning
+                      const stage = stageRef.current;
+                      let clickX = 200, clickY = 200;
+                      if (stage) {
+                        const pos = stage.getPointerPosition();
+                        if (pos) {
+                          clickX = pos.x;
+                          clickY = pos.y;
+                        }
+                      }
+                      handleColumnClick(side, table.tableName, col.name, clickX, clickY);
+                    }
+                  }
+                  // Reset drag state after click
+                  setDragState({
+                    isDragging: false,
+                    hasMoved: false,
+                    startNodeId: null,
+                    startColumn: null,
+                    startType: null,
+                    currentX: 0,
+                    currentY: 0,
+                  });
+                }}
+                onDblClick={() => {
+                  // Double-click on mapped column jumps to linkage tab
+                  if (mappingInfo?.mappingId) {
+                    setSelectedMappingId(mappingInfo.mappingId);
+                    setActiveTab('linkage');
+                  }
+                }}
+                onDblTap={() => {
+                  // Double-tap on mapped column jumps to linkage tab (touch support)
+                  if (mappingInfo?.mappingId) {
+                    setSelectedMappingId(mappingInfo.mappingId);
+                    setActiveTab('linkage');
                   }
                 }}
                 onMouseUp={() => {
@@ -806,8 +1010,8 @@ export default function ColumnMapper({
                 width={width * 0.5}
                 fontSize={FONTS.SIZE_SM}
                 fontFamily={FONTS.FAMILY}
-                fontStyle={isMapped || isPending ? 'bold' : 'normal'}
-                fill={isPending ? (side === 'source' ? '#3b82f6' : '#22c55e') : isMapped ? mappingColor.regular : theme.text.primary}
+                fontStyle={isMapped || hasPopupOpen ? 'bold' : 'normal'}
+                fill={hasPopupOpen ? (side === 'source' ? '#3b82f6' : '#22c55e') : isMapped ? mappingColor.regular : theme.text.primary}
                 ellipsis
                 listening={false}
               />
@@ -830,7 +1034,7 @@ export default function ColumnMapper({
         })}
       </Group>
     );
-  }, [theme, currentMappings, dragState, hoveredRow, pendingMapping, handleDragStart, handleDragEnd, handleColumnClick]);
+  }, [theme, currentMappings, dragState, hoveredRow, columnSearchPopup, selectedMappingId, handleDragStart, handleDragEnd, handleColumnClick]);
 
   // Pre-compute edge data for better performance
   const edgeData = useMemo(() => {
@@ -853,6 +1057,12 @@ export default function ColumnMapper({
     });
   }, [sourceNode, targetNode, currentMappings, getColumnY]);
 
+  // Handle double-click on mapping to jump to linkage tab
+  const handleMappingDoubleClick = useCallback((mappingId: string) => {
+    setSelectedMappingId(mappingId);
+    setActiveTab('linkage');
+  }, []);
+
   // Render mapping edges with lighter colors
   const renderMappingEdges = useCallback(() => {
     return edgeData.map(edge => {
@@ -869,19 +1079,29 @@ export default function ColumnMapper({
               lineCap="round"
             />
           )}
+          {/* Invisible wider path for easier clicking */}
+          <Path
+            data={edge.pathData}
+            stroke="transparent"
+            strokeWidth={12}
+            lineCap="round"
+            onClick={() => setSelectedMappingId(edge.id)}
+            onTap={() => setSelectedMappingId(edge.id)}
+            onDblClick={() => handleMappingDoubleClick(edge.id)}
+            onDblTap={() => handleMappingDoubleClick(edge.id)}
+          />
           <Path
             data={edge.pathData}
             stroke={edge.lineColor}
             strokeWidth={isSelected ? 3 : 2}
             lineCap="round"
             opacity={0.8}
-            onClick={() => setSelectedMappingId(edge.id)}
-            onTap={() => setSelectedMappingId(edge.id)}
+            listening={false}
           />
         </Group>
       );
     });
-  }, [edgeData, selectedMappingId]);
+  }, [edgeData, selectedMappingId, handleMappingDoubleClick]);
 
   // Render drag line
   const renderDragLine = useCallback(() => {
@@ -910,7 +1130,7 @@ export default function ColumnMapper({
       flex: 1,
       overflow: 'auto',
       padding: '16px',
-      background: isDarkTheme ? '#111827' : '#f8fafc',
+      background: theme.canvas.background,
     }}>
       {currentMappings.length === 0 ? (
         <div style={{
@@ -932,20 +1152,30 @@ export default function ColumnMapper({
           width: '100%',
           borderCollapse: 'collapse',
           fontSize: '13px',
+          tableLayout: 'fixed',
         }}>
+          <colgroup>
+            <col style={{ width: '18%' }} />
+            <col style={{ width: '14%' }} />
+            <col style={{ width: '40px' }} />
+            <col style={{ width: '18%' }} />
+            <col style={{ width: '14%' }} />
+            <col style={{ width: 'auto' }} />
+            <col style={{ width: '50px' }} />
+          </colgroup>
           <thead>
             <tr style={{
-              background: isDarkTheme ? '#1f2937' : '#f1f5f9',
+              background: theme.table.headerBackground,
               position: 'sticky',
               top: 0,
             }}>
               <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600, color: '#3b82f6' }}>Source Column</th>
               <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600 }}>Type</th>
-              <th style={{ padding: '10px 12px', textAlign: 'center', width: '40px' }}></th>
+              <th style={{ padding: '10px 12px', textAlign: 'center' }}></th>
               <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600, color: '#22c55e' }}>Target Column</th>
               <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600 }}>Type</th>
               <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600 }}>Remarks</th>
-              <th style={{ padding: '10px 12px', textAlign: 'center', width: '50px' }}></th>
+              <th style={{ padding: '10px 12px', textAlign: 'center' }}></th>
             </tr>
           </thead>
           <tbody>
@@ -960,40 +1190,41 @@ export default function ColumnMapper({
                   onClick={() => setSelectedMappingId(mapping.id)}
                   style={{
                     background: isSelected
-                      ? (isDarkTheme ? '#1e3a5f' : '#dbeafe')
-                      : (isDarkTheme ? '#1f2937' : '#fff'),
+                      ? theme.accent.primary + '30'
+                      : theme.table.background,
                     cursor: 'pointer',
-                    borderBottom: `1px solid ${isDarkTheme ? '#374151' : '#e5e7eb'}`,
+                    borderBottom: `1px solid ${theme.table.border}`,
                   }}
                 >
-                  <td style={{ padding: '10px 12px' }}>
+                  <td style={{ padding: '10px 12px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <div style={{
                         width: '8px',
                         height: '8px',
                         borderRadius: '50%',
                         background: lineColor,
+                        flexShrink: 0,
                       }} />
-                      <span style={{ color: theme.text.primary, fontWeight: 500 }}>
+                      <span style={{ color: theme.text.primary, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {mapping.sourceColumn}
                       </span>
                     </div>
                   </td>
-                  <td style={{ padding: '10px 12px', color: theme.text.secondary, fontFamily: 'monospace', fontSize: '12px' }}>
+                  <td style={{ padding: '10px 12px', color: theme.text.secondary, fontFamily: 'monospace', fontSize: '12px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {mapping.sourceType}
                   </td>
                   <td style={{ padding: '10px 12px', textAlign: 'center', color: theme.text.secondary }}>
                     →
                   </td>
-                  <td style={{ padding: '10px 12px', color: theme.text.primary, fontWeight: 500 }}>
+                  <td style={{ padding: '10px 12px', color: theme.text.primary, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {mapping.targetColumn}
                   </td>
-                  <td style={{ padding: '10px 12px', color: theme.text.secondary, fontFamily: 'monospace', fontSize: '12px' }}>
+                  <td style={{ padding: '10px 12px', color: theme.text.secondary, fontFamily: 'monospace', fontSize: '12px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {mapping.targetType}
                   </td>
-                  <td style={{ padding: '10px 12px' }}>
+                  <td style={{ padding: '10px 12px', overflow: 'hidden' }}>
                     {editingRemarkId === mapping.id ? (
-                      <div style={{ display: 'flex', gap: '4px' }}>
+                      <div style={{ display: 'flex', gap: '4px', width: '100%' }}>
                         <input
                           type="text"
                           value={editingRemarkValue}
@@ -1009,10 +1240,11 @@ export default function ColumnMapper({
                           autoFocus
                           style={{
                             flex: 1,
+                            minWidth: 0,
                             padding: '4px 8px',
-                            border: `1px solid ${isDarkTheme ? '#4b5563' : '#d1d5db'}`,
+                            border: `1px solid ${theme.table.border}`,
                             borderRadius: '4px',
-                            background: isDarkTheme ? '#374151' : '#fff',
+                            background: theme.table.headerBackground,
                             color: theme.text.primary,
                             fontSize: '12px',
                           }}
@@ -1030,6 +1262,7 @@ export default function ColumnMapper({
                             cursor: 'pointer',
                             display: 'flex',
                             alignItems: 'center',
+                            flexShrink: 0,
                           }}
                         >
                           <Check size={12} color="#fff" />
@@ -1046,6 +1279,10 @@ export default function ColumnMapper({
                           color: mapping.remarks ? theme.text.primary : theme.text.secondary,
                           fontStyle: mapping.remarks ? 'normal' : 'italic',
                           cursor: 'text',
+                          display: 'block',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
                         }}
                       >
                         {mapping.remarks || 'Click to add...'}
@@ -1079,6 +1316,283 @@ export default function ColumnMapper({
     </div>
   );
 
+  // Render all mappings summary table - grouped by target table, then by source table
+  const renderSummaryTable = () => {
+    const allMappings = project?.mappings || [];
+
+    // Group mappings by target table, then by source table within each target
+    const groupedByTarget = new Map<string, Map<string, ColumnMapping[]>>();
+
+    allMappings.forEach(mapping => {
+      if (!groupedByTarget.has(mapping.targetTable)) {
+        groupedByTarget.set(mapping.targetTable, new Map());
+      }
+      const sourceMap = groupedByTarget.get(mapping.targetTable)!;
+      if (!sourceMap.has(mapping.sourceTable)) {
+        sourceMap.set(mapping.sourceTable, []);
+      }
+      sourceMap.get(mapping.sourceTable)!.push(mapping);
+    });
+
+    return (
+      <div style={{
+        flex: 1,
+        overflow: 'auto',
+        padding: '16px',
+        background: theme.canvas.background,
+      }}>
+        {allMappings.length === 0 ? (
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: '100%',
+            color: theme.text.secondary,
+          }}>
+            <Layers size={48} style={{ marginBottom: '16px', opacity: 0.3 }} />
+            <div style={{ fontSize: '16px', marginBottom: '8px' }}>No mappings in project</div>
+            <div style={{ fontSize: '13px', opacity: 0.7 }}>
+              Create mappings in the canvas to see them here
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            {Array.from(groupedByTarget.entries()).sort((a, b) => a[0].localeCompare(b[0])).map(([targetTable, sourceMap]) => (
+              <div key={targetTable} style={{
+                background: theme.table.background,
+                borderRadius: '8px',
+                border: `1px solid ${theme.table.border}`,
+                overflow: 'hidden',
+              }}>
+                {/* Target Table Header */}
+                <div style={{
+                  padding: '12px 16px',
+                  background: theme.table.headerBackground,
+                  borderBottom: `1px solid ${theme.table.border}`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                }}>
+                  <span style={{
+                    background: '#22c55e',
+                    color: '#fff',
+                    fontSize: '10px',
+                    padding: '2px 8px',
+                    borderRadius: '10px',
+                    fontWeight: 600,
+                  }}>TGT</span>
+                  <span style={{
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    color: theme.text.primary,
+                  }}>{targetTable}</span>
+                  <span style={{
+                    fontSize: '12px',
+                    color: theme.text.secondary,
+                    marginLeft: 'auto',
+                  }}>
+                    {Array.from(sourceMap.values()).flat().length} mapping{Array.from(sourceMap.values()).flat().length !== 1 ? 's' : ''}
+                  </span>
+                </div>
+
+                {/* Source tables within this target */}
+                {Array.from(sourceMap.entries()).sort((a, b) => a[0].localeCompare(b[0])).map(([sourceTable, mappings]) => (
+                  <div key={sourceTable}>
+                    {/* Source Table Sub-header */}
+                    <div style={{
+                      padding: '8px 16px 8px 32px',
+                      background: theme.canvas.grid,
+                      borderBottom: `1px solid ${theme.table.border}`,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                    }}>
+                      <span style={{
+                        background: '#3b82f6',
+                        color: '#fff',
+                        fontSize: '10px',
+                        padding: '2px 8px',
+                        borderRadius: '10px',
+                        fontWeight: 600,
+                      }}>SRC</span>
+                      <span style={{
+                        fontSize: '13px',
+                        fontWeight: 500,
+                        color: theme.text.primary,
+                      }}>{sourceTable}</span>
+                      <span style={{
+                        fontSize: '11px',
+                        color: theme.text.secondary,
+                        marginLeft: 'auto',
+                      }}>
+                        {mappings.length} column{mappings.length !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+
+                    {/* Mappings table for this source */}
+                    <table style={{
+                      width: '100%',
+                      borderCollapse: 'collapse',
+                      fontSize: '13px',
+                      tableLayout: 'fixed',
+                    }}>
+                      <colgroup>
+                        <col style={{ width: '20%' }} />
+                        <col style={{ width: '12%' }} />
+                        <col style={{ width: '40px' }} />
+                        <col style={{ width: '20%' }} />
+                        <col style={{ width: '12%' }} />
+                        <col style={{ width: 'auto' }} />
+                        <col style={{ width: '50px' }} />
+                      </colgroup>
+                      <tbody>
+                        {mappings.map(mapping => {
+                          const colorIndex = getMappingColorIndex(mapping);
+                          const lineColor = LINE_COLORS[colorIndex];
+                          const isSelected = selectedMappingId === mapping.id;
+
+                          return (
+                            <tr
+                              key={mapping.id}
+                              onClick={() => setSelectedMappingId(mapping.id)}
+                              style={{
+                                background: isSelected
+                                  ? theme.accent.primary + '30'
+                                  : 'transparent',
+                                cursor: 'pointer',
+                                borderBottom: `1px solid ${theme.table.border}`,
+                              }}
+                            >
+                              <td style={{ padding: '8px 16px 8px 48px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <div style={{
+                                    width: '8px',
+                                    height: '8px',
+                                    borderRadius: '50%',
+                                    background: lineColor,
+                                    flexShrink: 0,
+                                  }} />
+                                  <span style={{ color: '#3b82f6', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                    {mapping.sourceColumn}
+                                  </span>
+                                </div>
+                              </td>
+                              <td style={{ padding: '8px 12px', color: theme.text.secondary, fontFamily: 'monospace', fontSize: '11px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {mapping.sourceType}
+                              </td>
+                              <td style={{ padding: '8px 12px', textAlign: 'center', color: theme.text.secondary }}>
+                                →
+                              </td>
+                              <td style={{ padding: '8px 12px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                <span style={{ color: '#22c55e', fontWeight: 500 }}>
+                                  {mapping.targetColumn}
+                                </span>
+                              </td>
+                              <td style={{ padding: '8px 12px', color: theme.text.secondary, fontFamily: 'monospace', fontSize: '11px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {mapping.targetType}
+                              </td>
+                              <td style={{ padding: '8px 12px', overflow: 'hidden' }}>
+                                {editingRemarkId === mapping.id ? (
+                                  <div style={{ display: 'flex', gap: '4px', width: '100%' }}>
+                                    <input
+                                      type="text"
+                                      value={editingRemarkValue}
+                                      onChange={(e) => setEditingRemarkValue(e.target.value)}
+                                      onClick={(e) => e.stopPropagation()}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                          handleUpdateRemarks(mapping.id, editingRemarkValue);
+                                        } else if (e.key === 'Escape') {
+                                          setEditingRemarkId(null);
+                                        }
+                                      }}
+                                      autoFocus
+                                      style={{
+                                        flex: 1,
+                                        minWidth: 0,
+                                        padding: '4px 8px',
+                                        border: `1px solid ${theme.table.border}`,
+                                        borderRadius: '4px',
+                                        background: theme.table.headerBackground,
+                                        color: theme.text.primary,
+                                        fontSize: '12px',
+                                      }}
+                                    />
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleUpdateRemarks(mapping.id, editingRemarkValue);
+                                      }}
+                                      style={{
+                                        padding: '4px',
+                                        background: '#22c55e',
+                                        border: 'none',
+                                        borderRadius: '4px',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        flexShrink: 0,
+                                      }}
+                                    >
+                                      <Check size={12} color="#fff" />
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <span
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setEditingRemarkId(mapping.id);
+                                      setEditingRemarkValue(mapping.remarks || '');
+                                    }}
+                                    style={{
+                                      color: mapping.remarks ? theme.text.primary : theme.text.secondary,
+                                      fontStyle: mapping.remarks ? 'normal' : 'italic',
+                                      fontSize: '12px',
+                                      cursor: 'text',
+                                      display: 'block',
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      whiteSpace: 'nowrap',
+                                    }}
+                                  >
+                                    {mapping.remarks || 'Click to add...'}
+                                  </span>
+                                )}
+                              </td>
+                              <td style={{ padding: '8px 12px', textAlign: 'center' }}>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteMapping(mapping.id);
+                                  }}
+                                  style={{
+                                    padding: '4px',
+                                    background: 'transparent',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    opacity: 0.6,
+                                  }}
+                                  title="Delete mapping"
+                                >
+                                  <Trash2 size={14} color="#ef4444" />
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   // Render dropdown
   const renderDropdown = (
     _label: string,
@@ -1101,8 +1615,8 @@ export default function ColumnMapper({
           alignItems: 'center',
           gap: '8px',
           padding: '8px 12px',
-          background: isDarkTheme ? '#374151' : '#f3f4f6',
-          border: `1px solid ${isDarkTheme ? '#4b5563' : '#d1d5db'}`,
+          background: theme.table.headerBackground,
+          border: `1px solid ${theme.table.border}`,
           borderRadius: '6px',
           cursor: 'pointer',
           minWidth: '180px',
@@ -1132,8 +1646,8 @@ export default function ColumnMapper({
           left: 0,
           right: 0,
           marginTop: '4px',
-          background: isDarkTheme ? '#1f2937' : '#fff',
-          border: `1px solid ${isDarkTheme ? '#374151' : '#e5e7eb'}`,
+          background: theme.table.background,
+          border: `1px solid ${theme.table.border}`,
           borderRadius: '6px',
           boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
           zIndex: 100,
@@ -1156,7 +1670,7 @@ export default function ColumnMapper({
                   display: 'block',
                   width: '100%',
                   padding: '10px 12px',
-                  background: value === opt.name ? (isDarkTheme ? '#374151' : '#f3f4f6') : 'transparent',
+                  background: value === opt.name ? theme.table.headerBackground : 'transparent',
                   border: 'none',
                   textAlign: 'left',
                   cursor: 'pointer',
@@ -1181,8 +1695,8 @@ export default function ColumnMapper({
       {/* Header with selections */}
       <div style={{
         padding: '12px 16px',
-        borderBottom: `1px solid ${isDarkTheme ? '#374151' : '#e5e7eb'}`,
-        background: isDarkTheme ? '#1f2937' : '#fff',
+        borderBottom: `1px solid ${theme.table.border}`,
+        background: theme.table.background,
         display: 'flex',
         alignItems: 'center',
         gap: '16px',
@@ -1246,27 +1760,30 @@ export default function ColumnMapper({
           )}
         </div>
 
-        {/* Pending indicator */}
-        {pendingMapping && (
+        {/* Search popup indicator in header */}
+        {columnSearchPopup && (
           <div style={{
             display: 'flex',
             alignItems: 'center',
             gap: '8px',
             padding: '6px 12px',
-            background: pendingMapping.side === 'source' ? '#3b82f620' : '#22c55e20',
+            background: columnSearchPopup.side === 'source' ? '#3b82f620' : '#22c55e20',
             borderRadius: '16px',
             marginLeft: 'auto',
           }}>
-            <MousePointer size={14} color={pendingMapping.side === 'source' ? '#3b82f6' : '#22c55e'} />
+            <MousePointer size={14} color={columnSearchPopup.side === 'source' ? '#3b82f6' : '#22c55e'} />
             <span style={{
               fontSize: '12px',
-              color: pendingMapping.side === 'source' ? '#3b82f6' : '#22c55e',
+              color: columnSearchPopup.side === 'source' ? '#3b82f6' : '#22c55e',
               fontWeight: 500,
             }}>
-              Select {pendingMapping.side === 'source' ? 'target' : 'source'} column...
+              Mapping: {columnSearchPopup.columnName}
             </span>
             <button
-              onClick={() => setPendingMapping(null)}
+              onClick={() => {
+                setColumnSearchPopup(null);
+                setSearchPopupTerm('');
+              }}
               style={{
                 padding: '2px',
                 background: 'transparent',
@@ -1275,7 +1792,7 @@ export default function ColumnMapper({
                 display: 'flex',
               }}
             >
-              <X size={14} color={pendingMapping.side === 'source' ? '#3b82f6' : '#22c55e'} />
+              <X size={14} color={columnSearchPopup.side === 'source' ? '#3b82f6' : '#22c55e'} />
             </button>
           </div>
         )}
@@ -1304,8 +1821,8 @@ export default function ColumnMapper({
             display: 'flex',
             gap: '4px',
             padding: '8px 16px',
-            background: isDarkTheme ? '#111827' : '#f8fafc',
-            borderBottom: `1px solid ${isDarkTheme ? '#374151' : '#e5e7eb'}`,
+            background: theme.canvas.background,
+            borderBottom: `1px solid ${theme.table.border}`,
           }}>
             <button
               onClick={() => setActiveTab('canvas')}
@@ -1315,10 +1832,10 @@ export default function ColumnMapper({
                 gap: '6px',
                 padding: '8px 16px',
                 background: activeTab === 'canvas'
-                  ? (isDarkTheme ? '#374151' : '#fff')
+                  ? theme.table.headerBackground
                   : 'transparent',
                 border: activeTab === 'canvas'
-                  ? `1px solid ${isDarkTheme ? '#4b5563' : '#d1d5db'}`
+                  ? `1px solid ${theme.table.border}`
                   : '1px solid transparent',
                 borderRadius: '6px',
                 cursor: 'pointer',
@@ -1338,10 +1855,10 @@ export default function ColumnMapper({
                 gap: '6px',
                 padding: '8px 16px',
                 background: activeTab === 'linkage'
-                  ? (isDarkTheme ? '#374151' : '#fff')
+                  ? theme.table.headerBackground
                   : 'transparent',
                 border: activeTab === 'linkage'
-                  ? `1px solid ${isDarkTheme ? '#4b5563' : '#d1d5db'}`
+                  ? `1px solid ${theme.table.border}`
                   : '1px solid transparent',
                 borderRadius: '6px',
                 cursor: 'pointer',
@@ -1355,7 +1872,7 @@ export default function ColumnMapper({
               {currentMappings.length > 0 && (
                 <span style={{
                   padding: '2px 6px',
-                  background: isDarkTheme ? '#4b5563' : '#e5e7eb',
+                  background: theme.table.border,
                   borderRadius: '10px',
                   fontSize: '11px',
                 }}>
@@ -1363,10 +1880,79 @@ export default function ColumnMapper({
                 </span>
               )}
             </button>
+            <button
+              onClick={() => setActiveTab('summary')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '8px 16px',
+                background: activeTab === 'summary'
+                  ? theme.table.headerBackground
+                  : 'transparent',
+                border: activeTab === 'summary'
+                  ? `1px solid ${theme.table.border}`
+                  : '1px solid transparent',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                color: activeTab === 'summary' ? theme.text.primary : theme.text.secondary,
+                fontSize: '13px',
+                fontWeight: activeTab === 'summary' ? 600 : 400,
+              }}
+            >
+              <Layers size={14} />
+              All Mappings
+              {project && project.mappings.length > 0 && (
+                <span style={{
+                  padding: '2px 6px',
+                  background: theme.table.border,
+                  borderRadius: '10px',
+                  fontSize: '11px',
+                }}>
+                  {project.mappings.length}
+                </span>
+              )}
+            </button>
+
+            {/* Spacer */}
+            <div style={{ flex: 1 }} />
+
+            {/* Delete selected mapping button */}
+            {selectedMappingId && activeTab === 'canvas' && (
+              <button
+                onClick={() => handleDeleteMapping(selectedMappingId)}
+                title="Delete selected mapping (Delete key)"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '8px 12px',
+                  background: 'rgba(239, 68, 68, 0.1)',
+                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  color: '#ef4444',
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  transition: 'all 0.15s ease',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)';
+                  e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.5)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)';
+                  e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+                }}
+              >
+                <Trash2 size={14} />
+                Delete
+              </button>
+            )}
           </div>
 
           {/* Tab content */}
-          {activeTab === 'canvas' ? (
+          {activeTab === 'canvas' && (
             <div
               ref={containerRef}
               style={{
@@ -1375,7 +1961,7 @@ export default function ColumnMapper({
                 width: '100%',
                 position: 'relative',
                 overflow: 'auto',
-                background: isDarkTheme ? '#0f172a' : '#f1f5f9',
+                background: theme.canvas.background,
               }}
             >
               {dimensions.width > 0 && dimensions.height > 0 && canvasSize.width > 0 && (
@@ -1415,7 +2001,7 @@ export default function ColumnMapper({
                 left: '50%',
                 transform: 'translateX(-50%)',
                 padding: '8px 16px',
-                background: isDarkTheme ? 'rgba(31, 41, 55, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+                background: `${theme.table.background}f2`,
                 borderRadius: '8px',
                 fontSize: '12px',
                 color: theme.text.secondary,
@@ -1429,10 +2015,263 @@ export default function ColumnMapper({
                 <span>|</span>
                 <span>Or drag from source to target</span>
               </div>
+
+              {/* Mapped column popup */}
+              {mappedColumnPopup && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    left: Math.min(mappedColumnPopup.x, (containerRef.current?.clientWidth || 400) - 280),
+                    top: Math.min(mappedColumnPopup.y + 10, (containerRef.current?.clientHeight || 300) - 150),
+                    background: theme.table.background,
+                    border: `1px solid ${theme.table.border}`,
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
+                    zIndex: 100,
+                    minWidth: '260px',
+                    overflow: 'hidden',
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {/* Popup header */}
+                  <div style={{
+                    padding: '12px 16px',
+                    background: theme.table.headerBackground,
+                    borderBottom: `1px solid ${theme.table.border}`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                  }}>
+                    <span style={{
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      color: theme.text.primary,
+                    }}>
+                      Column Already Mapped
+                    </span>
+                    <button
+                      onClick={() => setMappedColumnPopup(null)}
+                      style={{
+                        padding: '4px',
+                        background: 'transparent',
+                        border: 'none',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        opacity: 0.6,
+                      }}
+                    >
+                      <X size={16} color={theme.text.secondary} />
+                    </button>
+                  </div>
+
+                  {/* Popup content */}
+                  <div style={{ padding: '16px' }}>
+                    <div style={{
+                      fontSize: '12px',
+                      color: theme.text.secondary,
+                      marginBottom: '12px',
+                    }}>
+                      <span style={{ color: mappedColumnPopup.side === 'source' ? '#3b82f6' : '#22c55e', fontWeight: 600 }}>
+                        {mappedColumnPopup.clickedColumn}
+                      </span>
+                      {' '}is mapped to{' '}
+                      <span style={{ color: mappedColumnPopup.side === 'source' ? '#22c55e' : '#3b82f6', fontWeight: 600 }}>
+                        {mappedColumnPopup.side === 'source'
+                          ? mappedColumnPopup.mapping.targetColumn
+                          : mappedColumnPopup.mapping.sourceColumn
+                        }
+                      </span>
+                      {' '}in{' '}
+                      <span style={{ fontWeight: 500 }}>
+                        {mappedColumnPopup.side === 'source'
+                          ? mappedColumnPopup.mapping.targetTable
+                          : mappedColumnPopup.mapping.sourceTable
+                        }
+                      </span>
+                    </div>
+
+                    {/* Action buttons */}
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        onClick={() => handleNavigateToMapping(mappedColumnPopup.mapping)}
+                        style={{
+                          flex: 1,
+                          padding: '8px 12px',
+                          background: theme.accent.primary,
+                          border: 'none',
+                          borderRadius: '6px',
+                          color: '#fff',
+                          fontSize: '12px',
+                          fontWeight: 500,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px',
+                        }}
+                      >
+                        <ArrowRightLeft size={14} />
+                        Go to Mapping
+                      </button>
+                      <button
+                        onClick={() => setMappedColumnPopup(null)}
+                        style={{
+                          padding: '8px 12px',
+                          background: theme.table.headerBackground,
+                          border: `1px solid ${theme.table.border}`,
+                          borderRadius: '6px',
+                          color: theme.text.primary,
+                          fontSize: '12px',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Column search popup for click-to-map */}
+              {columnSearchPopup && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    left: Math.min(columnSearchPopup.x, (containerRef.current?.clientWidth || 400) - 300),
+                    top: Math.min(columnSearchPopup.y + 10, (containerRef.current?.clientHeight || 300) - 350),
+                    background: theme.table.background,
+                    border: `1px solid ${theme.table.border}`,
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
+                    zIndex: 100,
+                    width: '280px',
+                    overflow: 'hidden',
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {/* Popup header */}
+                  <div style={{
+                    padding: '12px 16px',
+                    background: columnSearchPopup.side === 'source' ? '#3b82f615' : '#22c55e15',
+                    borderBottom: `1px solid ${theme.table.border}`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                  }}>
+                    <div>
+                      <div style={{
+                        fontSize: '11px',
+                        color: theme.text.secondary,
+                        marginBottom: '2px',
+                      }}>
+                        Map to {columnSearchPopup.side === 'source' ? 'Target' : 'Source'}
+                      </div>
+                      <span style={{
+                        fontSize: '13px',
+                        fontWeight: 600,
+                        color: columnSearchPopup.side === 'source' ? '#3b82f6' : '#22c55e',
+                      }}>
+                        {columnSearchPopup.columnName}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setColumnSearchPopup(null);
+                        setSearchPopupTerm('');
+                      }}
+                      style={{
+                        padding: '4px',
+                        background: 'transparent',
+                        border: 'none',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        opacity: 0.6,
+                      }}
+                    >
+                      <X size={16} color={theme.text.secondary} />
+                    </button>
+                  </div>
+
+                  {/* Search input */}
+                  <div style={{ padding: '12px' }}>
+                    <input
+                      type="text"
+                      placeholder="Search columns..."
+                      value={searchPopupTerm}
+                      onChange={(e) => setSearchPopupTerm(e.target.value)}
+                      autoFocus
+                      style={{
+                        width: '100%',
+                        padding: '8px 12px',
+                        fontSize: '13px',
+                        border: `1px solid ${theme.table.border}`,
+                        borderRadius: '6px',
+                        background: theme.canvas.background,
+                        color: theme.text.primary,
+                        outline: 'none',
+                      }}
+                    />
+                  </div>
+
+                  {/* Column list */}
+                  <div style={{
+                    maxHeight: '200px',
+                    overflowY: 'auto',
+                    borderTop: `1px solid ${theme.table.border}`,
+                  }}>
+                    {availableColumnsForSearch.length === 0 ? (
+                      <div style={{
+                        padding: '16px',
+                        textAlign: 'center',
+                        color: theme.text.secondary,
+                        fontSize: '12px',
+                      }}>
+                        {searchPopupTerm ? 'No matching columns' : 'No available columns'}
+                      </div>
+                    ) : (
+                      availableColumnsForSearch.map((col) => (
+                        <div
+                          key={col.columnName}
+                          onClick={() => handleSearchPopupSelect(col.tableName, col.columnName)}
+                          style={{
+                            padding: '10px 16px',
+                            cursor: 'pointer',
+                            borderBottom: `1px solid ${theme.table.border}`,
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            transition: 'background 0.15s',
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = columnSearchPopup.side === 'source' ? '#22c55e15' : '#3b82f615';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = 'transparent';
+                          }}
+                        >
+                          <span style={{
+                            fontSize: '13px',
+                            color: theme.text.primary,
+                            fontWeight: 500,
+                          }}>
+                            {col.columnName}
+                          </span>
+                          <span style={{
+                            fontSize: '11px',
+                            color: theme.text.secondary,
+                          }}>
+                            {col.columnType}
+                          </span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
-          ) : (
-            renderLinkageTable()
           )}
+          {activeTab === 'linkage' && renderLinkageTable()}
+          {activeTab === 'summary' && renderSummaryTable()}
         </div>
       )}
     </div>

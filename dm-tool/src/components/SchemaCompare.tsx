@@ -291,76 +291,195 @@ export default function SchemaCompare({ scripts, activeScript }: SchemaComparePr
     </div>
   );
 
-  // Render diff table
+  // Render side-by-side diff table with aligned rows
   const renderDiffTable = (changes: ColumnDiff[], src: Table | null, tgt: Table | null) => {
     const srcPks = src?.constraints.find(c => c.type === 'Primary Key')?.localCols.split(',').map(s => s.trim().toUpperCase()) || [];
     const tgtPks = tgt?.constraints.find(c => c.type === 'Primary Key')?.localCols.split(',').map(s => s.trim().toUpperCase()) || [];
 
+    // Row highlight styles based on change type
+    const getRowStyle = (type: string): React.CSSProperties => {
+      switch (type) {
+        case 'MODIFIED':
+        case 'SOFT':
+          // Yellow highlight - less bright/more transparent in dark mode
+          return { background: 'var(--diff-modified-bg, rgba(234, 179, 8, 0.15))' };
+        case 'ADDED':
+          // Green for new rows (only in target)
+          return { background: 'var(--diff-added-bg, rgba(34, 197, 94, 0.12))' };
+        case 'DELETED':
+        case 'MISSING':
+          // Red for deleted rows (only in source, missing in target)
+          return { background: 'var(--diff-deleted-bg, rgba(239, 68, 68, 0.12))' };
+        default:
+          // SAME - no highlight
+          return {};
+      }
+    };
+
     return (
       <div className="compare-table-section">
-        <h4>Column Comparison</h4>
-        <table className="compare-table compare-diff-table">
-          <thead>
-            <tr>
-              <th style={{ width: '20%' }}>Column</th>
-              <th style={{ width: '30%' }}>Source</th>
-              <th style={{ width: '30%' }}>Target</th>
-              <th style={{ width: '20%' }}>Change</th>
-            </tr>
-          </thead>
-          <tbody>
-            {changes.map((row, i) => {
-              const srcIsPk = srcPks.includes(row.col.toUpperCase());
-              const tgtIsPk = tgtPks.includes(row.col.toUpperCase());
-
-              return (
-                <tr key={i} className={`diff-row diff-row-${row.type.toLowerCase()}`}>
-                  <td className="column-name">
-                    <strong>{row.col}</strong>
-                  </td>
-                  <td>
-                    {row.s ? (
-                      <div className="column-info">
-                        {srcIsPk && <span className="key-badge pk">PK</span>}
-                        <span className={row.type === 'MODIFIED' && row.t && row.s.type !== row.t.type ? 'diff-highlight' : ''}>
-                          {row.s.type}
-                        </span>
-                        <span className={`nullable-badge ${row.type === 'MODIFIED' && row.t && row.s.nullable !== row.t.nullable ? 'diff-highlight' : ''}`}>
-                          {row.s.nullable === 'Yes' ? 'NULL' : 'NOT NULL'}
-                        </span>
-                      </div>
-                    ) : (
-                      <span className="column-missing">—</span>
-                    )}
-                  </td>
-                  <td>
-                    {row.t ? (
-                      <div className="column-info">
-                        {tgtIsPk && <span className="key-badge pk">PK</span>}
-                        <span className={row.type === 'MODIFIED' && row.s && row.s.type !== row.t.type ? 'diff-highlight' : ''}>
-                          {row.t.type}
-                        </span>
-                        <span className={`nullable-badge ${row.type === 'MODIFIED' && row.s && row.s.nullable !== row.t.nullable ? 'diff-highlight' : ''}`}>
-                          {row.t.nullable === 'Yes' ? 'NULL' : 'NOT NULL'}
-                        </span>
-                      </div>
-                    ) : (
-                      <span className="column-missing">—</span>
-                    )}
-                  </td>
-                  <td>
-                    <span className={`change-badge change-${row.type.toLowerCase()}`}>
-                      {row.type === 'SAME' ? 'Unchanged' :
-                       row.type === 'SOFT' ? 'Soft Match' :
-                       row.type === 'MODIFIED' ? 'Modified' :
-                       row.type === 'ADDED' ? 'Added' : 'Deleted'}
-                    </span>
-                  </td>
+        <h4>Column Comparison (Side-by-Side)</h4>
+        <div style={{ display: 'flex', gap: '16px', overflow: 'auto' }}>
+          {/* Source Table */}
+          <div style={{ flex: 1, minWidth: '300px' }}>
+            <div style={{
+              padding: '8px 12px',
+              background: 'var(--compare-header-bg, #3b82f6)',
+              color: '#fff',
+              fontWeight: 600,
+              fontSize: '12px',
+              borderRadius: '6px 6px 0 0',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+            }}>
+              <Database size={14} />
+              SOURCE: {src?.tableName || 'N/A'}
+            </div>
+            <table className="compare-table compare-side-table" style={{ tableLayout: 'fixed', width: '100%' }}>
+              <colgroup>
+                <col style={{ width: '40%' }} />
+                <col style={{ width: '35%' }} />
+                <col style={{ width: '25%' }} />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th>Column</th>
+                  <th>Type</th>
+                  <th>Nullable</th>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
+              </thead>
+              <tbody>
+                {changes.map((row, i) => {
+                  const srcIsPk = srcPks.includes(row.col.toUpperCase());
+                  const hasSource = !!row.s;
+                  const rowStyle = getRowStyle(row.type);
+
+                  return (
+                    <tr key={i} style={rowStyle}>
+                      {hasSource ? (
+                        <>
+                          <td className="column-name" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {srcIsPk && <span className="key-badge pk">PK</span>}
+                            <strong>{row.col}</strong>
+                          </td>
+                          <td style={{ fontFamily: 'monospace', fontSize: '11px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {row.s?.type}
+                          </td>
+                          <td>
+                            <span className="nullable-badge">
+                              {row.s?.nullable === 'Yes' ? 'NULL' : 'NOT NULL'}
+                            </span>
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          <td style={{ color: 'var(--text-muted, #9ca3af)', fontStyle: 'italic' }}>—</td>
+                          <td style={{ color: 'var(--text-muted, #9ca3af)' }}>—</td>
+                          <td style={{ color: 'var(--text-muted, #9ca3af)' }}>—</td>
+                        </>
+                      )}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Target Table */}
+          <div style={{ flex: 1, minWidth: '300px' }}>
+            <div style={{
+              padding: '8px 12px',
+              background: 'var(--compare-header-tgt-bg, #22c55e)',
+              color: '#fff',
+              fontWeight: 600,
+              fontSize: '12px',
+              borderRadius: '6px 6px 0 0',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+            }}>
+              <Database size={14} />
+              TARGET: {tgt?.tableName || 'N/A'}
+            </div>
+            <table className="compare-table compare-side-table" style={{ tableLayout: 'fixed', width: '100%' }}>
+              <colgroup>
+                <col style={{ width: '40%' }} />
+                <col style={{ width: '35%' }} />
+                <col style={{ width: '25%' }} />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th>Column</th>
+                  <th>Type</th>
+                  <th>Nullable</th>
+                </tr>
+              </thead>
+              <tbody>
+                {changes.map((row, i) => {
+                  const tgtIsPk = tgtPks.includes(row.col.toUpperCase());
+                  const hasTarget = !!row.t;
+                  const rowStyle = getRowStyle(row.type);
+
+                  return (
+                    <tr key={i} style={rowStyle}>
+                      {hasTarget ? (
+                        <>
+                          <td className="column-name" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {tgtIsPk && <span className="key-badge pk">PK</span>}
+                            <strong>{row.col}</strong>
+                          </td>
+                          <td style={{ fontFamily: 'monospace', fontSize: '11px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {row.t?.type}
+                          </td>
+                          <td>
+                            <span className="nullable-badge">
+                              {row.t?.nullable === 'Yes' ? 'NULL' : 'NOT NULL'}
+                            </span>
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          <td style={{ color: 'var(--text-muted, #9ca3af)', fontStyle: 'italic' }}>—</td>
+                          <td style={{ color: 'var(--text-muted, #9ca3af)' }}>—</td>
+                          <td style={{ color: 'var(--text-muted, #9ca3af)' }}>—</td>
+                        </>
+                      )}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Legend */}
+        <div style={{
+          display: 'flex',
+          gap: '16px',
+          marginTop: '12px',
+          padding: '8px 12px',
+          background: 'var(--legend-bg, rgba(0,0,0,0.03))',
+          borderRadius: '6px',
+          fontSize: '11px',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div style={{ width: '12px', height: '12px', borderRadius: '2px', background: 'var(--diff-modified-bg, rgba(234, 179, 8, 0.3))' }} />
+            <span>Modified</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div style={{ width: '12px', height: '12px', borderRadius: '2px', background: 'var(--diff-added-bg, rgba(34, 197, 94, 0.25))' }} />
+            <span>Added (New in Target)</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div style={{ width: '12px', height: '12px', borderRadius: '2px', background: 'var(--diff-deleted-bg, rgba(239, 68, 68, 0.25))' }} />
+            <span>Deleted (Missing in Target)</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div style={{ width: '12px', height: '12px', borderRadius: '2px', background: 'transparent', border: '1px solid var(--border-color, #e5e7eb)' }} />
+            <span>Identical</span>
+          </div>
+        </div>
       </div>
     );
   };

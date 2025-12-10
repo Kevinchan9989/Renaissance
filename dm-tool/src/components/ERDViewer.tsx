@@ -3,12 +3,13 @@ import { Stage, Layer, Rect, Text, Line, Group, Path } from 'react-konva';
 import Konva from 'konva';
 import dagre from '@dagrejs/dagre';
 import { Table } from '../types';
-import { TABLE_COLORS, SIZING, FONTS, LIGHT_THEME, DARK_THEME, ThemeColors } from '../constants/erd';
+import { TABLE_COLORS, SIZING, FONTS, LIGHT_THEME, getDarkTheme, ThemeColors, DarkThemeVariant } from '../constants/erd';
 import { ZoomIn, ZoomOut, Maximize2, Download, RotateCcw, Maximize, Search, X } from 'lucide-react';
 
 interface ERDViewerProps {
   tables: Table[];
   isDarkTheme: boolean;
+  darkThemeVariant?: DarkThemeVariant;
   scriptId: string;
 }
 
@@ -46,8 +47,9 @@ enum Position {
 // Storage key for table positions
 const getStorageKey = (scriptId: string) => `erd_positions_${scriptId}`;
 
-// Get theme based on dark mode
-const getTheme = (isDark: boolean): ThemeColors => isDark ? DARK_THEME : LIGHT_THEME;
+// Get theme based on dark mode and variant
+const getTheme = (isDark: boolean, variant: DarkThemeVariant = 'slate'): ThemeColors =>
+  isDark ? getDarkTheme(variant) : LIGHT_THEME;
 
 // Calculate table width based on content - ensure column name + type fit without wrapping
 const calculateTableWidth = (table: Table): number => {
@@ -180,7 +182,7 @@ function getManySymbol(x: number, y: number, position: Position): string {
   return `M${x},${y - halfHeight} L${offset.x},${y} L${x},${y + halfHeight}`;
 }
 
-export default function ERDViewer({ tables, isDarkTheme, scriptId }: ERDViewerProps) {
+export default function ERDViewer({ tables, isDarkTheme, darkThemeVariant = 'slate', scriptId }: ERDViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -203,7 +205,7 @@ export default function ERDViewer({ tables, isDarkTheme, scriptId }: ERDViewerPr
   const [highlightedTable, setHighlightedTable] = useState<string | null>(null);
   const [highlightedColumn, setHighlightedColumn] = useState<{ table: string; column: string } | null>(null);
 
-  const theme = getTheme(isDarkTheme);
+  const theme = getTheme(isDarkTheme, darkThemeVariant);
 
   // Load saved positions on mount
   useEffect(() => {
@@ -907,9 +909,11 @@ export default function ERDViewer({ tables, isDarkTheme, scriptId }: ERDViewerPr
         gap: '8px',
         alignItems: 'center',
         padding: '8px 12px',
-        background: isDarkTheme ? 'rgba(31, 41, 55, 0.95)' : 'rgba(248, 250, 252, 0.95)',
+        background: isDarkTheme
+          ? (darkThemeVariant === 'vscode-gray' ? 'rgba(45, 45, 48, 0.95)' : 'rgba(31, 41, 55, 0.95)')
+          : 'rgba(248, 250, 252, 0.95)',
         borderRadius: '8px',
-        border: `1px solid ${isDarkTheme ? '#374151' : '#e5e7eb'}`,
+        border: `1px solid ${theme.table.border}`,
         backdropFilter: 'blur(8px)',
         flexWrap: 'wrap'
       }}>
@@ -923,7 +927,7 @@ export default function ERDViewer({ tables, isDarkTheme, scriptId }: ERDViewerPr
                 left: '10px',
                 top: '50%',
                 transform: 'translateY(-50%)',
-                color: isDarkTheme ? '#6b7280' : '#9ca3af'
+                color: theme.text.secondary
               }}
             />
             <input
@@ -936,11 +940,11 @@ export default function ERDViewer({ tables, isDarkTheme, scriptId }: ERDViewerPr
               style={{
                 width: '100%',
                 padding: '6px 32px 6px 32px',
-                border: `1px solid ${isDarkTheme ? '#374151' : '#e5e7eb'}`,
+                border: `1px solid ${theme.table.border}`,
                 borderRadius: '6px',
                 fontSize: '12px',
-                background: isDarkTheme ? '#374151' : '#fff',
-                color: isDarkTheme ? '#f3f4f6' : '#1f2937',
+                background: theme.table.headerBackground,
+                color: theme.text.primary,
                 outline: 'none'
               }}
             />
@@ -953,7 +957,7 @@ export default function ERDViewer({ tables, isDarkTheme, scriptId }: ERDViewerPr
                   top: '50%',
                   transform: 'translateY(-50%)',
                   cursor: 'pointer',
-                  color: isDarkTheme ? '#6b7280' : '#9ca3af'
+                  color: theme.text.secondary
                 }}
                 onClick={() => {
                   setSearchQuery('');
@@ -971,8 +975,8 @@ export default function ERDViewer({ tables, isDarkTheme, scriptId }: ERDViewerPr
               left: 0,
               right: 0,
               marginTop: '4px',
-              background: isDarkTheme ? '#1f2937' : '#fff',
-              border: `1px solid ${isDarkTheme ? '#374151' : '#e5e7eb'}`,
+              background: theme.table.background,
+              border: `1px solid ${theme.table.border}`,
               borderRadius: '6px',
               boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
               zIndex: 1000,
@@ -986,23 +990,23 @@ export default function ERDViewer({ tables, isDarkTheme, scriptId }: ERDViewerPr
                   style={{
                     padding: '8px 12px',
                     cursor: 'pointer',
-                    borderBottom: i < searchResults.length - 1 ? `1px solid ${isDarkTheme ? '#374151' : '#e5e7eb'}` : 'none',
-                    background: isDarkTheme ? '#1f2937' : '#fff',
+                    borderBottom: i < searchResults.length - 1 ? `1px solid ${theme.table.border}` : 'none',
+                    background: theme.table.background,
                     transition: 'background 0.1s'
                   }}
-                  onMouseEnter={(e) => e.currentTarget.style.background = isDarkTheme ? '#374151' : '#f3f4f6'}
-                  onMouseLeave={(e) => e.currentTarget.style.background = isDarkTheme ? '#1f2937' : '#fff'}
+                  onMouseEnter={(e) => e.currentTarget.style.background = theme.table.headerBackground}
+                  onMouseLeave={(e) => e.currentTarget.style.background = theme.table.background}
                 >
                   <div style={{
                     fontSize: '12px',
                     fontWeight: result.type === 'table' ? 600 : 400,
-                    color: isDarkTheme ? '#f3f4f6' : '#1f2937'
+                    color: theme.text.primary
                   }}>
                     {result.type === 'table' ? result.tableName : `${result.tableName}.${result.columnName}`}
                   </div>
                   <div style={{
                     fontSize: '10px',
-                    color: isDarkTheme ? '#6b7280' : '#9ca3af',
+                    color: theme.text.secondary,
                     textTransform: 'uppercase'
                   }}>
                     {result.type}
@@ -1030,11 +1034,11 @@ export default function ERDViewer({ tables, isDarkTheme, scriptId }: ERDViewerPr
 
         <div style={{
           padding: '4px 10px',
-          background: isDarkTheme ? '#374151' : '#e5e7eb',
+          background: theme.table.headerBackground,
           borderRadius: '4px',
           fontSize: '12px',
           fontWeight: 500,
-          color: isDarkTheme ? '#f3f4f6' : '#374151'
+          color: theme.text.primary
         }}>
           {Math.round(scale * 100)}%
         </div>
@@ -1054,7 +1058,7 @@ export default function ERDViewer({ tables, isDarkTheme, scriptId }: ERDViewerPr
           Export
         </button>
 
-        <span style={{ fontSize: '12px', color: isDarkTheme ? '#6b7280' : '#9ca3af' }}>
+        <span style={{ fontSize: '12px', color: theme.text.secondary }}>
           {tables.length} tables • {edges.length} relations
         </span>
       </div>

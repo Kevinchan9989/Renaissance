@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Script, ScriptType, AppView, Table, MappingProject } from './types';
-import { loadScripts, saveScripts, generateId, loadTheme, saveTheme, saveMappingProject } from './utils/storage';
+import { loadScripts, saveScripts, generateId, loadTheme, saveTheme, saveMappingProject, loadDarkThemeVariant, saveDarkThemeVariant, DarkThemeVariant } from './utils/storage';
 import { parseScript } from './utils/parsers';
 import Sidebar from './components/Sidebar';
 import DataDictionary from './components/DataDictionary';
@@ -8,7 +8,7 @@ import SchemaCompare from './components/SchemaCompare';
 import ERDViewer from './components/ERDViewer';
 import ScriptManager from './components/ScriptManager';
 import ColumnMapper, { MappingStateForSidebar } from './components/ColumnMapper';
-import { Database, Sun, Moon, PanelLeftClose, PanelLeft, ChevronDown, GripVertical } from 'lucide-react';
+import { Database, Sun, Moon, PanelLeftClose, PanelLeft, ChevronDown, GripVertical, Palette } from 'lucide-react';
 
 // Mapping state interface for sidebar - includes callbacks from ColumnMapper
 interface MappingState {
@@ -28,6 +28,7 @@ export default function App() {
   const [activeScriptId, setActiveScriptId] = useState<string | null>(null);
   const [view, setView] = useState<AppView>('dictionary');
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [darkThemeVariant, setDarkThemeVariant] = useState<DarkThemeVariant>('slate');
   const [selectedTableId, setSelectedTableId] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -43,8 +44,10 @@ export default function App() {
   useEffect(() => {
     const savedScripts = loadScripts();
     const savedTheme = loadTheme();
+    const savedVariant = loadDarkThemeVariant();
     setScripts(savedScripts);
     setTheme(savedTheme);
+    setDarkThemeVariant(savedVariant);
 
     if (savedScripts.length > 0) {
       setActiveScriptId(savedScripts[0].id);
@@ -52,6 +55,9 @@ export default function App() {
 
     if (savedTheme === 'dark') {
       document.body.classList.add('dark-theme');
+      if (savedVariant === 'vscode-gray') {
+        document.body.classList.add('vscode-gray');
+      }
     }
   }, []);
 
@@ -151,8 +157,30 @@ export default function App() {
     const newTheme = theme === 'light' ? 'dark' : 'light';
     setTheme(newTheme);
     saveTheme(newTheme);
-    document.body.classList.toggle('dark-theme');
-  }, [theme]);
+    if (newTheme === 'dark') {
+      document.body.classList.add('dark-theme');
+      if (darkThemeVariant === 'vscode-gray') {
+        document.body.classList.add('vscode-gray');
+      }
+    } else {
+      document.body.classList.remove('dark-theme');
+      document.body.classList.remove('vscode-gray');
+    }
+  }, [theme, darkThemeVariant]);
+
+  // Toggle dark theme variant
+  const toggleDarkThemeVariant = useCallback(() => {
+    const newVariant: DarkThemeVariant = darkThemeVariant === 'slate' ? 'vscode-gray' : 'slate';
+    setDarkThemeVariant(newVariant);
+    saveDarkThemeVariant(newVariant);
+    if (theme === 'dark') {
+      if (newVariant === 'vscode-gray') {
+        document.body.classList.add('vscode-gray');
+      } else {
+        document.body.classList.remove('vscode-gray');
+      }
+    }
+  }, [darkThemeVariant, theme]);
 
   // Update table data (for inline editing)
   const updateTable = useCallback((tableId: number, updates: Partial<Table>) => {
@@ -242,6 +270,7 @@ export default function App() {
         <ColumnMapper
           scripts={scripts}
           isDarkTheme={theme === 'dark'}
+          darkThemeVariant={darkThemeVariant}
           onMappingStateChange={handleMappingStateChange}
         />
       );
@@ -278,7 +307,7 @@ export default function App() {
       case 'compare':
         return <SchemaCompare scripts={scripts} activeScript={activeScript} />;
       case 'erd':
-        return <ERDViewer tables={activeScript.data.targets} isDarkTheme={theme === 'dark'} scriptId={activeScript.id} />;
+        return <ERDViewer tables={activeScript.data.targets} isDarkTheme={theme === 'dark'} darkThemeVariant={darkThemeVariant} scriptId={activeScript.id} />;
       default:
         return null;
     }
@@ -425,6 +454,18 @@ export default function App() {
             >
               {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
             </button>
+            {theme === 'dark' && (
+              <button
+                className="toolbar-icon-btn"
+                onClick={toggleDarkThemeVariant}
+                title={darkThemeVariant === 'slate' ? 'Switch to VS Code Gray' : 'Switch to Slate'}
+                style={{
+                  color: darkThemeVariant === 'vscode-gray' ? '#569cd6' : undefined
+                }}
+              >
+                <Palette size={18} />
+              </button>
+            )}
             <button
               className="toolbar-icon-btn"
               onClick={() => setSidebarCollapsed(!sidebarCollapsed)}

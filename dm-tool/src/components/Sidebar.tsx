@@ -209,7 +209,7 @@ export default function Sidebar({
       {view === 'mapping' && mappingState && (
         <>
           {/* Script Info */}
-          <div className="sidebar-section" style={{ borderBottom: '1px solid #34495e' }}>
+          <div className="sidebar-section">
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
               <span style={{
                 background: '#3b82f6',
@@ -219,7 +219,7 @@ export default function Sidebar({
                 borderRadius: '10px',
                 fontWeight: 600,
               }}>SRC</span>
-              <span style={{ fontSize: '12px', fontWeight: 500, color: '#ecf0f1' }}>
+              <span className="sidebar-script-name">
                 {mappingState.sourceScript?.name || 'Not selected'}
               </span>
             </div>
@@ -232,7 +232,7 @@ export default function Sidebar({
                 borderRadius: '10px',
                 fontWeight: 600,
               }}>TGT</span>
-              <span style={{ fontSize: '12px', fontWeight: 500, color: '#ecf0f1' }}>
+              <span className="sidebar-script-name">
                 {mappingState.targetScript?.name || 'Not selected'}
               </span>
             </div>
@@ -240,20 +240,19 @@ export default function Sidebar({
 
           {/* Mapping Actions */}
           {mappingState.project && (
-            <div className="sidebar-section" style={{ display: 'flex', gap: '8px', borderBottom: '1px solid #34495e' }}>
+            <div className="sidebar-section" style={{ display: 'flex', gap: '8px' }}>
               <button
-                className="btn btn-sm"
+                className="btn btn-sm sidebar-mapping-btn"
                 onClick={onShowRulesDialog}
-                style={{ flex: 1, background: '#3e5368', border: 'none', color: '#ecf0f1' }}
                 title="View Transformation Rules"
               >
                 <Eye size={14} />
                 Rules
               </button>
               <button
-                className="btn btn-sm"
+                className="btn btn-sm sidebar-mapping-btn"
                 onClick={onEditWorkspace}
-                style={{ background: '#3e5368', border: 'none', color: '#ecf0f1' }}
+                style={{ flex: 'none' }}
                 title="Edit Workspace"
               >
                 <Settings size={14} />
@@ -328,19 +327,13 @@ export default function Sidebar({
                         )}
                         <span className="schema-header-title" style={{ fontSize: '11px' }}>{tableName}</span>
                       </div>
-                      <span style={{
-                        background: '#3e5368',
-                        padding: '2px 8px',
-                        borderRadius: '10px',
-                        fontSize: '10px',
-                        color: '#bdc3c7',
-                      }}>
+                      <span className="mapping-count-badge">
                         {mappings.length}
                       </span>
                     </div>
 
                     {mappingState.expandedTables.has(tableName) && (
-                      <ul className="table-list" style={{ background: '#263544' }}>
+                      <ul className="table-list">
                         {mappings.map(mapping => {
                           const statusColor = COMPATIBILITY_COLORS[mapping.typeCompatibility];
                           return (
@@ -374,7 +367,7 @@ export default function Sidebar({
                 ));
               })()
             ) : mappingState.project ? (
-              <div style={{ padding: '40px 20px', textAlign: 'center', color: '#95a5a6' }}>
+              <div className="sidebar-empty-text" style={{ padding: '40px 20px', textAlign: 'center' }}>
                 <ArrowRightLeft size={24} style={{ marginBottom: '8px', opacity: 0.5 }} />
                 <div style={{ fontSize: '12px' }}>No mappings yet</div>
                 <div style={{ fontSize: '11px', marginTop: '4px', opacity: 0.8 }}>
@@ -382,7 +375,7 @@ export default function Sidebar({
                 </div>
               </div>
             ) : (
-              <div style={{ padding: '40px 20px', textAlign: 'center', color: '#95a5a6' }}>
+              <div className="sidebar-empty-text" style={{ padding: '40px 20px', textAlign: 'center' }}>
                 <Database size={24} style={{ marginBottom: '8px', opacity: 0.5 }} />
                 <div style={{ fontSize: '12px' }}>Select scripts to begin</div>
               </div>
@@ -391,17 +384,10 @@ export default function Sidebar({
 
           {/* Footer Actions */}
           {mappingState.project && mappingState.project.mappings.length > 0 && (
-            <div style={{
-              padding: '12px',
-              borderTop: '1px solid #34495e',
-              display: 'flex',
-              gap: '8px',
-              background: '#233140',
-            }}>
+            <div className="sidebar-footer">
               <button
-                className="btn btn-sm"
+                className="btn btn-sm sidebar-mapping-btn"
                 onClick={onClearMappings}
-                style={{ flex: 1, background: '#3e5368', border: 'none', color: '#ecf0f1' }}
               >
                 <Trash2 size={14} />
                 Clear

@@ -465,10 +465,11 @@ export function parseDBML(dbml: string): ScriptData {
       if (trimmedLine === '{' || trimmedLine === '}') continue;
 
       // Column definition: column_name type [settings]
-      const colMatch = trimmedLine.match(/^["`]?(\w+)["`]?\s+([^\s\[]+)(?:\s*\[([^\]]*)\])?/);
+      // Handle types with precision that may contain spaces like NUMERIC(20, 2)
+      const colMatch = trimmedLine.match(/^["`]?(\w+)["`]?\s+(\w+(?:\([^)]*\))?)(?:\s*\[([^\]]*)\])?/);
       if (colMatch) {
         const name = colMatch[1];
-        const type = normalizeType(colMatch[2]);
+        const type = normalizeType(colMatch[2].replace(/\s+/g, ''));
         const settings = colMatch[3] || '';
         const settingsLower = settings.toLowerCase();
 

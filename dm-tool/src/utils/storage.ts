@@ -2,6 +2,7 @@ import { Script, MappingProject, TypeRuleSet } from '../types';
 
 const STORAGE_KEY = 'dm_tool_data';
 const THEME_KEY = 'dm_tool_theme';
+const THEME_VARIANT_KEY = 'dm_tool_theme_variant';
 const MAPPING_PROJECTS_KEY = 'dm_tool_mapping_projects';
 const TYPE_RULE_SETS_KEY = 'dm_tool_type_rule_sets';
 const MAPPING_WORKSPACE_KEY = 'dm_tool_mapping_workspace';
@@ -44,6 +45,20 @@ export function loadTheme(): 'light' | 'dark' {
 
 export function saveTheme(theme: 'light' | 'dark'): void {
   localStorage.setItem(THEME_KEY, theme);
+}
+
+// ============================================
+// Theme Variant Storage (Slate vs VS Code Gray)
+// ============================================
+
+export type DarkThemeVariant = 'slate' | 'vscode-gray';
+
+export function loadDarkThemeVariant(): DarkThemeVariant {
+  return (localStorage.getItem(THEME_VARIANT_KEY) as DarkThemeVariant) || 'slate';
+}
+
+export function saveDarkThemeVariant(variant: DarkThemeVariant): void {
+  localStorage.setItem(THEME_VARIANT_KEY, variant);
 }
 
 // ============================================

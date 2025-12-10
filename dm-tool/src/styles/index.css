@@ -605,66 +605,255 @@ body {
   max-width: 300px;
 }
 
-/* Dark Theme */
+/* Dark Theme - Tailwind slate palette */
 body.dark-theme {
-  background-color: #1e1e1e;
-  color: #d4d4d4;
+  background-color: #0f172a;
+  color: #e5e7eb;
 }
 
 body.dark-theme .main-container {
-  background-color: #252526;
+  background-color: #111827;
 }
 
+/* Shared Dark Theme Styles (Tailwind slate palette) */
 body.dark-theme .toolbar {
-  background-color: #2d2d30;
-  border-color: #3c3c3c;
+  background-color: #1f2937;
+  border-color: #374151;
 }
 
 body.dark-theme .content-area {
-  background-color: #1e1e1e;
+  background-color: #111827;
 }
 
 body.dark-theme .data-table th {
-  background-color: #2d2d30;
-  color: #d4d4d4;
-  border-color: #3c3c3c;
+  background-color: #1f2937;
+  color: #e5e7eb;
+  border-color: #374151;
 }
 
 body.dark-theme .data-table td {
-  border-color: #3c3c3c;
-  color: #d4d4d4;
+  border-color: #374151;
+  color: #e5e7eb;
+}
+
+body.dark-theme .data-table tr:hover td {
+  background-color: #1f2937;
 }
 
 body.dark-theme .code-cell {
-  color: #9cdcfe;
+  color: #60a5fa;
 }
 
 body.dark-theme .btn {
-  background-color: #3c3c3c;
-  border-color: #505050;
-  color: #d4d4d4;
+  background-color: #1f2937;
+  border-color: #374151;
+  color: #e5e7eb;
 }
 
 body.dark-theme .btn:hover {
-  background-color: #505050;
+  background-color: #374151;
+}
+
+body.dark-theme .btn-primary {
+  background-color: #3b82f6;
+  border-color: #3b82f6;
+  color: #fff;
+}
+
+body.dark-theme .btn-primary:hover {
+  background-color: #2563eb;
+  border-color: #2563eb;
 }
 
 body.dark-theme .editor-textarea {
-  background-color: #1e1e1e;
-  color: #d4d4d4;
-  border-color: #3c3c3c;
+  background-color: #0f172a;
+  color: #e5e7eb;
+  border-color: #374151;
 }
 
 body.dark-theme .modal {
-  background-color: #2d2d30;
-  color: #d4d4d4;
+  background-color: #1f2937;
+  color: #e5e7eb;
 }
 
 body.dark-theme .form-input,
 body.dark-theme .form-select {
-  background-color: #3c3c3c;
-  border-color: #505050;
-  color: #d4d4d4;
+  background-color: #1f2937;
+  border-color: #374151;
+  color: #e5e7eb;
+}
+
+body.dark-theme .form-input:focus,
+body.dark-theme .form-select:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+
+/* Sidebar Dark Theme - Matches Data Mapping page colors */
+body.dark-theme .sidebar {
+  background-color: #111827;
+  border-right-color: #1f2937;
+}
+
+body.dark-theme .sidebar-header {
+  background-color: #0f172a;
+  border-bottom-color: #1f2937;
+}
+
+body.dark-theme .sidebar-nav {
+  border-bottom-color: #1f2937;
+}
+
+body.dark-theme .nav-btn {
+  color: #9ca3af;
+}
+
+body.dark-theme .nav-btn:hover {
+  background-color: #1f2937;
+  color: #f3f4f6;
+}
+
+body.dark-theme .nav-btn.active {
+  background-color: #3b82f6;
+  color: white;
+}
+
+body.dark-theme .sidebar-section {
+  border-bottom-color: #1f2937;
+}
+
+body.dark-theme .search-box {
+  background-color: #0f172a;
+}
+
+body.dark-theme .search-input {
+  background-color: #1f2937;
+  border-color: #374151;
+  color: #f3f4f6;
+}
+
+body.dark-theme .search-input::placeholder {
+  color: #6b7280;
+}
+
+body.dark-theme .search-input:focus {
+  outline-color: #3b82f6;
+}
+
+body.dark-theme .schema-block {
+  border-bottom-color: #1f2937;
+}
+
+body.dark-theme .schema-header {
+  background-color: #111827;
+}
+
+body.dark-theme .schema-header:hover {
+  background-color: #1f2937;
+}
+
+body.dark-theme .schema-header-title {
+  color: #e5e7eb;
+}
+
+body.dark-theme .table-list {
+  background-color: #0f172a;
+}
+
+body.dark-theme .table-item {
+  border-bottom-color: #1f2937;
+  color: #9ca3af;
+}
+
+body.dark-theme .table-item:hover {
+  background-color: #1f2937;
+  color: #f3f4f6;
+}
+
+body.dark-theme .table-item.active {
+  background-color: #3b82f6;
+  color: white;
+}
+
+body.dark-theme .script-item {
+  border-bottom-color: #1f2937;
+}
+
+body.dark-theme .script-item:hover {
+  background-color: #1f2937;
+}
+
+body.dark-theme .script-item.active {
+  background-color: #3b82f6;
+}
+
+body.dark-theme .script-item-type {
+  background-color: #374151;
+}
+
+/* Sidebar Mapping Section Buttons (dark theme compatible) */
+.sidebar-mapping-btn {
+  flex: 1;
+  background: #3e5368;
+  border: none;
+  color: #ecf0f1;
+}
+
+body.dark-theme .sidebar-mapping-btn {
+  background: #1f2937;
+  color: #e5e7eb;
+}
+
+body.dark-theme .sidebar-mapping-btn:hover {
+  background: #374151;
+}
+
+/* Mapping count badge */
+.mapping-count-badge {
+  background: #3e5368;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 10px;
+  color: #bdc3c7;
+}
+
+body.dark-theme .mapping-count-badge {
+  background: #374151;
+  color: #9ca3af;
+}
+
+/* Sidebar footer */
+.sidebar-footer {
+  padding: 12px;
+  border-top: 1px solid #34495e;
+  display: flex;
+  gap: 8px;
+  background: #233140;
+}
+
+body.dark-theme .sidebar-footer {
+  border-top-color: #1f2937;
+  background: #0f172a;
+}
+
+/* Sidebar section text */
+.sidebar-script-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: #ecf0f1;
+}
+
+body.dark-theme .sidebar-script-name {
+  color: #e5e7eb;
+}
+
+/* Sidebar empty state text */
+.sidebar-empty-text {
+  color: #95a5a6;
+}
+
+body.dark-theme .sidebar-empty-text {
+  color: #6b7280;
 }
 
 /* =========================================
@@ -942,73 +1131,75 @@ body.dark-theme .form-select {
   gap: 16px;
 }
 
-/* Dark Theme */
+/* Dark Theme - Script Manager (matches Data Mapping theme) */
 body.dark-theme .script-manager-list {
-  background-color: #252526;
-  border-color: #3c3c3c;
+  background-color: #111827;
+  border-color: #1f2937;
 }
 
 body.dark-theme .script-manager-list-header {
-  border-color: #3c3c3c;
+  background-color: #0f172a;
+  border-color: #1f2937;
 }
 
 body.dark-theme .script-manager-list-header h3 {
-  color: #d4d4d4;
+  color: #e5e7eb;
 }
 
 body.dark-theme .script-manager-item {
-  border-color: #3c3c3c;
+  border-color: #1f2937;
 }
 
 body.dark-theme .script-manager-item:hover {
-  background-color: #2d2d30;
+  background-color: #1f2937;
 }
 
 body.dark-theme .script-manager-item.active {
-  background-color: #264f78;
+  background-color: #3b82f6;
 }
 
 body.dark-theme .script-manager-item-name {
-  color: #d4d4d4;
+  color: #e5e7eb;
 }
 
 body.dark-theme .script-manager-item-meta {
-  color: #858585;
+  color: #6b7280;
 }
 
 body.dark-theme .script-manager-detail {
-  background-color: #1e1e1e;
+  background-color: #111827;
 }
 
 body.dark-theme .script-manager-detail-header {
-  border-color: #3c3c3c;
+  background-color: #0f172a;
+  border-color: #1f2937;
 }
 
 body.dark-theme .script-manager-detail-header h3 {
-  color: #d4d4d4;
+  color: #e5e7eb;
 }
 
 body.dark-theme .script-manager-info {
-  background-color: #252526;
-  border-color: #3c3c3c;
+  background-color: #1f2937;
+  border-color: #374151;
 }
 
 body.dark-theme .script-manager-info-item {
-  color: #858585;
+  color: #9ca3af;
 }
 
 body.dark-theme .script-manager-preview {
-  background-color: #1e1e1e;
-  color: #d4d4d4;
+  background-color: #0f172a;
+  color: #e5e7eb;
 }
 
 body.dark-theme .script-manager-empty,
 body.dark-theme .script-manager-empty-detail {
-  color: #858585;
+  color: #6b7280;
 }
 
 body.dark-theme .script-manager-empty-detail h3 {
-  color: #d4d4d4;
+  color: #e5e7eb;
 }
 
 /* =========================================
@@ -1315,24 +1506,27 @@ body.dark-theme .script-manager-empty-detail h3 {
   transform: scale(1.05);
 }
 
-/* Dark theme adjustments for sidebar */
+/* Dark theme adjustments for sidebar (Tailwind slate palette) */
 body.dark-theme .sidebar-create-form {
-  background-color: #1e1e1e;
+  background-color: #0f172a;
 }
 
 body.dark-theme .sidebar-create-form input,
 body.dark-theme .sidebar-create-form select {
-  background-color: #3c3c3c;
+  background-color: #1f2937;
+  border-color: #374151;
+  color: #e5e7eb;
 }
 
 body.dark-theme .sidebar-script-edit input {
-  background-color: #3c3c3c;
-  color: #d4d4d4;
+  background-color: #1f2937;
+  border-color: #374151;
+  color: #e5e7eb;
 }
 
 body.dark-theme .sidebar-toggle-btn {
-  background-color: #252526;
-  border: 1px solid #3c3c3c;
+  background-color: #111827;
+  border: 1px solid #374151;
 }
 
 /* =========================================
@@ -1526,59 +1720,64 @@ body.dark-theme .sidebar-toggle-btn {
   flex-shrink: 0;
 }
 
-/* Dark theme toolbar */
-body.dark-theme .toolbar {
-  background-color: #2d2d30;
-  border-color: #3c3c3c;
-}
-
+/* Toolbar Dark Theme (Tailwind slate palette) */
 body.dark-theme .toolbar-title {
-  color: #d4d4d4;
+  color: #e5e7eb;
 }
 
 body.dark-theme .toolbar-icon-btn {
-  background-color: #3c3c3c;
-  border-color: #505050;
-  color: #d4d4d4;
+  background-color: #1f2937;
+  border-color: #374151;
+  color: #e5e7eb;
 }
 
 body.dark-theme .toolbar-icon-btn:hover {
-  background-color: #505050;
-  color: white;
+  background-color: #374151;
+  color: #f9fafb;
 }
 
 body.dark-theme .script-dropdown-trigger {
-  background-color: #3c3c3c;
-  border-color: #505050;
+  background-color: #1f2937;
+  border-color: #374151;
+  color: #e5e7eb;
 }
 
 body.dark-theme .script-dropdown-trigger:hover {
-  border-color: #60a5fa;
+  border-color: #3b82f6;
 }
 
 body.dark-theme .script-dropdown-label {
-  color: #d4d4d4;
+  color: #e5e7eb;
 }
 
 body.dark-theme .script-dropdown-menu {
-  background-color: #2d2d30;
-  border-color: #3c3c3c;
+  background-color: #111827;
+  border-color: #374151;
 }
 
 body.dark-theme .script-dropdown-item {
-  border-color: #3c3c3c;
+  border-color: #1f2937;
+  color: #e5e7eb;
 }
 
 body.dark-theme .script-dropdown-item:hover {
-  background-color: #3c3c3c;
+  background-color: #1f2937;
 }
 
 body.dark-theme .script-dropdown-item.active {
-  background-color: #264f78;
+  background-color: #3b82f6;
 }
 
 body.dark-theme .script-dropdown-item-name {
-  color: #d4d4d4;
+  color: #e5e7eb;
+}
+
+body.dark-theme .script-dropdown-empty {
+  color: #6b7280;
+}
+
+body.dark-theme .script-dropdown-arrow {
+  color: #6b7280;
 }
 
 /* =========================================
@@ -2410,306 +2609,355 @@ body.dark-theme .script-dropdown-item-name {
 .change-added { background-color: #d4edda; color: #155724; }
 .change-deleted { background-color: #f8d7da; color: #721c24; }
 
-/* Dark Theme - Schema Compare */
+/* Dark Theme - Schema Compare (matches Data Mapping theme) */
 body.dark-theme .schema-compare {
-  background-color: #1e1e1e;
+  background-color: #111827;
 }
 
 body.dark-theme .compare-sidebar {
-  background-color: #252526;
-  border-color: #3c3c3c;
+  background-color: #111827;
+  border-color: #1f2937;
 }
 
 body.dark-theme .compare-config {
-  border-color: #3c3c3c;
+  border-color: #1f2937;
 }
 
 body.dark-theme .compare-label {
-  color: #d4d4d4;
+  color: #e5e7eb;
 }
 
 body.dark-theme .compare-select {
-  background-color: #3c3c3c;
-  border-color: #505050;
-  color: #d4d4d4;
+  background-color: #1f2937;
+  border-color: #374151;
+  color: #e5e7eb;
 }
 
 body.dark-theme .compare-checkbox-label {
-  color: #d4d4d4;
+  color: #e5e7eb;
 }
 
 body.dark-theme .compare-textarea {
-  background-color: #1e1e1e;
-  border-color: #3c3c3c;
-  color: #d4d4d4;
+  background-color: #0f172a;
+  border-color: #1f2937;
+  color: #e5e7eb;
 }
 
 body.dark-theme .compare-summary {
-  background-color: #1e1e1e;
-  border-color: #3c3c3c;
+  background-color: #0f172a;
+  border-color: #1f2937;
 }
 
 body.dark-theme .stat-item {
-  background-color: #2d2d30;
+  background-color: #1f2937;
 }
 
 body.dark-theme .stat-value {
-  color: #d4d4d4;
+  color: #e5e7eb;
 }
 
 body.dark-theme .compare-search {
-  background-color: #252526;
-  border-color: #3c3c3c;
+  background-color: #0f172a;
+  border-color: #1f2937;
 }
 
 body.dark-theme .compare-search input {
-  color: #d4d4d4;
+  background-color: #1f2937;
+  color: #e5e7eb;
 }
 
 body.dark-theme .compare-schema-group {
-  border-color: #3c3c3c;
+  border-color: #1f2937;
 }
 
 body.dark-theme .compare-schema-header {
-  background-color: #2d2d30;
-  color: #d4d4d4;
+  background-color: #111827;
+  color: #e5e7eb;
 }
 
 body.dark-theme .compare-schema-header:hover {
-  background-color: #3c3c3c;
+  background-color: #1f2937;
 }
 
 body.dark-theme .compare-schema-count {
-  background-color: #3c3c3c;
-  color: #aaa;
+  background-color: #374151;
+  color: #9ca3af;
 }
 
 body.dark-theme .compare-schema-tables {
-  background-color: #252526;
+  background-color: #0f172a;
 }
 
 body.dark-theme .compare-table-item {
-  border-color: #3c3c3c;
+  border-color: #1f2937;
 }
 
 body.dark-theme .compare-table-item:hover {
-  background-color: #2d2d30;
+  background-color: #1f2937;
 }
 
 body.dark-theme .compare-table-item.active {
-  background-color: #264f78;
+  background-color: #3b82f6;
 }
 
 body.dark-theme .compare-table-item .table-name {
-  color: #d4d4d4;
+  color: #e5e7eb;
 }
 
 body.dark-theme .compare-main {
-  background-color: #1e1e1e;
+  background-color: #111827;
 }
 
 body.dark-theme .compare-empty {
-  color: #858585;
+  color: #6b7280;
 }
 
 body.dark-theme .compare-empty h3 {
-  color: #d4d4d4;
+  color: #e5e7eb;
 }
 
 body.dark-theme .compare-details-header {
-  border-color: #3c3c3c;
+  background-color: #0f172a;
+  border-color: #1f2937;
 }
 
 body.dark-theme .compare-details-header h3 {
-  color: #d4d4d4;
+  color: #e5e7eb;
 }
 
 body.dark-theme .compare-table th {
-  background-color: #2d2d30;
-  color: #d4d4d4;
-  border-color: #3c3c3c;
+  background-color: #1f2937;
+  color: #e5e7eb;
+  border-color: #374151;
 }
 
 body.dark-theme .compare-table td {
-  border-color: #3c3c3c;
+  border-color: #374151;
 }
 
 body.dark-theme .compare-table .column-name {
-  color: #9cdcfe;
+  color: #60a5fa;
 }
 
 body.dark-theme .compare-table .column-type {
-  color: #d4d4d4;
+  color: #e5e7eb;
 }
 
 body.dark-theme .compare-table-section h4 {
-  color: #d4d4d4;
+  color: #e5e7eb;
 }
 
 body.dark-theme .compare-header {
-  background-color: #1e1e1e;
+  background-color: #0f172a;
 }
 
 body.dark-theme .compare-config {
-  background-color: #252526;
+  background-color: #1f2937;
 }
 
-/* Dark Theme - Compare Dropdown */
+/* Dark Theme - Compare Dropdown (Tailwind slate palette) */
 body.dark-theme .compare-dropdown-trigger {
-  background-color: #3c3c3c;
-  border-color: #505050;
-  color: #d4d4d4;
+  background-color: #1f2937;
+  border-color: #374151;
+  color: #e5e7eb;
 }
 
 body.dark-theme .compare-dropdown-trigger:hover {
-  background-color: #4a4a4a;
-  border-color: #3498db;
+  background-color: #374151;
+  border-color: #3b82f6;
 }
 
 body.dark-theme .compare-dropdown-trigger:focus {
-  border-color: #3498db;
-  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
 }
 
 body.dark-theme .compare-dropdown-label {
-  color: #d4d4d4;
+  color: #e5e7eb;
 }
 
 body.dark-theme .compare-dropdown-arrow {
-  color: #858585;
+  color: #6b7280;
 }
 
 body.dark-theme .compare-dropdown-menu {
-  background-color: #2d2d30;
-  border-color: #505050;
+  background-color: #111827;
+  border-color: #374151;
   box-shadow: 0 4px 12px rgba(0,0,0,0.4);
 }
 
 body.dark-theme .compare-dropdown-item {
-  color: #d4d4d4;
+  color: #e5e7eb;
 }
 
 body.dark-theme .compare-dropdown-item:hover {
-  background-color: #3c3c3c;
+  background-color: #1f2937;
 }
 
 body.dark-theme .compare-dropdown-item.active {
-  background-color: #264f78;
+  background-color: #3b82f6;
 }
 
 body.dark-theme .compare-dropdown-item-name {
-  color: #d4d4d4;
+  color: #e5e7eb;
 }
 
 body.dark-theme .compare-dropdown-empty {
-  color: #858585;
+  color: #6b7280;
 }
 
 body.dark-theme .compare-endpoint {
-  background-color: #2d2d30;
-  border-color: #3c3c3c;
+  background-color: #111827;
+  border-color: #1f2937;
 }
 
 body.dark-theme .compare-endpoint-label {
-  color: #858585;
+  color: #6b7280;
 }
 
 body.dark-theme .compare-endpoint-select select {
-  background-color: #3c3c3c;
-  border-color: #505050;
-  color: #d4d4d4;
+  background-color: #1f2937;
+  border-color: #374151;
+  color: #e5e7eb;
 }
 
 body.dark-theme .compare-endpoint-info {
-  color: #858585;
+  color: #6b7280;
 }
 
 body.dark-theme .compare-target-toggle {
-  background-color: #2d2d30;
+  background-color: #111827;
 }
 
 body.dark-theme .compare-target-toggle .toggle-btn {
-  color: #858585;
+  color: #6b7280;
 }
 
 body.dark-theme .compare-target-toggle .toggle-btn:hover {
-  color: #d4d4d4;
+  color: #e5e7eb;
 }
 
 body.dark-theme .compare-target-toggle .toggle-btn.active {
-  background-color: #3c3c3c;
-  color: #d4d4d4;
+  background-color: #1f2937;
+  color: #e5e7eb;
 }
 
 body.dark-theme .compare-run-btn {
-  background-color: #0e639c;
+  background-color: #3b82f6;
 }
 
 body.dark-theme .compare-run-btn:hover {
-  background-color: #1177bb;
+  background-color: #2563eb;
 }
 
 body.dark-theme .summary-stat {
-  background-color: #2d2d30;
-  border-color: #3c3c3c;
+  background-color: #111827;
+  border-color: #1f2937;
 }
 
 body.dark-theme .summary-stat:hover {
-  background-color: #3c3c3c;
-  border-color: #505050;
+  background-color: #1f2937;
+  border-color: #374151;
 }
 
 body.dark-theme .summary-stat.active {
-  background-color: #264f78;
-  border-color: #0e639c;
+  background-color: #3b82f6;
+  border-color: #2563eb;
 }
 
 body.dark-theme .summary-stat .stat-value {
-  color: #d4d4d4;
+  color: #e5e7eb;
 }
 
 body.dark-theme .summary-stat .stat-label {
-  color: #858585;
+  color: #6b7280;
 }
 
 body.dark-theme .compare-filter-bar {
-  background-color: #252526;
-  border-color: #3c3c3c;
+  background-color: #0f172a;
+  border-color: #1f2937;
 }
 
 body.dark-theme .filter-clear {
-  background-color: #3c3c3c;
-  color: #d4d4d4;
+  background-color: #1f2937;
+  color: #e5e7eb;
 }
 
 body.dark-theme .filter-clear:hover {
-  background-color: #505050;
+  background-color: #374151;
 }
 
 body.dark-theme .compare-results-info {
-  background-color: #1e1e1e;
-  border-color: #3c3c3c;
-  color: #858585;
+  background-color: #0f172a;
+  border-color: #1f2937;
+  color: #6b7280;
 }
 
 body.dark-theme .compare-no-results {
-  color: #858585;
+  color: #6b7280;
+}
+
+/* Schema Compare Diff Colors - Light Theme defaults via CSS variables */
+.schema-compare {
+  --diff-modified-bg: rgba(234, 179, 8, 0.15);
+  --diff-added-bg: rgba(34, 197, 94, 0.12);
+  --diff-deleted-bg: rgba(239, 68, 68, 0.12);
+  --legend-bg: rgba(0, 0, 0, 0.03);
+  --text-muted: #9ca3af;
+  --border-color: #e5e7eb;
+}
+
+/* Schema Compare Diff Colors - Dark Theme (less bright, more transparent) */
+body.dark-theme .schema-compare {
+  --diff-modified-bg: rgba(234, 179, 8, 0.08);
+  --diff-added-bg: rgba(34, 197, 94, 0.08);
+  --diff-deleted-bg: rgba(239, 68, 68, 0.08);
+  --legend-bg: rgba(255, 255, 255, 0.03);
+  --text-muted: #6b7280;
+  --border-color: #374151;
+}
+
+/* VS Code Gray Theme - even more subtle colors */
+body.dark-theme.vscode-gray .schema-compare {
+  --diff-modified-bg: rgba(220, 220, 170, 0.08);
+  --diff-added-bg: rgba(78, 201, 176, 0.08);
+  --diff-deleted-bg: rgba(244, 135, 113, 0.08);
+  --legend-bg: rgba(255, 255, 255, 0.02);
+  --text-muted: #858585;
+  --border-color: #3c3c3c;
+}
+
+/* Side-by-side table styles */
+.compare-side-table {
+  border-radius: 0 0 6px 6px;
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-top: none;
+}
+
+.compare-side-table th {
+  font-size: 11px;
+  padding: 8px 10px;
+}
+
+.compare-side-table td {
+  padding: 6px 10px;
+  font-size: 12px;
 }
 
 body.dark-theme .compare-help {
-  background-color: #2d2d30;
+  background-color: #111827;
 }
 
 body.dark-theme .compare-help h4 {
-  color: #d4d4d4;
+  color: #e5e7eb;
 }
 
 body.dark-theme .compare-help ul {
-  color: #a0a0a0;
+  color: #9ca3af;
 }
 
 body.dark-theme .compare-help strong {
-  color: #d4d4d4;
+  color: #e5e7eb;
 }
 
 /* =========================================
@@ -3057,36 +3305,37 @@ body.dark-theme .compare-help strong {
    Column Mapper Dark Theme
    ========================================= */
 
+/* Column Mapper Dark Theme (Tailwind slate palette) */
 body.dark-theme .column-mapper {
-  background-color: #1a1a1a;
+  background-color: #111827;
 }
 
 body.dark-theme .mapper-header {
-  background-color: #252526;
-  border-color: #3c3c3c;
+  background-color: #0f172a;
+  border-color: #1f2937;
 }
 
 body.dark-theme .mapper-header h2 {
-  color: #e5e5e5;
+  color: #e5e7eb;
 }
 
 body.dark-theme .mapper-selectors {
-  background-color: #252526;
-  border-color: #3c3c3c;
+  background-color: #0f172a;
+  border-color: #1f2937;
 }
 
 body.dark-theme .mapper-selector label {
-  color: #858585;
+  color: #6b7280;
 }
 
 body.dark-theme .mapper-selector select {
-  background-color: #3c3c3c;
-  border-color: #4a4a4a;
-  color: #e5e5e5;
+  background-color: #1f2937;
+  border-color: #374151;
+  color: #e5e7eb;
 }
 
 body.dark-theme .mapper-selector select:hover {
-  border-color: #5a5a5a;
+  border-color: #4b5563;
 }
 
 body.dark-theme .mapper-selector select:focus {
@@ -3098,17 +3347,17 @@ body.dark-theme .mapper-arrow {
 }
 
 body.dark-theme .mapper-toolbar {
-  background-color: #252526;
-  border-color: #3c3c3c;
+  background-color: #0f172a;
+  border-color: #1f2937;
 }
 
 body.dark-theme .zoom-indicator {
-  background-color: #3c3c3c;
-  color: #a0a0a0;
+  background-color: #1f2937;
+  color: #9ca3af;
 }
 
 body.dark-theme .mapper-empty h3 {
-  color: #d4d4d4;
+  color: #e5e7eb;
 }
 
 body.dark-theme .mapper-empty p {
@@ -3116,29 +3365,29 @@ body.dark-theme .mapper-empty p {
 }
 
 body.dark-theme .mapper-detail-panel {
-  background-color: #252526;
-  border: 1px solid #3c3c3c;
+  background-color: #111827;
+  border: 1px solid #1f2937;
 }
 
 body.dark-theme .detail-header {
-  background-color: #2d2d30;
-  border-color: #3c3c3c;
+  background-color: #1f2937;
+  border-color: #374151;
 }
 
 body.dark-theme .detail-header h3 {
-  color: #e5e5e5;
+  color: #e5e7eb;
 }
 
 body.dark-theme .detail-row label {
-  color: #858585;
+  color: #6b7280;
 }
 
 body.dark-theme .detail-row span {
-  color: #e5e5e5;
+  color: #e5e7eb;
 }
 
 body.dark-theme .detail-separator {
-  background-color: #3c3c3c;
+  background-color: #374151;
 }
 
 body.dark-theme .detail-warnings {
@@ -3165,4 +3414,774 @@ body.dark-theme .compatibility-badge.needs_conversion {
 
 body.dark-theme .compatibility-badge.incompatible {
   background-color: rgba(239, 68, 68, 0.2);
+}
+
+/* =========================================
+   VS Code Gray Theme Variant
+   =========================================
+   When body has both .dark-theme and .vscode-gray classes,
+   use the original VS Code gray color palette instead of Tailwind slate.
+
+   VS Code Color Palette:
+   - #1e1e1e (darkest background)
+   - #252526 (main background)
+   - #2d2d30 (card/content backgrounds)
+   - #3c3c3c (borders, hover states)
+   - #505050 (secondary borders)
+   - #d4d4d4 (primary text)
+   - #858585 (secondary/muted text)
+   - #264f78 (active/selected states - blue)
+   ========================================= */
+
+/* Base Colors - VS Code Gray */
+body.dark-theme.vscode-gray {
+  background-color: #1e1e1e;
+  color: #d4d4d4;
+}
+
+body.dark-theme.vscode-gray .main-container {
+  background-color: #252526;
+}
+
+/* Shared Components - VS Code Gray */
+body.dark-theme.vscode-gray .toolbar {
+  background-color: #2d2d30;
+  border-color: #3c3c3c;
+}
+
+body.dark-theme.vscode-gray .content-area {
+  background-color: #252526;
+}
+
+body.dark-theme.vscode-gray .data-table th {
+  background-color: #2d2d30;
+  color: #d4d4d4;
+  border-color: #3c3c3c;
+}
+
+body.dark-theme.vscode-gray .data-table td {
+  border-color: #3c3c3c;
+  color: #d4d4d4;
+}
+
+body.dark-theme.vscode-gray .data-table tr:hover td {
+  background-color: #2d2d30;
+}
+
+body.dark-theme.vscode-gray .code-cell {
+  color: #569cd6;
+}
+
+body.dark-theme.vscode-gray .btn {
+  background-color: #2d2d30;
+  border-color: #3c3c3c;
+  color: #d4d4d4;
+}
+
+body.dark-theme.vscode-gray .btn:hover {
+  background-color: #3c3c3c;
+}
+
+body.dark-theme.vscode-gray .btn-primary {
+  background-color: #264f78;
+  border-color: #264f78;
+  color: #fff;
+}
+
+body.dark-theme.vscode-gray .btn-primary:hover {
+  background-color: #1e3a5c;
+  border-color: #1e3a5c;
+}
+
+body.dark-theme.vscode-gray .editor-textarea {
+  background-color: #1e1e1e;
+  color: #d4d4d4;
+  border-color: #3c3c3c;
+}
+
+body.dark-theme.vscode-gray .modal {
+  background-color: #2d2d30;
+  color: #d4d4d4;
+}
+
+body.dark-theme.vscode-gray .form-input,
+body.dark-theme.vscode-gray .form-select {
+  background-color: #2d2d30;
+  border-color: #3c3c3c;
+  color: #d4d4d4;
+}
+
+body.dark-theme.vscode-gray .form-input:focus,
+body.dark-theme.vscode-gray .form-select:focus {
+  border-color: #264f78;
+  box-shadow: 0 0 0 3px rgba(38, 79, 120, 0.2);
+}
+
+/* Sidebar - VS Code Gray */
+body.dark-theme.vscode-gray .sidebar {
+  background-color: #252526;
+  border-right-color: #2d2d30;
+}
+
+body.dark-theme.vscode-gray .sidebar-header {
+  background-color: #1e1e1e;
+  border-bottom-color: #2d2d30;
+}
+
+body.dark-theme.vscode-gray .sidebar-nav {
+  border-bottom-color: #2d2d30;
+}
+
+body.dark-theme.vscode-gray .nav-btn {
+  color: #858585;
+}
+
+body.dark-theme.vscode-gray .nav-btn:hover {
+  background-color: #2d2d30;
+  color: #d4d4d4;
+}
+
+body.dark-theme.vscode-gray .nav-btn.active {
+  background-color: #264f78;
+  color: white;
+}
+
+body.dark-theme.vscode-gray .sidebar-section {
+  border-bottom-color: #2d2d30;
+}
+
+body.dark-theme.vscode-gray .search-box {
+  background-color: #1e1e1e;
+}
+
+body.dark-theme.vscode-gray .search-input {
+  background-color: #2d2d30;
+  border-color: #3c3c3c;
+  color: #d4d4d4;
+}
+
+body.dark-theme.vscode-gray .search-input::placeholder {
+  color: #858585;
+}
+
+body.dark-theme.vscode-gray .search-input:focus {
+  outline-color: #264f78;
+}
+
+body.dark-theme.vscode-gray .schema-block {
+  border-bottom-color: #2d2d30;
+}
+
+body.dark-theme.vscode-gray .schema-header {
+  background-color: #252526;
+}
+
+body.dark-theme.vscode-gray .schema-header:hover {
+  background-color: #2d2d30;
+}
+
+body.dark-theme.vscode-gray .schema-header-title {
+  color: #d4d4d4;
+}
+
+body.dark-theme.vscode-gray .table-list {
+  background-color: #1e1e1e;
+}
+
+body.dark-theme.vscode-gray .table-item {
+  border-bottom-color: #2d2d30;
+  color: #858585;
+}
+
+body.dark-theme.vscode-gray .table-item:hover {
+  background-color: #2d2d30;
+  color: #d4d4d4;
+}
+
+body.dark-theme.vscode-gray .table-item.active {
+  background-color: #264f78;
+  color: white;
+}
+
+body.dark-theme.vscode-gray .script-item {
+  border-bottom-color: #2d2d30;
+}
+
+body.dark-theme.vscode-gray .script-item:hover {
+  background-color: #2d2d30;
+}
+
+body.dark-theme.vscode-gray .script-item.active {
+  background-color: #264f78;
+}
+
+body.dark-theme.vscode-gray .script-item-type {
+  background-color: #3c3c3c;
+}
+
+body.dark-theme.vscode-gray .sidebar-mapping-btn {
+  background: #2d2d30;
+  color: #d4d4d4;
+}
+
+body.dark-theme.vscode-gray .sidebar-mapping-btn:hover {
+  background: #3c3c3c;
+}
+
+body.dark-theme.vscode-gray .mapping-count-badge {
+  background: #3c3c3c;
+  color: #858585;
+}
+
+body.dark-theme.vscode-gray .sidebar-footer {
+  border-top-color: #2d2d30;
+  background: #1e1e1e;
+}
+
+body.dark-theme.vscode-gray .sidebar-script-name {
+  color: #d4d4d4;
+}
+
+body.dark-theme.vscode-gray .sidebar-empty-text {
+  color: #858585;
+}
+
+/* Script Manager - VS Code Gray */
+body.dark-theme.vscode-gray .script-manager-list {
+  background-color: #252526;
+  border-color: #2d2d30;
+}
+
+body.dark-theme.vscode-gray .script-manager-list-header {
+  background-color: #1e1e1e;
+  border-color: #2d2d30;
+}
+
+body.dark-theme.vscode-gray .script-manager-list-header h3 {
+  color: #d4d4d4;
+}
+
+body.dark-theme.vscode-gray .script-manager-item {
+  border-color: #2d2d30;
+}
+
+body.dark-theme.vscode-gray .script-manager-item:hover {
+  background-color: #2d2d30;
+}
+
+body.dark-theme.vscode-gray .script-manager-item.active {
+  background-color: #264f78;
+}
+
+body.dark-theme.vscode-gray .script-manager-item-name {
+  color: #d4d4d4;
+}
+
+body.dark-theme.vscode-gray .script-manager-item-meta {
+  color: #858585;
+}
+
+body.dark-theme.vscode-gray .script-manager-detail {
+  background-color: #252526;
+}
+
+body.dark-theme.vscode-gray .script-manager-detail-header {
+  background-color: #1e1e1e;
+  border-color: #2d2d30;
+}
+
+body.dark-theme.vscode-gray .script-manager-detail-header h3 {
+  color: #d4d4d4;
+}
+
+body.dark-theme.vscode-gray .script-manager-info {
+  background-color: #2d2d30;
+  border-color: #3c3c3c;
+}
+
+body.dark-theme.vscode-gray .script-manager-info-item {
+  color: #858585;
+}
+
+body.dark-theme.vscode-gray .script-manager-preview {
+  background-color: #1e1e1e;
+  color: #d4d4d4;
+}
+
+body.dark-theme.vscode-gray .script-manager-empty,
+body.dark-theme.vscode-gray .script-manager-empty-detail {
+  color: #858585;
+}
+
+body.dark-theme.vscode-gray .script-manager-empty-detail h3 {
+  color: #d4d4d4;
+}
+
+/* Sidebar Enhancements - VS Code Gray */
+body.dark-theme.vscode-gray .sidebar-create-form {
+  background-color: #1e1e1e;
+}
+
+body.dark-theme.vscode-gray .sidebar-create-form input,
+body.dark-theme.vscode-gray .sidebar-create-form select {
+  background-color: #2d2d30;
+  border-color: #3c3c3c;
+  color: #d4d4d4;
+}
+
+body.dark-theme.vscode-gray .sidebar-script-edit input {
+  background-color: #2d2d30;
+  border-color: #3c3c3c;
+  color: #d4d4d4;
+}
+
+body.dark-theme.vscode-gray .sidebar-toggle-btn {
+  background-color: #252526;
+  border: 1px solid #3c3c3c;
+}
+
+/* Toolbar - VS Code Gray */
+body.dark-theme.vscode-gray .toolbar-title {
+  color: #d4d4d4;
+}
+
+body.dark-theme.vscode-gray .toolbar-icon-btn {
+  background-color: #2d2d30;
+  border-color: #3c3c3c;
+  color: #d4d4d4;
+}
+
+body.dark-theme.vscode-gray .toolbar-icon-btn:hover {
+  background-color: #3c3c3c;
+  color: #ffffff;
+}
+
+body.dark-theme.vscode-gray .script-dropdown-trigger {
+  background-color: #2d2d30;
+  border-color: #3c3c3c;
+  color: #d4d4d4;
+}
+
+body.dark-theme.vscode-gray .script-dropdown-trigger:hover {
+  border-color: #264f78;
+}
+
+body.dark-theme.vscode-gray .script-dropdown-label {
+  color: #d4d4d4;
+}
+
+body.dark-theme.vscode-gray .script-dropdown-menu {
+  background-color: #252526;
+  border-color: #3c3c3c;
+}
+
+body.dark-theme.vscode-gray .script-dropdown-item {
+  border-color: #2d2d30;
+  color: #d4d4d4;
+}
+
+body.dark-theme.vscode-gray .script-dropdown-item:hover {
+  background-color: #2d2d30;
+}
+
+body.dark-theme.vscode-gray .script-dropdown-item.active {
+  background-color: #264f78;
+}
+
+body.dark-theme.vscode-gray .script-dropdown-item-name {
+  color: #d4d4d4;
+}
+
+body.dark-theme.vscode-gray .script-dropdown-empty {
+  color: #858585;
+}
+
+body.dark-theme.vscode-gray .script-dropdown-arrow {
+  color: #858585;
+}
+
+/* Schema Compare - VS Code Gray */
+body.dark-theme.vscode-gray .schema-compare {
+  background-color: #252526;
+}
+
+body.dark-theme.vscode-gray .compare-sidebar {
+  background-color: #252526;
+  border-color: #2d2d30;
+}
+
+body.dark-theme.vscode-gray .compare-config {
+  border-color: #2d2d30;
+  background-color: #2d2d30;
+}
+
+body.dark-theme.vscode-gray .compare-header {
+  background-color: #1e1e1e;
+}
+
+body.dark-theme.vscode-gray .compare-label {
+  color: #d4d4d4;
+}
+
+body.dark-theme.vscode-gray .compare-select {
+  background-color: #2d2d30;
+  border-color: #3c3c3c;
+  color: #d4d4d4;
+}
+
+body.dark-theme.vscode-gray .compare-checkbox-label {
+  color: #d4d4d4;
+}
+
+body.dark-theme.vscode-gray .compare-textarea {
+  background-color: #1e1e1e;
+  border-color: #2d2d30;
+  color: #d4d4d4;
+}
+
+body.dark-theme.vscode-gray .compare-summary {
+  background-color: #1e1e1e;
+  border-color: #2d2d30;
+}
+
+body.dark-theme.vscode-gray .stat-item {
+  background-color: #2d2d30;
+}
+
+body.dark-theme.vscode-gray .stat-value {
+  color: #d4d4d4;
+}
+
+body.dark-theme.vscode-gray .compare-search {
+  background-color: #1e1e1e;
+  border-color: #2d2d30;
+}
+
+body.dark-theme.vscode-gray .compare-search input {
+  background-color: #2d2d30;
+  color: #d4d4d4;
+}
+
+body.dark-theme.vscode-gray .compare-schema-group {
+  border-color: #2d2d30;
+}
+
+body.dark-theme.vscode-gray .compare-schema-header {
+  background-color: #252526;
+  color: #d4d4d4;
+}
+
+body.dark-theme.vscode-gray .compare-schema-header:hover {
+  background-color: #2d2d30;
+}
+
+body.dark-theme.vscode-gray .compare-schema-count {
+  background-color: #3c3c3c;
+  color: #858585;
+}
+
+body.dark-theme.vscode-gray .compare-schema-tables {
+  background-color: #1e1e1e;
+}
+
+body.dark-theme.vscode-gray .compare-table-item {
+  border-color: #2d2d30;
+}
+
+body.dark-theme.vscode-gray .compare-table-item:hover {
+  background-color: #2d2d30;
+}
+
+body.dark-theme.vscode-gray .compare-table-item.active {
+  background-color: #264f78;
+}
+
+body.dark-theme.vscode-gray .compare-table-item .table-name {
+  color: #d4d4d4;
+}
+
+body.dark-theme.vscode-gray .compare-main {
+  background-color: #252526;
+}
+
+body.dark-theme.vscode-gray .compare-empty {
+  color: #858585;
+}
+
+body.dark-theme.vscode-gray .compare-empty h3 {
+  color: #d4d4d4;
+}
+
+body.dark-theme.vscode-gray .compare-details-header {
+  background-color: #1e1e1e;
+  border-color: #2d2d30;
+}
+
+body.dark-theme.vscode-gray .compare-details-header h3 {
+  color: #d4d4d4;
+}
+
+body.dark-theme.vscode-gray .compare-table th {
+  background-color: #2d2d30;
+  color: #d4d4d4;
+  border-color: #3c3c3c;
+}
+
+body.dark-theme.vscode-gray .compare-table td {
+  border-color: #3c3c3c;
+}
+
+body.dark-theme.vscode-gray .compare-table .column-name {
+  color: #569cd6;
+}
+
+body.dark-theme.vscode-gray .compare-table .column-type {
+  color: #d4d4d4;
+}
+
+body.dark-theme.vscode-gray .compare-table-section h4 {
+  color: #d4d4d4;
+}
+
+/* Compare Dropdown - VS Code Gray */
+body.dark-theme.vscode-gray .compare-dropdown-trigger {
+  background-color: #2d2d30;
+  border-color: #3c3c3c;
+  color: #d4d4d4;
+}
+
+body.dark-theme.vscode-gray .compare-dropdown-trigger:hover {
+  background-color: #3c3c3c;
+  border-color: #264f78;
+}
+
+body.dark-theme.vscode-gray .compare-dropdown-trigger:focus {
+  border-color: #264f78;
+  box-shadow: 0 0 0 3px rgba(38, 79, 120, 0.2);
+}
+
+body.dark-theme.vscode-gray .compare-dropdown-label {
+  color: #d4d4d4;
+}
+
+body.dark-theme.vscode-gray .compare-dropdown-arrow {
+  color: #858585;
+}
+
+body.dark-theme.vscode-gray .compare-dropdown-menu {
+  background-color: #252526;
+  border-color: #3c3c3c;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+}
+
+body.dark-theme.vscode-gray .compare-dropdown-item {
+  color: #d4d4d4;
+}
+
+body.dark-theme.vscode-gray .compare-dropdown-item:hover {
+  background-color: #2d2d30;
+}
+
+body.dark-theme.vscode-gray .compare-dropdown-item.active {
+  background-color: #264f78;
+}
+
+body.dark-theme.vscode-gray .compare-dropdown-item-name {
+  color: #d4d4d4;
+}
+
+body.dark-theme.vscode-gray .compare-dropdown-empty {
+  color: #858585;
+}
+
+body.dark-theme.vscode-gray .compare-endpoint {
+  background-color: #252526;
+  border-color: #2d2d30;
+}
+
+body.dark-theme.vscode-gray .compare-endpoint-label {
+  color: #858585;
+}
+
+body.dark-theme.vscode-gray .compare-endpoint-select select {
+  background-color: #2d2d30;
+  border-color: #3c3c3c;
+  color: #d4d4d4;
+}
+
+body.dark-theme.vscode-gray .compare-endpoint-info {
+  color: #858585;
+}
+
+body.dark-theme.vscode-gray .compare-target-toggle {
+  background-color: #252526;
+}
+
+body.dark-theme.vscode-gray .compare-target-toggle .toggle-btn {
+  color: #858585;
+}
+
+body.dark-theme.vscode-gray .compare-target-toggle .toggle-btn:hover {
+  color: #d4d4d4;
+}
+
+body.dark-theme.vscode-gray .compare-target-toggle .toggle-btn.active {
+  background-color: #2d2d30;
+  color: #d4d4d4;
+}
+
+body.dark-theme.vscode-gray .compare-run-btn {
+  background-color: #264f78;
+}
+
+body.dark-theme.vscode-gray .compare-run-btn:hover {
+  background-color: #1e3a5c;
+}
+
+body.dark-theme.vscode-gray .summary-stat {
+  background-color: #252526;
+  border-color: #2d2d30;
+}
+
+body.dark-theme.vscode-gray .summary-stat:hover {
+  background-color: #2d2d30;
+  border-color: #3c3c3c;
+}
+
+body.dark-theme.vscode-gray .summary-stat.active {
+  background-color: #264f78;
+  border-color: #1e3a5c;
+}
+
+body.dark-theme.vscode-gray .summary-stat .stat-value {
+  color: #d4d4d4;
+}
+
+body.dark-theme.vscode-gray .summary-stat .stat-label {
+  color: #858585;
+}
+
+body.dark-theme.vscode-gray .compare-filter-bar {
+  background-color: #1e1e1e;
+  border-color: #2d2d30;
+}
+
+body.dark-theme.vscode-gray .filter-clear {
+  background-color: #2d2d30;
+  color: #d4d4d4;
+}
+
+body.dark-theme.vscode-gray .filter-clear:hover {
+  background-color: #3c3c3c;
+}
+
+body.dark-theme.vscode-gray .compare-results-info {
+  background-color: #1e1e1e;
+  border-color: #2d2d30;
+  color: #858585;
+}
+
+body.dark-theme.vscode-gray .compare-no-results {
+  color: #858585;
+}
+
+body.dark-theme.vscode-gray .compare-help {
+  background-color: #252526;
+}
+
+body.dark-theme.vscode-gray .compare-help h4 {
+  color: #d4d4d4;
+}
+
+body.dark-theme.vscode-gray .compare-help ul {
+  color: #858585;
+}
+
+body.dark-theme.vscode-gray .compare-help strong {
+  color: #d4d4d4;
+}
+
+/* Column Mapper - VS Code Gray */
+body.dark-theme.vscode-gray .column-mapper {
+  background-color: #252526;
+}
+
+body.dark-theme.vscode-gray .mapper-header {
+  background-color: #1e1e1e;
+  border-color: #2d2d30;
+}
+
+body.dark-theme.vscode-gray .mapper-header h2 {
+  color: #d4d4d4;
+}
+
+body.dark-theme.vscode-gray .mapper-selectors {
+  background-color: #1e1e1e;
+  border-color: #2d2d30;
+}
+
+body.dark-theme.vscode-gray .mapper-selector label {
+  color: #858585;
+}
+
+body.dark-theme.vscode-gray .mapper-selector select {
+  background-color: #2d2d30;
+  border-color: #3c3c3c;
+  color: #d4d4d4;
+}
+
+body.dark-theme.vscode-gray .mapper-selector select:hover {
+  border-color: #505050;
+}
+
+body.dark-theme.vscode-gray .mapper-selector select:focus {
+  border-color: #264f78;
+}
+
+body.dark-theme.vscode-gray .mapper-arrow {
+  color: #858585;
+}
+
+body.dark-theme.vscode-gray .mapper-toolbar {
+  background-color: #1e1e1e;
+  border-color: #2d2d30;
+}
+
+body.dark-theme.vscode-gray .zoom-indicator {
+  background-color: #2d2d30;
+  color: #858585;
+}
+
+body.dark-theme.vscode-gray .mapper-empty h3 {
+  color: #d4d4d4;
+}
+
+body.dark-theme.vscode-gray .mapper-empty p {
+  color: #858585;
+}
+
+body.dark-theme.vscode-gray .mapper-detail-panel {
+  background-color: #252526;
+  border: 1px solid #2d2d30;
+}
+
+body.dark-theme.vscode-gray .detail-header {
+  background-color: #2d2d30;
+  border-color: #3c3c3c;
+}
+
+body.dark-theme.vscode-gray .detail-header h3 {
+  color: #d4d4d4;
+}
+
+body.dark-theme.vscode-gray .detail-row label {
+  color: #858585;
+}
+
+body.dark-theme.vscode-gray .detail-row span {
+  color: #d4d4d4;
+}
+
+body.dark-theme.vscode-gray .detail-separator {
+  background-color: #3c3c3c;
 }
