@@ -184,11 +184,7 @@ export default function DataDictionary({
               {selectedTable.constraints.map((c, i) => (
                 <tr key={i}>
                   <td className="code-cell">{c.name}</td>
-                  <td>
-                    <span className={`key-tag ${c.type === 'Primary Key' ? 'pk-tag' : c.type === 'Foreign Key' ? 'fk-tag' : 'uq-tag'}`}>
-                      {c.type}
-                    </span>
-                  </td>
+                  <td>{c.type}</td>
                   <td className="code-cell">{c.localCols}</td>
                   <td className="code-cell">{c.ref || '-'}</td>
                 </tr>
@@ -220,15 +216,7 @@ export default function DataDictionary({
             return (
               <tr key={i}>
                 <td className="code-cell">
-                  {col.name}
-                  {tags.map(tag => (
-                    <span
-                      key={tag}
-                      className={`key-tag ${tag === 'PK' ? 'pk-tag' : tag === 'FK' ? 'fk-tag' : 'uq-tag'}`}
-                    >
-                      {tag}
-                    </span>
-                  ))}
+                  {col.name}{tags.length > 0 ? ` (${tags.join(', ')})` : ''}
                 </td>
                 <td className="code-cell">{col.type}</td>
                 <td>{col.nullable}</td>

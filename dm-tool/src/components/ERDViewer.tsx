@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { Stage, Layer, Rect, Text, Line, Group } from 'react-konva';
+import { Stage, Layer, Rect, Text, Line, Group, Path } from 'react-konva';
 import Konva from 'konva';
 import dagre from '@dagrejs/dagre';
 import { Table } from '../types';
@@ -37,19 +37,37 @@ interface SearchResult {
   tableId: string;
 }
 
+// Position enum for bezier calculations
+enum Position {
+  Left = 'left',
+  Right = 'right',
+}
+
 // Storage key for table positions
 const getStorageKey = (scriptId: string) => `erd_positions_${scriptId}`;
 
 // Get theme based on dark mode
 const getTheme = (isDark: boolean): ThemeColors => isDark ? DARK_THEME : LIGHT_THEME;
 
-// Calculate table width based on content
+// Calculate table width based on content - ensure column name + type fit without wrapping
 const calculateTableWidth = (table: Table): number => {
-  const maxColNameLength = Math.max(
-    table.tableName.length,
-    ...table.columns.map(c => c.name.length + c.type.length + 2)
-  );
-  const estimatedWidth = maxColNameLength * 8 + 40;
+  // Measure table name (with some padding for header)
+  const tableNameWidth = table.tableName.length * 8 + 30;
+
+  // Measure each column: name on left (~50%), type on right (~40%)
+  // We need width such that both name and type fit comfortably
+  const columnWidths = table.columns.map(col => {
+    const nameWidth = col.name.length * 7.5 + 30; // 7.5px per char + padding for key icon
+    const typeWidth = col.type.length * 7 + 20; // type column
+    // Name gets ~50% of width, type gets ~40% (with gaps)
+    const widthForName = nameWidth / 0.48;
+    const widthForType = typeWidth / 0.38;
+    return Math.max(widthForName, widthForType);
+  });
+
+  const maxColumnWidth = columnWidths.length > 0 ? Math.max(...columnWidths) : 0;
+  const estimatedWidth = Math.max(tableNameWidth, maxColumnWidth);
+
   return Math.min(Math.max(estimatedWidth, SIZING.TABLE_MIN_WIDTH), SIZING.TABLE_MAX_WIDTH);
 };
 
@@ -59,6 +77,109 @@ const calculateTableHeight = (table: Table): number => {
          (table.columns.length * SIZING.COLUMN_HEIGHT) + SIZING.PADDING * 2;
 };
 
+// Bezier curve calculation (from db-schema-visualizer / xyflow)
+const CONNECTION_SYMBOL_OFFSET = 12;
+
+function calculateControlOffset(distance: number, curvature: number): number {
+  if (distance >= 0) {
+    return 0.5 * distance;
+  }
+  return curvature * 25 * Math.sqrt(-distance);
+}
+
+function getControlWithCurvature(
+  pos: Position,
+  x1: number,
+  y1: number,
+  x2: number,
+  _y2: number,
+  curvature: number
+): [number, number] {
+  switch (pos) {
+    case Position.Left:
+      return [x1 - calculateControlOffset(x1 - x2, curvature), y1];
+    case Position.Right:
+      return [x1 + calculateControlOffset(x2 - x1, curvature), y1];
+    default:
+      return [x1, y1];
+  }
+}
+
+function computeSymbolOffset(position: Position, startPoint: { x: number; y: number }): { x: number; y: number } {
+  const x = position === Position.Left
+    ? startPoint.x - CONNECTION_SYMBOL_OFFSET
+    : startPoint.x + CONNECTION_SYMBOL_OFFSET;
+  return { x, y: startPoint.y };
+}
+
+function getBezierPath(
+  source: { x: number; y: number },
+  target: { x: number; y: number },
+  sourcePosition: Position,
+  targetPosition: Position,
+  curvature: number = 0.5
+): string {
+  const [sourceControlX, sourceControlY] = getControlWithCurvature(
+    sourcePosition,
+    source.x,
+    source.y,
+    target.x,
+    target.y,
+    curvature
+  );
+
+  const [targetControlX, targetControlY] = getControlWithCurvature(
+    targetPosition,
+    target.x,
+    target.y,
+    source.x,
+    source.y,
+    curvature
+  );
+
+  const sourceOffset = computeSymbolOffset(sourcePosition, source);
+  const targetOffset = computeSymbolOffset(targetPosition, target);
+
+  return `M${source.x},${source.y} L${sourceOffset.x},${sourceOffset.y} C${sourceControlX},${sourceControlY} ${targetControlX},${targetControlY} ${targetOffset.x},${targetOffset.y} L${target.x},${target.y}`;
+}
+
+// Compute which side to connect from
+function computeConnectionHandlePos(
+  sourceX: number,
+  sourceW: number,
+  targetX: number,
+  targetW: number
+): [Position, Position, number, number] {
+  const sourceEndX = sourceX + sourceW;
+  const targetEndX = targetX + targetW;
+  const intersectionGap = 40;
+
+  const horizontalIntersection = Math.max(sourceEndX, targetEndX) - Math.min(sourceX, targetX);
+
+  if (horizontalIntersection <= targetW + sourceW + intersectionGap) {
+    return [Position.Left, Position.Left, sourceX, targetX];
+  }
+
+  if (sourceEndX < targetEndX) {
+    return [Position.Right, Position.Left, sourceEndX, targetX];
+  }
+
+  return [Position.Left, Position.Right, sourceX, targetEndX];
+}
+
+// Relation symbols
+function getOneSymbol(x: number, y: number, position: Position): string {
+  const halfHeight = 3;
+  const offset = computeSymbolOffset(position, { x, y });
+  return `M${offset.x},${y - halfHeight} L${offset.x},${y + halfHeight}`;
+}
+
+function getManySymbol(x: number, y: number, position: Position): string {
+  const halfHeight = 5;
+  const offset = computeSymbolOffset(position, { x, y });
+  return `M${x},${y - halfHeight} L${offset.x},${y} L${x},${y + halfHeight}`;
+}
+
 export default function ERDViewer({ tables, isDarkTheme, scriptId }: ERDViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
@@ -66,13 +187,14 @@ export default function ERDViewer({ tables, isDarkTheme, scriptId }: ERDViewerPr
 
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
   const [scale, setScale] = useState(0.8);
-  const [position, setPosition] = useState({ x: 50, y: 50 });
-  const [isDragging, setIsDragging] = useState(false);
+  const [stagePosition, setStagePosition] = useState({ x: 50, y: 50 });
+  const [isDraggingStage, setIsDraggingStage] = useState(false);
   const [hoveredTable, setHoveredTable] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-  // Table positions (persisted)
+  // Table positions stored separately from nodes to avoid re-layout
   const [tablePositions, setTablePositions] = useState<Record<string, { x: number; y: number }>>({});
+  const [initialLayoutDone, setInitialLayoutDone] = useState(false);
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -88,7 +210,9 @@ export default function ERDViewer({ tables, isDarkTheme, scriptId }: ERDViewerPr
     const saved = localStorage.getItem(getStorageKey(scriptId));
     if (saved) {
       try {
-        setTablePositions(JSON.parse(saved));
+        const parsed = JSON.parse(saved);
+        setTablePositions(parsed);
+        setInitialLayoutDone(true);
       } catch (e) {
         console.error('Failed to load saved positions');
       }
@@ -97,7 +221,6 @@ export default function ERDViewer({ tables, isDarkTheme, scriptId }: ERDViewerPr
 
   // Save positions when they change
   const savePositions = useCallback((positions: Record<string, { x: number; y: number }>) => {
-    setTablePositions(positions);
     localStorage.setItem(getStorageKey(scriptId), JSON.stringify(positions));
   }, [scriptId]);
 
@@ -168,58 +291,143 @@ export default function ERDViewer({ tables, isDarkTheme, scriptId }: ERDViewerPr
     return result;
   }, [tables]);
 
-  // Layout with Dagre (only for initial positions)
-  const nodes = useMemo((): TableNode[] => {
-    if (tables.length === 0) return [];
+  // Initial layout with Dagre - handles connected and isolated tables separately
+  const initialLayout = useMemo((): Record<string, { x: number; y: number; width: number; height: number; colorIndex: number }> => {
+    if (tables.length === 0) return {};
 
-    const g = new dagre.graphlib.Graph();
-    g.setGraph({
-      rankdir: 'LR',
-      nodesep: SIZING.TABLES_GAP_Y,
-      ranksep: SIZING.TABLES_GAP_X,
-      marginx: SIZING.DIAGRAM_PADDING,
-      marginy: SIZING.DIAGRAM_PADDING
-    });
-    g.setDefaultEdgeLabel(() => ({}));
-
-    // Add nodes
-    tables.forEach((table, index) => {
-      const width = calculateTableWidth(table);
-      const height = calculateTableHeight(table);
-      g.setNode(table.tableName.toUpperCase(), { width, height, table, colorIndex: index % TABLE_COLORS.length });
-    });
-
-    // Add edges
+    // Identify connected vs isolated tables
+    const connectedTables = new Set<string>();
     edges.forEach(edge => {
-      g.setEdge(edge.sourceTable, edge.targetTable);
+      connectedTables.add(edge.sourceTable);
+      connectedTables.add(edge.targetTable);
     });
 
-    // Run layout
-    dagre.layout(g);
+    const connectedTablesList = tables.filter(t => connectedTables.has(t.tableName.toUpperCase()));
+    const isolatedTablesList = tables.filter(t => !connectedTables.has(t.tableName.toUpperCase()));
 
-    // Extract positioned nodes (use saved positions if available)
+    const layout: Record<string, { x: number; y: number; width: number; height: number; colorIndex: number }> = {};
+    let maxY = SIZING.DIAGRAM_PADDING;
+    let maxX = SIZING.DIAGRAM_PADDING;
+
+    // Layout connected tables with Dagre
+    if (connectedTablesList.length > 0) {
+      const g = new dagre.graphlib.Graph();
+      g.setGraph({
+        rankdir: 'LR',
+        nodesep: SIZING.TABLES_GAP_Y,
+        ranksep: SIZING.TABLES_GAP_X,
+        marginx: SIZING.DIAGRAM_PADDING,
+        marginy: SIZING.DIAGRAM_PADDING
+      });
+      g.setDefaultEdgeLabel(() => ({}));
+
+      // Add connected nodes
+      connectedTablesList.forEach((table) => {
+        const width = calculateTableWidth(table);
+        const height = calculateTableHeight(table);
+        const originalIndex = tables.findIndex(t => t.tableName === table.tableName);
+        g.setNode(table.tableName.toUpperCase(), { width, height, colorIndex: originalIndex % TABLE_COLORS.length });
+      });
+
+      // Add edges
+      edges.forEach(edge => {
+        g.setEdge(edge.sourceTable, edge.targetTable);
+      });
+
+      // Run layout
+      dagre.layout(g);
+
+      // Extract positioned nodes
+      connectedTablesList.forEach((table) => {
+        const node = g.node(table.tableName.toUpperCase());
+        const width = calculateTableWidth(table);
+        const height = calculateTableHeight(table);
+        const tableId = table.tableName.toUpperCase();
+        const originalIndex = tables.findIndex(t => t.tableName === table.tableName);
+
+        const x = node ? node.x - width / 2 : SIZING.DIAGRAM_PADDING;
+        const y = node ? node.y - height / 2 : SIZING.DIAGRAM_PADDING;
+
+        layout[tableId] = {
+          x,
+          y,
+          width,
+          height,
+          colorIndex: originalIndex % TABLE_COLORS.length
+        };
+
+        maxX = Math.max(maxX, x + width);
+        maxY = Math.max(maxY, y + height);
+      });
+    }
+
+    // Layout isolated tables HORIZONTALLY below connected tables
+    if (isolatedTablesList.length > 0) {
+      const startY = connectedTablesList.length > 0 ? maxY + SIZING.TABLES_GAP_Y * 1.5 : SIZING.DIAGRAM_PADDING;
+      let currentX = SIZING.DIAGRAM_PADDING;
+      let rowMaxHeight = 0;
+      let currentY = startY;
+      const maxRowWidth = Math.max(maxX, 1200); // Use connected tables width or reasonable default
+
+      isolatedTablesList.forEach((table) => {
+        const width = calculateTableWidth(table);
+        const height = calculateTableHeight(table);
+        const tableId = table.tableName.toUpperCase();
+        const originalIndex = tables.findIndex(t => t.tableName === table.tableName);
+
+        // Check if we need to wrap to next row
+        if (currentX + width > maxRowWidth && currentX > SIZING.DIAGRAM_PADDING) {
+          currentX = SIZING.DIAGRAM_PADDING;
+          currentY += rowMaxHeight + SIZING.TABLES_GAP_Y;
+          rowMaxHeight = 0;
+        }
+
+        layout[tableId] = {
+          x: currentX,
+          y: currentY,
+          width,
+          height,
+          colorIndex: originalIndex % TABLE_COLORS.length
+        };
+
+        currentX += width + SIZING.TABLES_GAP_X;
+        rowMaxHeight = Math.max(rowMaxHeight, height);
+      });
+    }
+
+    return layout;
+  }, [tables, edges]);
+
+  // Set initial positions from layout if not already set
+  useEffect(() => {
+    if (!initialLayoutDone && Object.keys(initialLayout).length > 0) {
+      const positions: Record<string, { x: number; y: number }> = {};
+      for (const [id, layout] of Object.entries(initialLayout)) {
+        positions[id] = { x: layout.x, y: layout.y };
+      }
+      setTablePositions(positions);
+      setInitialLayoutDone(true);
+    }
+  }, [initialLayout, initialLayoutDone]);
+
+  // Compute nodes with current positions
+  const nodes = useMemo((): TableNode[] => {
     return tables.map((table, index) => {
-      const node = g.node(table.tableName.toUpperCase());
-      const width = calculateTableWidth(table);
-      const height = calculateTableHeight(table);
       const tableId = table.tableName.toUpperCase();
-
-      // Use saved position if available, otherwise use Dagre layout
+      const layout = initialLayout[tableId];
       const savedPos = tablePositions[tableId];
-      const x = savedPos ? savedPos.x : (node ? node.x - width / 2 : index * 300);
-      const y = savedPos ? savedPos.y : (node ? node.y - height / 2 : index * 50);
 
       return {
         id: tableId,
         table,
-        x,
-        y,
-        width,
-        height,
-        colorIndex: index % TABLE_COLORS.length
+        x: savedPos?.x ?? layout?.x ?? index * 300,
+        y: savedPos?.y ?? layout?.y ?? index * 50,
+        width: layout?.width ?? calculateTableWidth(table),
+        height: layout?.height ?? calculateTableHeight(table),
+        colorIndex: layout?.colorIndex ?? index % TABLE_COLORS.length
       };
     });
-  }, [tables, edges, tablePositions]);
+  }, [tables, initialLayout, tablePositions]);
 
   // Search functionality
   useEffect(() => {
@@ -257,7 +465,7 @@ export default function ERDViewer({ tables, isDarkTheme, scriptId }: ERDViewerPr
       }
     }
 
-    // Sort: exact matches first, then tables before columns, then alphabetically
+    // Sort: exact matches first, then tables before columns
     results.sort((a, b) => {
       const aExact = (a.type === 'table' ? a.tableName : a.columnName)?.toLowerCase() === query;
       const bExact = (b.type === 'table' ? b.tableName : b.columnName)?.toLowerCase() === query;
@@ -267,7 +475,7 @@ export default function ERDViewer({ tables, isDarkTheme, scriptId }: ERDViewerPr
       return a.tableName.localeCompare(b.tableName);
     });
 
-    setSearchResults(results.slice(0, 10)); // Limit to 10 results
+    setSearchResults(results.slice(0, 10));
     setShowSearchDropdown(results.length > 0);
   }, [searchQuery, tables]);
 
@@ -285,7 +493,7 @@ export default function ERDViewer({ tables, isDarkTheme, scriptId }: ERDViewerPr
     if (node) {
       const centerX = dimensions.width / 2 - (node.x + node.width / 2) * scale;
       const centerY = dimensions.height / 2 - (node.y + node.height / 2) * scale;
-      setPosition({ x: centerX, y: centerY });
+      setStagePosition({ x: centerX, y: centerY });
     }
 
     setShowSearchDropdown(false);
@@ -320,8 +528,8 @@ export default function ERDViewer({ tables, isDarkTheme, scriptId }: ERDViewerPr
     if (!pointer) return;
 
     const mousePointTo = {
-      x: (pointer.x - position.x) / oldScale,
-      y: (pointer.y - position.y) / oldScale
+      x: (pointer.x - stagePosition.x) / oldScale,
+      y: (pointer.y - stagePosition.y) / oldScale
     };
 
     const direction = e.evt.deltaY > 0 ? -1 : 1;
@@ -329,11 +537,11 @@ export default function ERDViewer({ tables, isDarkTheme, scriptId }: ERDViewerPr
     const clampedScale = Math.min(Math.max(newScale, 0.1), 3);
 
     setScale(clampedScale);
-    setPosition({
+    setStagePosition({
       x: pointer.x - mousePointTo.x * clampedScale,
       y: pointer.y - mousePointTo.y * clampedScale
     });
-  }, [scale, position]);
+  }, [scale, stagePosition]);
 
   // Zoom controls
   const handleZoomIn = () => setScale(prev => Math.min(prev * 1.2, 3));
@@ -341,13 +549,16 @@ export default function ERDViewer({ tables, isDarkTheme, scriptId }: ERDViewerPr
 
   const handleReset = () => {
     setScale(0.8);
-    setPosition({ x: 50, y: 50 });
+    setStagePosition({ x: 50, y: 50 });
   };
 
   const handleResetPositions = () => {
-    savePositions({});
+    // Clear saved positions and re-layout
+    localStorage.removeItem(getStorageKey(scriptId));
+    setTablePositions({});
+    setInitialLayoutDone(false);
     setScale(0.8);
-    setPosition({ x: 50, y: 50 });
+    setStagePosition({ x: 50, y: 50 });
   };
 
   const handleFitView = useCallback(() => {
@@ -366,7 +577,7 @@ export default function ERDViewer({ tables, isDarkTheme, scriptId }: ERDViewerPr
     const newScale = Math.min(scaleX, scaleY, 1) * 0.9;
 
     setScale(newScale);
-    setPosition({
+    setStagePosition({
       x: (dimensions.width - contentWidth * newScale) / 2 - minX * newScale + SIZING.DIAGRAM_PADDING,
       y: (dimensions.height - contentHeight * newScale) / 2 - minY * newScale + SIZING.DIAGRAM_PADDING
     });
@@ -375,7 +586,7 @@ export default function ERDViewer({ tables, isDarkTheme, scriptId }: ERDViewerPr
   // Fullscreen toggle
   const toggleFullscreen = useCallback(() => {
     if (!document.fullscreenElement) {
-      containerRef.current?.parentElement?.requestFullscreen();
+      containerRef.current?.requestFullscreen();
       setIsFullscreen(true);
     } else {
       document.exitFullscreen();
@@ -404,19 +615,27 @@ export default function ERDViewer({ tables, isDarkTheme, scriptId }: ERDViewerPr
     link.click();
   };
 
-  // Stage drag handlers
-  const handleDragStart = () => setIsDragging(true);
-  const handleDragEnd = (e: Konva.KonvaEventObject<DragEvent>) => {
-    setIsDragging(false);
-    setPosition({ x: e.target.x(), y: e.target.y() });
+  // Stage drag handlers - only update position without affecting tables
+  const handleStageDragStart = () => setIsDraggingStage(true);
+  const handleStageDragEnd = (e: Konva.KonvaEventObject<DragEvent>) => {
+    setIsDraggingStage(false);
+    setStagePosition({ x: e.target.x(), y: e.target.y() });
   };
 
-  // Table drag handler
-  const handleTableDrag = useCallback((tableId: string, newX: number, newY: number) => {
+  // Table drag handler - updates table position independently
+  const handleTableDragMove = useCallback((tableId: string, newX: number, newY: number) => {
+    setTablePositions(prev => ({
+      ...prev,
+      [tableId]: { x: newX, y: newY }
+    }));
+  }, []);
+
+  const handleTableDragEnd = useCallback((tableId: string, newX: number, newY: number) => {
     const newPositions = {
       ...tablePositions,
       [tableId]: { x: newX, y: newY }
     };
+    setTablePositions(newPositions);
     savePositions(newPositions);
   }, [tablePositions, savePositions]);
 
@@ -442,8 +661,14 @@ export default function ERDViewer({ tables, isDarkTheme, scriptId }: ERDViewerPr
         x={x}
         y={y}
         draggable
+        onDragMove={(e) => {
+          // Prevent stage from moving
+          e.cancelBubble = true;
+          handleTableDragMove(node.id, e.target.x(), e.target.y());
+        }}
         onDragEnd={(e) => {
-          handleTableDrag(node.id, e.target.x(), e.target.y());
+          e.cancelBubble = true;
+          handleTableDragEnd(node.id, e.target.x(), e.target.y());
         }}
         onMouseEnter={() => {
           setHoveredTable(node.id);
@@ -602,9 +827,9 @@ export default function ERDViewer({ tables, isDarkTheme, scriptId }: ERDViewerPr
         })}
       </Group>
     );
-  }, [theme, hoveredTable, highlightedTable, highlightedColumn, handleTableDrag]);
+  }, [theme, hoveredTable, highlightedTable, highlightedColumn, handleTableDragMove, handleTableDragEnd]);
 
-  // Render edge with smooth bezier curves
+  // Render edge with smooth bezier curves (following db-schema-visualizer pattern)
   const renderEdge = useCallback((edge: Edge) => {
     const sourceNode = nodes.find(n => n.id === edge.sourceTable);
     const targetNode = nodes.find(n => n.id === edge.targetTable);
@@ -613,45 +838,39 @@ export default function ERDViewer({ tables, isDarkTheme, scriptId }: ERDViewerPr
     const sourceY = getColumnY(sourceNode, edge.sourceColumn);
     const targetY = getColumnY(targetNode, edge.targetColumn);
 
-    const startX = sourceNode.x + sourceNode.width;
-    const endX = targetNode.x;
+    // Compute connection positions (left or right side)
+    const [sourcePosition, targetPosition, sourceX, targetX] = computeConnectionHandlePos(
+      sourceNode.x,
+      sourceNode.width,
+      targetNode.x,
+      targetNode.width
+    );
 
-    const offset = Math.min(Math.abs(endX - startX) / 2, 80);
+    const sourcePoint = { x: sourceX, y: sourceY };
+    const targetPoint = { x: targetX, y: targetY };
+
+    // Generate bezier path
+    const pathData = getBezierPath(sourcePoint, targetPoint, sourcePosition, targetPosition);
+
+    // Generate relation symbols (many-to-one: crow's foot at source, line at target)
+    const sourceSymbol = getManySymbol(sourceX, sourceY, sourcePosition);
+    const targetSymbol = getOneSymbol(targetX, targetY, targetPosition);
+
+    const fullPath = `${pathData} ${sourceSymbol} ${targetSymbol}`;
 
     const isHovered = hoveredTable === edge.sourceTable || hoveredTable === edge.targetTable;
     const sourceColor = TABLE_COLORS[sourceNode.colorIndex];
 
     return (
-      <Group key={edge.id}>
-        <Line
-          points={[startX, sourceY, startX + offset, sourceY, endX - offset, targetY, endX, targetY]}
-          stroke={isHovered ? sourceColor.regular : theme.connection.default}
-          strokeWidth={isHovered ? 2.5 : SIZING.CONNECTION_STROKE_WIDTH}
-          tension={0.5}
-          lineCap="round"
-          lineJoin="round"
-          opacity={isHovered ? 1 : 0.6}
-        />
-
-        <Line
-          points={[endX - 8, targetY - 4, endX, targetY, endX - 8, targetY + 4]}
-          stroke={isHovered ? sourceColor.regular : theme.connection.default}
-          strokeWidth={isHovered ? 2.5 : SIZING.CONNECTION_STROKE_WIDTH}
-          lineCap="round"
-          lineJoin="round"
-          opacity={isHovered ? 1 : 0.6}
-        />
-
-        <Rect
-          x={startX - 4}
-          y={sourceY - 4}
-          width={8}
-          height={8}
-          fill={isHovered ? sourceColor.regular : theme.connection.default}
-          cornerRadius={4}
-          opacity={isHovered ? 1 : 0.6}
-        />
-      </Group>
+      <Path
+        key={edge.id}
+        data={fullPath}
+        stroke={isHovered ? sourceColor.regular : theme.connection.default}
+        strokeWidth={isHovered ? 2.5 : SIZING.CONNECTION_STROKE_WIDTH}
+        lineCap="round"
+        lineJoin="round"
+        opacity={isHovered ? 1 : 0.7}
+      />
     );
   }, [nodes, getColumnY, theme, hoveredTable]);
 
@@ -667,22 +886,31 @@ export default function ERDViewer({ tables, isDarkTheme, scriptId }: ERDViewerPr
   }
 
   return (
-    <div style={{
-      height: '100%',
-      display: 'flex',
-      flexDirection: 'column',
-      background: isFullscreen ? theme.canvas.background : 'transparent'
-    }}>
-      {/* Toolbar */}
+    <div
+      ref={containerRef}
+      style={{
+        width: '100%',
+        height: '100%',
+        position: 'relative',
+        background: theme.canvas.background,
+        overflow: 'hidden'
+      }}
+    >
+      {/* Floating Toolbar */}
       <div style={{
+        position: 'absolute',
+        top: '12px',
+        left: '12px',
+        right: '12px',
+        zIndex: 100,
         display: 'flex',
         gap: '8px',
-        marginBottom: '12px',
         alignItems: 'center',
         padding: '8px 12px',
-        background: isDarkTheme ? '#1f2937' : '#f8fafc',
+        background: isDarkTheme ? 'rgba(31, 41, 55, 0.95)' : 'rgba(248, 250, 252, 0.95)',
         borderRadius: '8px',
         border: `1px solid ${isDarkTheme ? '#374151' : '#e5e7eb'}`,
+        backdropFilter: 'blur(8px)',
         flexWrap: 'wrap'
       }}>
         {/* Search Bar */}
@@ -832,36 +1060,25 @@ export default function ERDViewer({ tables, isDarkTheme, scriptId }: ERDViewerPr
       </div>
 
       {/* Canvas */}
-      <div
-        ref={containerRef}
-        style={{
-          flex: 1,
-          background: theme.canvas.background,
-          borderRadius: isFullscreen ? 0 : '8px',
-          overflow: 'hidden',
-          cursor: isDragging ? 'grabbing' : 'grab',
-          border: isFullscreen ? 'none' : `1px solid ${theme.table.border}`
-        }}
+      <Stage
+        ref={stageRef}
+        width={dimensions.width}
+        height={dimensions.height}
+        scaleX={scale}
+        scaleY={scale}
+        x={stagePosition.x}
+        y={stagePosition.y}
+        draggable
+        onDragStart={handleStageDragStart}
+        onDragEnd={handleStageDragEnd}
+        onWheel={handleWheel}
+        style={{ cursor: isDraggingStage ? 'grabbing' : 'grab' }}
       >
-        <Stage
-          ref={stageRef}
-          width={dimensions.width}
-          height={dimensions.height}
-          scaleX={scale}
-          scaleY={scale}
-          x={position.x}
-          y={position.y}
-          draggable
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
-          onWheel={handleWheel}
-        >
-          <Layer>
-            {edges.map(edge => renderEdge(edge))}
-            {nodes.map(node => renderTable(node))}
-          </Layer>
-        </Stage>
-      </div>
+        <Layer>
+          {edges.map(edge => renderEdge(edge))}
+          {nodes.map(node => renderTable(node))}
+        </Layer>
+      </Stage>
     </div>
   );
 }

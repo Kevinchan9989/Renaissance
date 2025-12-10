@@ -96,11 +96,170 @@ export interface TableDiff {
 // App State Types
 // ============================================
 
-export type AppView = 'dictionary' | 'compare' | 'erd';
+export type AppView = 'scripts' | 'dictionary' | 'compare' | 'erd' | 'mapping';
 
 export interface AppState {
   scripts: Script[];
   activeScriptId: string | null;
   view: AppView;
   theme: 'light' | 'dark';
+}
+
+// ============================================
+// Column Mapping Types
+// ============================================
+
+export type MappingStatus = 'unmapped' | 'mapped' | 'conflict' | 'auto';
+export type TypeCompatibility = 'exact' | 'compatible' | 'needs_conversion' | 'incompatible';
+
+export interface ColumnMapping {
+  id: string;
+
+  // Source
+  sourceScriptId: string;
+  sourceTable: string;
+  sourceColumn: string;
+  sourceType: string;
+
+  // Target
+  targetScriptId: string;
+  targetTable: string;
+  targetColumn: string;
+  targetType: string;
+
+  // Mapping metadata
+  mapType: 'manual' | 'auto' | 'suggested';
+  typeCompatibility: TypeCompatibility;
+
+  // Validation results
+  validation: MappingValidation;
+
+  // Transformations (ordered)
+  transformations: Transformation[];
+
+  // User notes and approval
+  remarks?: string;
+  approvedBy?: string;
+  approvedAt?: number;
+
+  // Timestamps
+  confidence: number;  // 0-1 for auto-mappings
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface MappingValidation {
+  typeMatch: boolean;
+  sizeMatch: boolean;
+  nullableMatch: boolean;
+  precisionMatch: boolean;
+  defaultMatch: boolean;
+  constraintMatch: boolean;
+  warnings: string[];
+  errors: string[];
+}
+
+export interface Transformation {
+  id: string;
+  type: TransformationType;
+  sequence: number;
+  params?: Record<string, unknown>;
+  expression?: string;  // For custom/advanced rules
+}
+
+export type TransformationType =
+  | 'trim'
+  | 'uppercase'
+  | 'lowercase'
+  | 'concat'
+  | 'substring'
+  | 'replace'
+  | 'date_format'
+  | 'number_format'
+  | 'type_cast'
+  | 'default_value'
+  | 'lookup'
+  | 'custom';
+
+export interface MappingProject {
+  id: string;
+  name: string;
+  sourceScriptId: string;
+  targetScriptId: string;
+  mappings: ColumnMapping[];
+  tableMappings: TableMapping[];
+  typeRules: TypeCompatibilityRule[];  // Custom rules for this project
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface TableMapping {
+  sourceTable: string;
+  targetTable: string;
+  status: 'complete' | 'partial' | 'unmapped';
+  autoMapCount: number;
+  manualMapCount: number;
+}
+
+// ============================================
+// Type Compatibility Rules (Script-Based Config)
+// ============================================
+
+export interface TypeCompatibilityRule {
+  id: string;
+  name: string;
+  description?: string;
+  sourcePattern: string;  // Regex pattern for source type
+  targetPattern: string;  // Regex pattern for target type
+  compatibility: TypeCompatibility;
+  conversionSql?: string;
+  warning?: string;
+  priority: number;  // Higher priority rules checked first
+  enabled: boolean;
+}
+
+export interface TypeRuleSet {
+  id: string;
+  name: string;
+  description?: string;
+  sourceDb: 'oracle' | 'postgresql' | 'mysql' | 'sqlserver' | 'any';
+  targetDb: 'oracle' | 'postgresql' | 'mysql' | 'sqlserver' | 'any';
+  rules: TypeCompatibilityRule[];
+  isBuiltIn: boolean;  // System vs user-defined
+  createdAt: number;
+  updatedAt: number;
+}
+
+// ============================================
+// Mapping Canvas Types (for visual connectors)
+// ============================================
+
+export interface MappingNode {
+  id: string;
+  type: 'source' | 'target';
+  table: Table;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  collapsed: boolean;
+}
+
+export interface MappingEdge {
+  id: string;
+  mappingId: string;  // Reference to ColumnMapping
+  sourceNodeId: string;
+  sourceColumn: string;
+  targetNodeId: string;
+  targetColumn: string;
+  compatibility: TypeCompatibility;
+}
+
+export interface DragState {
+  isDragging: boolean;
+  startNodeId: string | null;
+  startColumn: string | null;
+  startType: 'source' | 'target' | null;
+  currentX: number;
+  currentY: number;
 }

@@ -1,9 +1,6 @@
 const { app, BrowserWindow, Menu } = require('electron');
 const path = require('path');
 
-// Disable hardware acceleration for better compatibility
-app.disableHardwareAcceleration();
-
 let mainWindow;
 
 function createWindow() {

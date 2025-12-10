@@ -1,13 +1,30 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Script, Table, TableDiff, ColumnDiff } from '../types';
 import { compareTables, tablesToMap } from '../utils/compare';
 import { parseScript } from '../utils/parsers';
-import { Play, ChevronDown } from 'lucide-react';
+import {
+  Play,
+  ChevronDown,
+  ChevronRight,
+  Search,
+  AlertCircle,
+  CheckCircle,
+  MinusCircle,
+  PlusCircle,
+  Info,
+  GitCompare,
+  Database,
+  ArrowRight,
+  Filter,
+  FileCode
+} from 'lucide-react';
 
 interface SchemaCompareProps {
   scripts: Script[];
   activeScript: Script;
 }
+
+type FilterType = 'all' | 'modified' | 'added' | 'deleted' | 'identical';
 
 export default function SchemaCompare({ scripts, activeScript }: SchemaCompareProps) {
   const [sourceId, setSourceId] = useState<string>(activeScript.id);
@@ -17,9 +34,27 @@ export default function SchemaCompare({ scripts, activeScript }: SchemaComparePr
   const [results, setResults] = useState<Record<string, TableDiff> | null>(null);
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [expandedSchemas, setExpandedSchemas] = useState<Set<string>>(new Set());
+  const [statusFilter, setStatusFilter] = useState<FilterType>('all');
+  const [sourceDropdownOpen, setSourceDropdownOpen] = useState(false);
+  const [targetDropdownOpen, setTargetDropdownOpen] = useState(false);
 
-  // Get source script
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('.compare-dropdown')) {
+        setSourceDropdownOpen(false);
+        setTargetDropdownOpen(false);
+      }
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
+
+  // Get source/target scripts
   const sourceScript = scripts.find(s => s.id === sourceId);
+  const targetScript = scripts.find(s => s.id === targetId);
 
   // Run comparison
   const runCompare = () => {
@@ -35,7 +70,6 @@ export default function SchemaCompare({ scripts, activeScript }: SchemaComparePr
       const parsed = parseScript(targetContent, sourceScript.type);
       targetTables = parsed.targets;
     } else {
-      const targetScript = scripts.find(s => s.id === targetId);
       if (!targetScript) {
         alert('Please select a target script');
         return;
@@ -49,9 +83,36 @@ export default function SchemaCompare({ scripts, activeScript }: SchemaComparePr
 
     setResults(diff);
     setSelectedTable(null);
+
+    // Expand all schemas by default
+    const schemas = new Set<string>();
+    for (const [, d] of Object.entries(diff)) {
+      const table = d.src || d.tgt;
+      schemas.add(table?.schema || '(Default)');
+    }
+    setExpandedSchemas(schemas);
   };
 
-  // Group results by schema
+  // Summary stats
+  const stats = useMemo(() => {
+    if (!results) return null;
+
+    let identical = 0, modified = 0, added = 0, deleted = 0, softMatch = 0;
+
+    for (const diff of Object.values(results)) {
+      switch (diff.status) {
+        case 'IDENTICAL': identical++; break;
+        case 'MODIFIED': modified++; break;
+        case 'ADDED': added++; break;
+        case 'MISSING': deleted++; break;
+        case 'SOFT_MATCH': softMatch++; break;
+      }
+    }
+
+    return { identical, modified, added, deleted, softMatch, total: Object.keys(results).length };
+  }, [results]);
+
+  // Group and filter results by schema
   const groupedResults = useMemo(() => {
     if (!results) return {};
 
@@ -68,46 +129,63 @@ export default function SchemaCompare({ scripts, activeScript }: SchemaComparePr
         continue;
       }
 
+      // Filter by status
+      if (statusFilter !== 'all') {
+        const statusMap: Record<FilterType, string[]> = {
+          all: [],
+          modified: ['MODIFIED', 'SOFT_MATCH'],
+          added: ['ADDED'],
+          deleted: ['MISSING'],
+          identical: ['IDENTICAL']
+        };
+        if (!statusMap[statusFilter].includes(diff.status)) continue;
+      }
+
       groups[schema].push({ key, diff });
     }
 
-    // Sort within groups
+    // Sort within groups and remove empty groups
+    const filtered: Record<string, { key: string; diff: TableDiff }[]> = {};
     for (const schema of Object.keys(groups)) {
-      groups[schema].sort((a, b) => a.key.localeCompare(b.key));
+      if (groups[schema].length > 0) {
+        groups[schema].sort((a, b) => a.key.localeCompare(b.key));
+        filtered[schema] = groups[schema];
+      }
     }
 
-    return groups;
-  }, [results, searchTerm]);
+    return filtered;
+  }, [results, searchTerm, statusFilter]);
 
-  // Toggle schema collapse
-  const toggleSchema = (e: React.MouseEvent) => {
-    const header = e.currentTarget as HTMLElement;
-    const list = header.nextElementSibling as HTMLElement;
-    const arrow = header.querySelector('.schema-arrow') as HTMLElement;
-
-    if (list) list.classList.toggle('hidden');
-    if (arrow) arrow.classList.toggle('collapsed');
+  // Toggle schema expand/collapse
+  const toggleSchema = (schema: string) => {
+    const newExpanded = new Set(expandedSchemas);
+    if (newExpanded.has(schema)) {
+      newExpanded.delete(schema);
+    } else {
+      newExpanded.add(schema);
+    }
+    setExpandedSchemas(newExpanded);
   };
 
-  // Get flag class
-  const getFlagClass = (status: string) => {
+  // Get status icon
+  const getStatusIcon = (status: string, size = 14) => {
     switch (status) {
-      case 'MISSING': return 'flag-del';
-      case 'ADDED': return 'flag-add';
-      case 'MODIFIED': return 'flag-mod';
-      case 'SOFT_MATCH': return 'flag-soft';
-      default: return 'flag-ok';
+      case 'MISSING': return <MinusCircle size={size} className="status-icon status-deleted" />;
+      case 'ADDED': return <PlusCircle size={size} className="status-icon status-added" />;
+      case 'MODIFIED': return <AlertCircle size={size} className="status-icon status-modified" />;
+      case 'SOFT_MATCH': return <Info size={size} className="status-icon status-soft" />;
+      default: return <CheckCircle size={size} className="status-icon status-ok" />;
     }
   };
 
-  // Get flag text
-  const getFlagText = (status: string) => {
+  // Get status label
+  const getStatusLabel = (status: string) => {
     switch (status) {
-      case 'MISSING': return 'Del';
+      case 'MISSING': return 'Deleted';
       case 'ADDED': return 'New';
-      case 'MODIFIED': return 'Mod';
-      case 'SOFT_MATCH': return 'Soft';
-      default: return 'OK';
+      case 'MODIFIED': return 'Modified';
+      case 'SOFT_MATCH': return 'Soft Match';
+      default: return 'Identical';
     }
   };
 
@@ -121,53 +199,68 @@ export default function SchemaCompare({ scripts, activeScript }: SchemaComparePr
     const { status, src, tgt, details } = diff;
 
     return (
-      <div style={{ padding: '20px', overflow: 'auto', flex: 1 }}>
-        <h2 style={{ marginBottom: '16px', fontSize: '16px' }}>{selectedTable}</h2>
+      <div className="compare-details">
+        <div className="compare-details-header">
+          <h3>{selectedTable}</h3>
+          <span className={`compare-status-badge status-${status.toLowerCase()}`}>
+            {getStatusIcon(status)}
+            {getStatusLabel(status)}
+          </span>
+        </div>
 
-        {status === 'IDENTICAL' && (
-          <div style={{ padding: '12px', background: '#e2e3e5', borderRadius: '4px', marginBottom: '16px' }}>
-            Tables are identical.
-          </div>
-        )}
-
-        {status === 'MISSING' && (
-          <>
-            <div style={{ padding: '12px', background: '#fbe9eb', color: '#c0392b', borderRadius: '4px', marginBottom: '16px' }}>
-              Table deleted in Target.
+        <div className="compare-details-content">
+          {status === 'IDENTICAL' && (
+            <div className="compare-message compare-message-info">
+              <CheckCircle size={18} />
+              <span>Tables are identical. No differences found.</span>
             </div>
-            {src && renderTableStructure(src, 'Source (Deleted)')}
-          </>
-        )}
+          )}
 
-        {status === 'ADDED' && (
-          <>
-            <div style={{ padding: '12px', background: '#eafaf1', color: '#27ae60', borderRadius: '4px', marginBottom: '16px' }}>
-              Table added in Target.
-            </div>
-            {tgt && renderTableStructure(tgt, 'Target (New)')}
-          </>
-        )}
-
-        {(status === 'MODIFIED' || status === 'SOFT_MATCH') && details && (
-          <>
-            {details.pkDiff && (
-              <div style={{ padding: '12px', background: '#fff3cd', color: '#856404', borderRadius: '4px', marginBottom: '16px' }}>
-                <strong>PK Mismatch:</strong> Source[{src?.constraints.find(c => c.type === 'Primary Key')?.localCols || ''}] vs
-                Target[{tgt?.constraints.find(c => c.type === 'Primary Key')?.localCols || ''}]
+          {status === 'MISSING' && (
+            <>
+              <div className="compare-message compare-message-error">
+                <MinusCircle size={18} />
+                <span>This table exists in Source but was deleted in Target.</span>
               </div>
-            )}
-            {renderDiffTable(details.changes, src, tgt)}
-          </>
-        )}
+              {src && renderTableStructure(src, 'Source Structure')}
+            </>
+          )}
+
+          {status === 'ADDED' && (
+            <>
+              <div className="compare-message compare-message-success">
+                <PlusCircle size={18} />
+                <span>This table is new in Target (not in Source).</span>
+              </div>
+              {tgt && renderTableStructure(tgt, 'Target Structure')}
+            </>
+          )}
+
+          {(status === 'MODIFIED' || status === 'SOFT_MATCH') && details && (
+            <>
+              {details.pkDiff && (
+                <div className="compare-message compare-message-warning">
+                  <AlertCircle size={18} />
+                  <span>
+                    <strong>Primary Key Mismatch:</strong>{' '}
+                    Source [{src?.constraints.find(c => c.type === 'Primary Key')?.localCols || 'none'}] vs{' '}
+                    Target [{tgt?.constraints.find(c => c.type === 'Primary Key')?.localCols || 'none'}]
+                  </span>
+                </div>
+              )}
+              {renderDiffTable(details.changes, src, tgt)}
+            </>
+          )}
+        </div>
       </div>
     );
   };
 
   // Render table structure
   const renderTableStructure = (table: Table, title: string) => (
-    <>
-      <h4 style={{ marginBottom: '12px', fontSize: '14px' }}>{title}</h4>
-      <table className="data-table" style={{ marginBottom: '24px' }}>
+    <div className="compare-table-section">
+      <h4>{title}</h4>
+      <table className="compare-table">
         <thead>
           <tr>
             <th>Column</th>
@@ -184,18 +277,18 @@ export default function SchemaCompare({ scripts, activeScript }: SchemaComparePr
 
             return (
               <tr key={i}>
-                <td className="code-cell">
+                <td className="column-name">
                   {col.name}
-                  {isPk && <span className="key-tag pk-tag">PK</span>}
+                  {isPk && <span className="key-badge pk">PK</span>}
                 </td>
-                <td>{col.type}</td>
-                <td>{col.nullable}</td>
+                <td className="column-type">{col.type}</td>
+                <td className="column-nullable">{col.nullable === 'Yes' ? 'NULL' : 'NOT NULL'}</td>
               </tr>
             );
           })}
         </tbody>
       </table>
-    </>
+    </div>
   );
 
   // Render diff table
@@ -204,204 +297,378 @@ export default function SchemaCompare({ scripts, activeScript }: SchemaComparePr
     const tgtPks = tgt?.constraints.find(c => c.type === 'Primary Key')?.localCols.split(',').map(s => s.trim().toUpperCase()) || [];
 
     return (
-      <table className="data-table">
-        <thead>
-          <tr>
-            <th style={{ width: '20%' }}>Column</th>
-            <th style={{ width: '30%' }}>Source</th>
-            <th style={{ width: '30%' }}>Target</th>
-            <th style={{ width: '20%' }}>Notes</th>
-          </tr>
-        </thead>
-        <tbody>
-          {changes.map((row, i) => {
-            let rowClass = '';
-            switch (row.type) {
-              case 'SOFT': rowClass = 'row-soft'; break;
-              case 'DELETED': rowClass = 'row-miss'; break;
-              case 'ADDED': rowClass = 'row-add'; break;
-              case 'MODIFIED': rowClass = 'row-mod'; break;
-            }
+      <div className="compare-table-section">
+        <h4>Column Comparison</h4>
+        <table className="compare-table compare-diff-table">
+          <thead>
+            <tr>
+              <th style={{ width: '20%' }}>Column</th>
+              <th style={{ width: '30%' }}>Source</th>
+              <th style={{ width: '30%' }}>Target</th>
+              <th style={{ width: '20%' }}>Change</th>
+            </tr>
+          </thead>
+          <tbody>
+            {changes.map((row, i) => {
+              const srcIsPk = srcPks.includes(row.col.toUpperCase());
+              const tgtIsPk = tgtPks.includes(row.col.toUpperCase());
 
-            const srcIsPk = srcPks.includes(row.col.toUpperCase());
-            const tgtIsPk = tgtPks.includes(row.col.toUpperCase());
-
-            return (
-              <tr key={i} className={rowClass}>
-                <td className="code-cell">
-                  <strong>{row.col}</strong>
-                </td>
-                <td>
-                  {row.s ? (
-                    <>
-                      {srcIsPk && <span className="key-tag pk-tag">PK</span>}
-                      {' '}
-                      <span className={row.type === 'MODIFIED' && row.t && row.s.type !== row.t.type ? 'diff-val' : ''}>
-                        {row.s.type}
-                      </span>
-                      {' '}
-                      <small className={row.type === 'MODIFIED' && row.t && row.s.nullable !== row.t.nullable ? 'diff-val' : ''}>
-                        {row.s.nullable === 'Yes' ? 'NULL' : 'NOT NULL'}
-                      </small>
-                    </>
-                  ) : (
-                    <em>Missing</em>
-                  )}
-                </td>
-                <td>
-                  {row.t ? (
-                    <>
-                      {tgtIsPk && <span className="key-tag pk-tag">PK</span>}
-                      {' '}
-                      <span className={row.type === 'MODIFIED' && row.s && row.s.type !== row.t.type ? 'diff-val' : ''}>
-                        {row.t.type}
-                      </span>
-                      {' '}
-                      <small className={row.type === 'MODIFIED' && row.s && row.s.nullable !== row.t.nullable ? 'diff-val' : ''}>
-                        {row.t.nullable === 'Yes' ? 'NULL' : 'NOT NULL'}
-                      </small>
-                    </>
-                  ) : (
-                    <em>Missing</em>
-                  )}
-                </td>
-                <td style={{ fontSize: '11px', fontStyle: 'italic', color: '#666' }}>
-                  {row.note || ''}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+              return (
+                <tr key={i} className={`diff-row diff-row-${row.type.toLowerCase()}`}>
+                  <td className="column-name">
+                    <strong>{row.col}</strong>
+                  </td>
+                  <td>
+                    {row.s ? (
+                      <div className="column-info">
+                        {srcIsPk && <span className="key-badge pk">PK</span>}
+                        <span className={row.type === 'MODIFIED' && row.t && row.s.type !== row.t.type ? 'diff-highlight' : ''}>
+                          {row.s.type}
+                        </span>
+                        <span className={`nullable-badge ${row.type === 'MODIFIED' && row.t && row.s.nullable !== row.t.nullable ? 'diff-highlight' : ''}`}>
+                          {row.s.nullable === 'Yes' ? 'NULL' : 'NOT NULL'}
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="column-missing">—</span>
+                    )}
+                  </td>
+                  <td>
+                    {row.t ? (
+                      <div className="column-info">
+                        {tgtIsPk && <span className="key-badge pk">PK</span>}
+                        <span className={row.type === 'MODIFIED' && row.s && row.s.type !== row.t.type ? 'diff-highlight' : ''}>
+                          {row.t.type}
+                        </span>
+                        <span className={`nullable-badge ${row.type === 'MODIFIED' && row.s && row.s.nullable !== row.t.nullable ? 'diff-highlight' : ''}`}>
+                          {row.t.nullable === 'Yes' ? 'NULL' : 'NOT NULL'}
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="column-missing">—</span>
+                    )}
+                  </td>
+                  <td>
+                    <span className={`change-badge change-${row.type.toLowerCase()}`}>
+                      {row.type === 'SAME' ? 'Unchanged' :
+                       row.type === 'SOFT' ? 'Soft Match' :
+                       row.type === 'MODIFIED' ? 'Modified' :
+                       row.type === 'ADDED' ? 'Added' : 'Deleted'}
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     );
   };
 
+  // Total filtered count
+  const filteredCount = useMemo(() => {
+    return Object.values(groupedResults).reduce((sum, arr) => sum + arr.length, 0);
+  }, [groupedResults]);
+
   return (
-    <div style={{ display: 'flex', height: '100%', gap: '0' }}>
-      {/* Left Panel - Input */}
-      <div style={{ width: results ? '320px' : '100%', borderRight: results ? '1px solid #e0e0e0' : 'none', display: 'flex', flexDirection: 'column' }}>
+    <div className="schema-compare">
+      {/* Left Panel - Configuration & Results List */}
+      <div className={`compare-sidebar ${results ? 'has-results' : ''}`}>
+        {/* Header */}
+        <div className="compare-header">
+          <GitCompare size={20} />
+          <span>Schema Compare</span>
+        </div>
+
         {/* Source/Target Selection */}
-        <div style={{ padding: '16px', borderBottom: '1px solid #e0e0e0' }}>
-          <div style={{ marginBottom: '12px' }}>
-            <label className="form-label">Source Script</label>
-            <select
-              className="form-select"
-              value={sourceId}
-              onChange={(e) => setSourceId(e.target.value)}
-            >
-              {scripts.map(s => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </select>
+        <div className="compare-config">
+          {/* Source Selection */}
+          <div className="compare-source-target">
+            <div className="compare-endpoint">
+              <div className="compare-endpoint-label">
+                <Database size={14} />
+                <span>Source</span>
+              </div>
+              <div className="compare-dropdown">
+                <button
+                  className="compare-dropdown-trigger"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSourceDropdownOpen(!sourceDropdownOpen);
+                    setTargetDropdownOpen(false);
+                  }}
+                >
+                  <Database size={14} />
+                  <span className="compare-dropdown-label">
+                    {sourceScript?.name || 'Select source...'}
+                  </span>
+                  {sourceScript && (
+                    <span className={`compare-dropdown-type type-${sourceScript.type}`}>
+                      {sourceScript.type}
+                    </span>
+                  )}
+                  <ChevronDown size={14} className={`compare-dropdown-arrow ${sourceDropdownOpen ? 'open' : ''}`} />
+                </button>
+                {sourceDropdownOpen && (
+                  <div className="compare-dropdown-menu">
+                    {scripts.map(s => (
+                      <button
+                        key={s.id}
+                        className={`compare-dropdown-item ${sourceId === s.id ? 'active' : ''}`}
+                        onClick={() => {
+                          setSourceId(s.id);
+                          setSourceDropdownOpen(false);
+                        }}
+                      >
+                        <span className="compare-dropdown-item-name">{s.name}</span>
+                        <span className={`compare-dropdown-item-type type-${s.type}`}>
+                          {s.type}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="compare-endpoint-info">
+                {sourceScript?.data.targets.length || 0} tables
+              </div>
+            </div>
+
+            <div className="compare-arrow">
+              <ArrowRight size={20} />
+            </div>
+
+            <div className="compare-endpoint">
+              <div className="compare-endpoint-label">
+                <Database size={14} />
+                <span>Target</span>
+              </div>
+
+              {/* Target Type Toggle */}
+              <div className="compare-target-toggle">
+                <button
+                  className={`toggle-btn ${!useCustomTarget ? 'active' : ''}`}
+                  onClick={() => setUseCustomTarget(false)}
+                >
+                  <FileCode size={12} />
+                  Script
+                </button>
+                <button
+                  className={`toggle-btn ${useCustomTarget ? 'active' : ''}`}
+                  onClick={() => setUseCustomTarget(true)}
+                >
+                  Paste DDL
+                </button>
+              </div>
+
+              {!useCustomTarget ? (
+                <>
+                  <div className="compare-dropdown">
+                    <button
+                      className="compare-dropdown-trigger"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setTargetDropdownOpen(!targetDropdownOpen);
+                        setSourceDropdownOpen(false);
+                      }}
+                    >
+                      <Database size={14} />
+                      <span className="compare-dropdown-label">
+                        {targetScript?.name || 'Select target...'}
+                      </span>
+                      {targetScript && (
+                        <span className={`compare-dropdown-type type-${targetScript.type}`}>
+                          {targetScript.type}
+                        </span>
+                      )}
+                      <ChevronDown size={14} className={`compare-dropdown-arrow ${targetDropdownOpen ? 'open' : ''}`} />
+                    </button>
+                    {targetDropdownOpen && (
+                      <div className="compare-dropdown-menu">
+                        {scripts.filter(s => s.id !== sourceId).length === 0 ? (
+                          <div className="compare-dropdown-empty">
+                            No other scripts available
+                          </div>
+                        ) : (
+                          scripts.filter(s => s.id !== sourceId).map(s => (
+                            <button
+                              key={s.id}
+                              className={`compare-dropdown-item ${targetId === s.id ? 'active' : ''}`}
+                              onClick={() => {
+                                setTargetId(s.id);
+                                setTargetDropdownOpen(false);
+                              }}
+                            >
+                              <span className="compare-dropdown-item-name">{s.name}</span>
+                              <span className={`compare-dropdown-item-type type-${s.type}`}>
+                                {s.type}
+                              </span>
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <div className="compare-endpoint-info">
+                    {targetScript?.data.targets.length || 0} tables
+                  </div>
+                </>
+              ) : (
+                <textarea
+                  className="compare-textarea"
+                  value={targetContent}
+                  onChange={(e) => setTargetContent(e.target.value)}
+                  placeholder={`Paste ${sourceScript?.type.toUpperCase() || 'DDL'} here...`}
+                />
+              )}
+            </div>
           </div>
 
-          <div style={{ marginBottom: '12px' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-              <input
-                type="checkbox"
-                checked={useCustomTarget}
-                onChange={(e) => setUseCustomTarget(e.target.checked)}
-              />
-              <span className="form-label" style={{ margin: 0 }}>Use Custom Target</span>
-            </label>
-
-            {!useCustomTarget ? (
-              <select
-                className="form-select"
-                value={targetId}
-                onChange={(e) => setTargetId(e.target.value)}
-              >
-                <option value="">Select target script...</option>
-                {scripts.filter(s => s.id !== sourceId).map(s => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
-              </select>
-            ) : (
-              <textarea
-                className="editor-textarea"
-                value={targetContent}
-                onChange={(e) => setTargetContent(e.target.value)}
-                placeholder="Paste target DDL/DBML here..."
-                style={{ minHeight: results ? '150px' : '300px' }}
-              />
-            )}
-          </div>
-
-          <button className="btn btn-success" onClick={runCompare} style={{ width: '100%' }}>
+          <button className="compare-run-btn" onClick={runCompare}>
             <Play size={16} />
-            Run Compare
+            Compare Schemas
           </button>
         </div>
 
-        {/* Results List */}
-        {results && (
+        {/* Results Section */}
+        {results && stats && (
           <>
-            <div style={{ padding: '8px 16px', borderBottom: '1px solid #e0e0e0' }}>
-              <input
-                type="text"
-                className="form-input"
-                placeholder="Search tables..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                style={{ padding: '6px 10px', fontSize: '12px' }}
-              />
+            {/* Summary Stats */}
+            <div className="compare-summary">
+              <div className="compare-summary-grid">
+                <button
+                  className={`summary-stat ${statusFilter === 'all' ? 'active' : ''}`}
+                  onClick={() => setStatusFilter('all')}
+                >
+                  <span className="stat-value">{stats.total}</span>
+                  <span className="stat-label">Total</span>
+                </button>
+                <button
+                  className={`summary-stat stat-modified ${statusFilter === 'modified' ? 'active' : ''}`}
+                  onClick={() => setStatusFilter('modified')}
+                >
+                  <span className="stat-value">{stats.modified + stats.softMatch}</span>
+                  <span className="stat-label">Changed</span>
+                </button>
+                <button
+                  className={`summary-stat stat-added ${statusFilter === 'added' ? 'active' : ''}`}
+                  onClick={() => setStatusFilter('added')}
+                >
+                  <span className="stat-value">{stats.added}</span>
+                  <span className="stat-label">Added</span>
+                </button>
+                <button
+                  className={`summary-stat stat-deleted ${statusFilter === 'deleted' ? 'active' : ''}`}
+                  onClick={() => setStatusFilter('deleted')}
+                >
+                  <span className="stat-value">{stats.deleted}</span>
+                  <span className="stat-label">Deleted</span>
+                </button>
+                <button
+                  className={`summary-stat stat-identical ${statusFilter === 'identical' ? 'active' : ''}`}
+                  onClick={() => setStatusFilter('identical')}
+                >
+                  <span className="stat-value">{stats.identical}</span>
+                  <span className="stat-label">Same</span>
+                </button>
+              </div>
             </div>
-            <div style={{ flex: 1, overflow: 'auto' }}>
-              {Object.keys(groupedResults).sort().map(schema => (
-                <div key={schema} className="schema-block" style={{ background: '#f8f9fa', borderBottom: '1px solid #e0e0e0' }}>
-                  <div
-                    className="schema-header"
-                    onClick={toggleSchema}
-                    style={{ background: '#e9ecef', padding: '8px 16px' }}
-                  >
-                    <span className="schema-header-title" style={{ color: '#333' }}>{schema}</span>
-                    <ChevronDown size={14} className="schema-arrow" style={{ color: '#666' }} />
-                  </div>
-                  <ul className="table-list" style={{ background: '#fff' }}>
-                    {groupedResults[schema].map(({ key, diff }) => (
-                      <li
-                        key={key}
-                        className={`table-item ${selectedTable === key ? 'active' : ''}`}
-                        onClick={() => setSelectedTable(key)}
-                        style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                          color: '#333',
-                          background: selectedTable === key ? '#3498db' : undefined
-                        }}
-                      >
-                        <span style={{ color: selectedTable === key ? '#fff' : '#333' }}>
-                          {diff.src?.tableName || diff.tgt?.tableName}
-                        </span>
-                        <span className={`flag ${getFlagClass(diff.status)}`}>
-                          {getFlagText(diff.status)}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
+
+            {/* Search & Filter Bar */}
+            <div className="compare-filter-bar">
+              <div className="compare-search">
+                <Search size={14} />
+                <input
+                  type="text"
+                  placeholder="Filter tables..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+              {statusFilter !== 'all' && (
+                <button className="filter-clear" onClick={() => setStatusFilter('all')}>
+                  <Filter size={12} />
+                  Clear
+                </button>
+              )}
+            </div>
+
+            {/* Results Count */}
+            <div className="compare-results-info">
+              Showing {filteredCount} of {stats.total} tables
+            </div>
+
+            {/* Results List */}
+            <div className="compare-results-list">
+              {Object.keys(groupedResults).length === 0 ? (
+                <div className="compare-no-results">
+                  <Search size={24} />
+                  <span>No tables match your filter</span>
                 </div>
-              ))}
+              ) : (
+                Object.keys(groupedResults).sort().map(schema => (
+                  <div key={schema} className="compare-schema-group">
+                    <button
+                      className="compare-schema-header"
+                      onClick={() => toggleSchema(schema)}
+                    >
+                      {expandedSchemas.has(schema) ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                      <span className="schema-name">{schema}</span>
+                      <span className="compare-schema-count">{groupedResults[schema].length}</span>
+                    </button>
+
+                    {expandedSchemas.has(schema) && (
+                      <div className="compare-schema-tables">
+                        {groupedResults[schema].map(({ key, diff }) => (
+                          <button
+                            key={key}
+                            className={`compare-table-item ${selectedTable === key ? 'active' : ''}`}
+                            onClick={() => setSelectedTable(key)}
+                          >
+                            {getStatusIcon(diff.status)}
+                            <span className="table-name">{diff.src?.tableName || diff.tgt?.tableName}</span>
+                            <span className={`table-status-label status-${diff.status.toLowerCase()}`}>
+                              {getStatusLabel(diff.status)}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
             </div>
           </>
         )}
       </div>
 
       {/* Right Panel - Details */}
-      {results && (
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#fff' }}>
-          {selectedTable ? (
-            renderDetails()
-          ) : (
-            <div className="empty-state">
-              <div className="empty-state-title">Comparison Complete</div>
-              <div className="empty-state-text">
-                Select a table from the list to view differences.
-              </div>
+      <div className="compare-main">
+        {!results ? (
+          <div className="compare-empty">
+            <GitCompare size={64} strokeWidth={1} />
+            <h3>Compare Database Schemas</h3>
+            <p>Select source and target schemas, then click "Compare Schemas" to see differences.</p>
+            <div className="compare-help">
+              <h4>How it works:</h4>
+              <ul>
+                <li><strong>Source</strong>: Your baseline/original schema</li>
+                <li><strong>Target</strong>: The schema to compare against (script or pasted DDL)</li>
+                <li>Compares table structures, columns, types, and constraints</li>
+                <li>Handles cross-database type mappings (VARCHAR≈VARCHAR2, NUMBER≈NUMERIC)</li>
+              </ul>
             </div>
-          )}
-        </div>
-      )}
+          </div>
+        ) : selectedTable ? (
+          renderDetails()
+        ) : (
+          <div className="compare-empty">
+            <GitCompare size={48} />
+            <h3>Comparison Complete</h3>
+            <p>Select a table from the list to view detailed differences.</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

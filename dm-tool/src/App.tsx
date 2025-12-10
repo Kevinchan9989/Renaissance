@@ -1,22 +1,43 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Script, ScriptType, AppView, Table } from './types';
-import { loadScripts, saveScripts, generateId, loadTheme, saveTheme } from './utils/storage';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { Script, ScriptType, AppView, Table, MappingProject } from './types';
+import { loadScripts, saveScripts, generateId, loadTheme, saveTheme, saveMappingProject } from './utils/storage';
 import { parseScript } from './utils/parsers';
 import Sidebar from './components/Sidebar';
 import DataDictionary from './components/DataDictionary';
 import SchemaCompare from './components/SchemaCompare';
 import ERDViewer from './components/ERDViewer';
-import CreateScriptModal from './components/CreateScriptModal';
-import { Database, GitCompare, Share2, Sun, Moon } from 'lucide-react';
+import ScriptManager from './components/ScriptManager';
+import ColumnMapper, { MappingStateForSidebar } from './components/ColumnMapper';
+import { Database, Sun, Moon, PanelLeftClose, PanelLeft, ChevronDown, GripVertical } from 'lucide-react';
+
+// Mapping state interface for sidebar - includes callbacks from ColumnMapper
+interface MappingState {
+  project: MappingProject | null;
+  sourceScript: Script | null;
+  targetScript: Script | null;
+  selectedMappingId: string | null;
+  expandedTables: Set<string>;
+  searchTerm: string;
+  // Callbacks to call back into ColumnMapper
+  handleSelectMapping: (id: string | null) => void;
+  handleToggleTable: (tableName: string) => void;
+}
 
 export default function App() {
   const [scripts, setScripts] = useState<Script[]>([]);
   const [activeScriptId, setActiveScriptId] = useState<string | null>(null);
   const [view, setView] = useState<AppView>('dictionary');
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
-  const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedTableId, setSelectedTableId] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [scriptDropdownOpen, setScriptDropdownOpen] = useState(false);
+  const [sidebarWidth, setSidebarWidth] = useState(280);
+  const [isResizing, setIsResizing] = useState(false);
+  const resizeRef = useRef<{ startX: number; startWidth: number } | null>(null);
+
+  // Mapping state for sidebar integration
+  const [mappingState, setMappingState] = useState<MappingState | null>(null);
 
   // Load initial data
   useEffect(() => {
@@ -33,6 +54,54 @@ export default function App() {
       document.body.classList.add('dark-theme');
     }
   }, []);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('.script-dropdown')) {
+        setScriptDropdownOpen(false);
+      }
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
+
+  // Handle sidebar resize
+  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    resizeRef.current = { startX: e.clientX, startWidth: sidebarWidth };
+    setIsResizing(true);
+  }, [sidebarWidth]);
+
+  useEffect(() => {
+    const handleResizeMove = (e: MouseEvent) => {
+      if (!isResizing || !resizeRef.current) return;
+
+      const delta = e.clientX - resizeRef.current.startX;
+      const newWidth = Math.min(Math.max(resizeRef.current.startWidth + delta, 200), 500);
+      setSidebarWidth(newWidth);
+    };
+
+    const handleResizeEnd = () => {
+      setIsResizing(false);
+      resizeRef.current = null;
+    };
+
+    if (isResizing) {
+      document.addEventListener('mousemove', handleResizeMove);
+      document.addEventListener('mouseup', handleResizeEnd);
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleResizeMove);
+      document.removeEventListener('mouseup', handleResizeEnd);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+  }, [isResizing]);
 
   // Get active script
   const activeScript = scripts.find(s => s.id === activeScriptId) || null;
@@ -54,7 +123,6 @@ export default function App() {
     setScripts(updated);
     saveScripts(updated);
     setActiveScriptId(newScript.id);
-    setShowCreateModal(false);
   }, [scripts]);
 
   const updateScript = useCallback((id: string, updates: Partial<Script>) => {
@@ -69,8 +137,6 @@ export default function App() {
   }, [scripts]);
 
   const deleteScript = useCallback((id: string) => {
-    if (!confirm('Delete this script?')) return;
-
     const updated = scripts.filter(s => s.id !== id);
     setScripts(updated);
     saveScripts(updated);
@@ -104,8 +170,83 @@ export default function App() {
     });
   }, [activeScript, updateScript]);
 
+  // Handle view change - switch to dictionary if no script selected for data views
+  const handleViewChange = useCallback((newView: AppView) => {
+    setView(newView);
+    // Clear table selection when changing views
+    if (newView !== 'dictionary') {
+      setSelectedTableId(null);
+    }
+    // Clear mapping state when leaving mapping view
+    if (newView !== 'mapping') {
+      setMappingState(null);
+    }
+  }, []);
+
+  // Handle mapping state updates from ColumnMapper
+  const handleMappingStateChange = useCallback((state: MappingStateForSidebar) => {
+    setMappingState(state);
+  }, []);
+
+  // Mapping sidebar callbacks - delegate to ColumnMapper's handlers
+  const handleMappingSearchChange = useCallback((term: string) => {
+    // Search is display-only in sidebar, doesn't need to call back
+    if (mappingState) {
+      setMappingState({ ...mappingState, searchTerm: term });
+    }
+  }, [mappingState]);
+
+  // These now call back into ColumnMapper which owns the state
+  const handleSelectMapping = useCallback((id: string | null) => {
+    if (mappingState?.handleSelectMapping) {
+      mappingState.handleSelectMapping(id);
+    }
+  }, [mappingState]);
+
+  const handleToggleMappingTable = useCallback((tableName: string) => {
+    if (mappingState?.handleToggleTable) {
+      mappingState.handleToggleTable(tableName);
+    }
+  }, [mappingState]);
+
+  const handleClearMappings = useCallback(() => {
+    if (mappingState?.project) {
+      const clearedProject = { ...mappingState.project, mappings: [], updatedAt: Date.now() };
+      saveMappingProject(clearedProject);
+      setMappingState({ ...mappingState, project: clearedProject });
+    }
+  }, [mappingState]);
+
+  // Rules dialog state - used in sidebar callback
+  const [, setShowRulesDialog] = useState(false);
+
   // Render main content based on view
   const renderContent = () => {
+    // Scripts view doesn't require an active script
+    if (view === 'scripts') {
+      return (
+        <ScriptManager
+          scripts={scripts}
+          activeScriptId={activeScriptId}
+          onSelectScript={setActiveScriptId}
+          onCreateScript={createScript}
+          onUpdateScript={updateScript}
+          onDeleteScript={deleteScript}
+        />
+      );
+    }
+
+    // Mapping view has its own script selectors
+    if (view === 'mapping') {
+      return (
+        <ColumnMapper
+          scripts={scripts}
+          isDarkTheme={theme === 'dark'}
+          onMappingStateChange={handleMappingStateChange}
+        />
+      );
+    }
+
     if (!activeScript) {
       return (
         <div className="empty-state">
@@ -114,11 +255,8 @@ export default function App() {
           </div>
           <div className="empty-state-title">No Script Selected</div>
           <div className="empty-state-text">
-            Create a new script or select an existing one from the sidebar.
+            Create a new script or select one from the dropdown above.
           </div>
-          <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={() => setShowCreateModal(true)}>
-            Create Script
-          </button>
         </div>
       );
     }
@@ -146,72 +284,162 @@ export default function App() {
     }
   };
 
+  // Check if current view needs a script
+  const viewNeedsScript = view !== 'scripts' && view !== 'mapping';
+
   return (
     <div className="app-container">
-      <Sidebar
-        scripts={scripts}
-        activeScriptId={activeScriptId}
-        activeScript={activeScript}
-        view={view}
-        searchTerm={searchTerm}
-        selectedTableId={selectedTableId}
-        onSelectScript={setActiveScriptId}
-        onSelectView={setView}
-        onSelectTable={setSelectedTableId}
-        onSearchChange={setSearchTerm}
-        onCreateScript={() => setShowCreateModal(true)}
-        onDeleteScript={deleteScript}
-      />
+      {/* Sidebar Toggle Button (visible when collapsed) */}
+      {sidebarCollapsed && (
+        <button
+          className="sidebar-toggle-btn"
+          onClick={() => setSidebarCollapsed(false)}
+          title="Show Sidebar"
+        >
+          <PanelLeft size={20} />
+        </button>
+      )}
 
+      {/* Sidebar with Resize Handle */}
+      {!sidebarCollapsed && (
+        <div style={{ display: 'flex', flexShrink: 0, position: 'relative' }}>
+          <div style={{ width: sidebarWidth }}>
+            <Sidebar
+              scripts={scripts}
+              activeScriptId={activeScriptId}
+              activeScript={activeScript}
+              view={view}
+              searchTerm={searchTerm}
+              selectedTableId={selectedTableId}
+              onSelectScript={setActiveScriptId}
+              onSelectView={handleViewChange}
+              onSelectTable={setSelectedTableId}
+              onSearchChange={setSearchTerm}
+              // Mapping props
+              mappingState={mappingState ?? undefined}
+              onMappingSearchChange={handleMappingSearchChange}
+              onSelectMapping={handleSelectMapping}
+              onToggleMappingTable={handleToggleMappingTable}
+              onClearMappings={handleClearMappings}
+              onShowRulesDialog={() => setShowRulesDialog(true)}
+            />
+          </div>
+          {/* Resize Handle */}
+          <div
+            onMouseDown={handleResizeStart}
+            style={{
+              width: '6px',
+              cursor: 'col-resize',
+              background: isResizing ? (theme === 'dark' ? '#3b82f6' : '#2563eb') : 'transparent',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              position: 'absolute',
+              right: '-3px',
+              top: 0,
+              bottom: 0,
+              zIndex: 10,
+              transition: 'background 0.15s ease',
+            }}
+            onMouseEnter={(e) => {
+              if (!isResizing) {
+                e.currentTarget.style.background = theme === 'dark' ? '#374151' : '#e5e7eb';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!isResizing) {
+                e.currentTarget.style.background = 'transparent';
+              }
+            }}
+          >
+            <GripVertical size={10} style={{ color: theme === 'dark' ? '#6b7280' : '#9ca3af', opacity: 0.7 }} />
+          </div>
+        </div>
+      )}
+
+      {/* Main Content */}
       <div className="main-container">
+        {/* Top Toolbar */}
         <div className="toolbar">
-          <div className="toolbar-group">
-            <button
-              className={`btn ${view === 'dictionary' ? 'btn-primary' : ''}`}
-              onClick={() => setView('dictionary')}
-            >
-              <Database size={16} />
-              Dictionary
-            </button>
-            <button
-              className={`btn ${view === 'compare' ? 'btn-primary' : ''}`}
-              onClick={() => setView('compare')}
-            >
-              <GitCompare size={16} />
-              Compare
-            </button>
-            <button
-              className={`btn ${view === 'erd' ? 'btn-primary' : ''}`}
-              onClick={() => setView('erd')}
-            >
-              <Share2 size={16} />
-              ERD
-            </button>
+          <div className="toolbar-left">
+            {/* Script Dropdown */}
+            {viewNeedsScript && (
+              <div className="script-dropdown">
+                <button
+                  className="script-dropdown-trigger"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setScriptDropdownOpen(!scriptDropdownOpen);
+                  }}
+                >
+                  <Database size={16} />
+                  <span className="script-dropdown-label">
+                    {activeScript ? activeScript.name : 'Select Script'}
+                  </span>
+                  {activeScript && (
+                    <span className={`script-dropdown-type type-${activeScript.type}`}>
+                      {activeScript.type}
+                    </span>
+                  )}
+                  <ChevronDown size={14} className={`script-dropdown-arrow ${scriptDropdownOpen ? 'open' : ''}`} />
+                </button>
+
+                {scriptDropdownOpen && (
+                  <div className="script-dropdown-menu">
+                    {scripts.length === 0 ? (
+                      <div className="script-dropdown-empty">
+                        No scripts available. Go to Scripts to create one.
+                      </div>
+                    ) : (
+                      scripts.map(script => (
+                        <button
+                          key={script.id}
+                          className={`script-dropdown-item ${activeScriptId === script.id ? 'active' : ''}`}
+                          onClick={() => {
+                            setActiveScriptId(script.id);
+                            setScriptDropdownOpen(false);
+                          }}
+                        >
+                          <span className="script-dropdown-item-name">{script.name}</span>
+                          <span className={`script-dropdown-item-type type-${script.type}`}>
+                            {script.type}
+                          </span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {!viewNeedsScript && (
+              <span className="toolbar-title">Scripts Management</span>
+            )}
           </div>
 
-          <div className="toolbar-group">
-            {activeScript && (
-              <span className="toolbar-title">
-                {activeScript.name} ({activeScript.type.toUpperCase()})
-              </span>
-            )}
-            <button className="btn" onClick={toggleTheme}>
-              {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
+          <div className="toolbar-right">
+            <button
+              className="toolbar-icon-btn"
+              onClick={toggleTheme}
+              title={theme === 'light' ? 'Dark Mode' : 'Light Mode'}
+            >
+              {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
+            </button>
+            <button
+              className="toolbar-icon-btn"
+              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+              title={sidebarCollapsed ? 'Show Sidebar' : 'Hide Sidebar'}
+            >
+              {sidebarCollapsed ? <PanelLeft size={18} /> : <PanelLeftClose size={18} />}
             </button>
           </div>
         </div>
 
-        <div className="content-area">
+        {/* Content Area */}
+        <div className={`content-area ${view === 'erd' ? 'content-area-erd' : ''} ${view === 'scripts' ? 'content-area-scripts' : ''} ${view === 'mapping' ? 'content-area-mapping' : ''}`}>
           {renderContent()}
         </div>
       </div>
-
-      {showCreateModal && (
-        <CreateScriptModal
-          onClose={() => setShowCreateModal(false)}
-          onCreate={createScript}
-        />
-      )}
     </div>
   );
 }
