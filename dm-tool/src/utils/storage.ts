@@ -388,3 +388,74 @@ export function clearMappingWorkspaceState(): void {
     console.error('Failed to clear mapping workspace state:', e);
   }
 }
+
+// ============================================
+// ERD Table Positions Storage (per script)
+// ============================================
+
+const ERD_POSITIONS_KEY = 'dm_tool_erd_positions';
+
+export interface ERDTablePosition {
+  x: number;
+  y: number;
+}
+
+export interface ERDPositionsState {
+  [scriptId: string]: {
+    tablePositions: Record<string, ERDTablePosition>; // tableId -> position
+    scale: number;
+    stagePosition: { x: number; y: number };
+  };
+}
+
+export function loadERDPositions(scriptId: string): {
+  tablePositions: Record<string, ERDTablePosition>;
+  scale: number;
+  stagePosition: { x: number; y: number };
+} | null {
+  try {
+    const data = localStorage.getItem(ERD_POSITIONS_KEY);
+    if (data) {
+      const allPositions: ERDPositionsState = JSON.parse(data);
+      return allPositions[scriptId] || null;
+    }
+  } catch (e) {
+    console.error('Failed to load ERD positions:', e);
+  }
+  return null;
+}
+
+export function saveERDPositions(
+  scriptId: string,
+  tablePositions: Record<string, ERDTablePosition>,
+  scale: number,
+  stagePosition: { x: number; y: number }
+): void {
+  try {
+    const data = localStorage.getItem(ERD_POSITIONS_KEY);
+    const allPositions: ERDPositionsState = data ? JSON.parse(data) : {};
+
+    allPositions[scriptId] = {
+      tablePositions,
+      scale,
+      stagePosition,
+    };
+
+    localStorage.setItem(ERD_POSITIONS_KEY, JSON.stringify(allPositions));
+  } catch (e) {
+    console.error('Failed to save ERD positions:', e);
+  }
+}
+
+export function clearERDPositions(scriptId: string): void {
+  try {
+    const data = localStorage.getItem(ERD_POSITIONS_KEY);
+    if (data) {
+      const allPositions: ERDPositionsState = JSON.parse(data);
+      delete allPositions[scriptId];
+      localStorage.setItem(ERD_POSITIONS_KEY, JSON.stringify(allPositions));
+    }
+  } catch (e) {
+    console.error('Failed to clear ERD positions:', e);
+  }
+}

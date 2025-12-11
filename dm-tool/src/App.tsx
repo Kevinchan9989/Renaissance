@@ -260,6 +260,8 @@ export default function App() {
           onCreateScript={createScript}
           onUpdateScript={updateScript}
           onDeleteScript={deleteScript}
+          isDarkTheme={theme === 'dark'}
+          darkThemeVariant={darkThemeVariant}
         />
       );
     }
@@ -302,12 +304,25 @@ export default function App() {
               const data = parseScript(rawContent, activeScript.type);
               updateScript(activeScript.id, { rawContent, data });
             }}
+            isDarkTheme={theme === 'dark'}
+            darkThemeVariant={darkThemeVariant}
           />
         );
       case 'compare':
         return <SchemaCompare scripts={scripts} activeScript={activeScript} />;
       case 'erd':
-        return <ERDViewer tables={activeScript.data.targets} isDarkTheme={theme === 'dark'} darkThemeVariant={darkThemeVariant} scriptId={activeScript.id} />;
+        return (
+          <ERDViewer
+            tables={activeScript.data.targets}
+            isDarkTheme={theme === 'dark'}
+            darkThemeVariant={darkThemeVariant}
+            scriptId={activeScript.id}
+            onRefresh={() => {
+              const data = parseScript(activeScript.rawContent, activeScript.type);
+              updateScript(activeScript.id, { data });
+            }}
+          />
+        );
       default:
         return null;
     }

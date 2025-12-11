@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Script, Table, Column } from '../types';
 import { downloadJson } from '../utils/storage';
+import CodeEditor from './CodeEditor';
 import { FileDown, Edit3, Save, X } from 'lucide-react';
 
 interface DataDictionaryProps {
@@ -9,6 +10,8 @@ interface DataDictionaryProps {
   onSelectTable: (id: number | null) => void;
   onUpdateTable: (tableId: number, updates: Partial<Table>) => void;
   onUpdateScript: (rawContent: string) => void;
+  isDarkTheme?: boolean;
+  darkThemeVariant?: 'slate' | 'vscode-gray';
 }
 
 export default function DataDictionary({
@@ -16,7 +19,9 @@ export default function DataDictionary({
   selectedTableId,
   onSelectTable: _onSelectTable,
   onUpdateTable,
-  onUpdateScript
+  onUpdateScript,
+  isDarkTheme = false,
+  darkThemeVariant = 'slate'
 }: DataDictionaryProps) {
   // _onSelectTable is available for future use (e.g., clicking related tables)
   void _onSelectTable;
@@ -84,11 +89,13 @@ export default function DataDictionary({
             </button>
           </div>
         </div>
-        <textarea
-          className="editor-textarea"
+        <CodeEditor
           value={editContent}
-          onChange={(e) => setEditContent(e.target.value)}
-          style={{ flex: 1 }}
+          onChange={setEditContent}
+          language={script.type}
+          isDarkTheme={isDarkTheme}
+          darkThemeVariant={darkThemeVariant}
+          minHeight="100%"
         />
       </div>
     );

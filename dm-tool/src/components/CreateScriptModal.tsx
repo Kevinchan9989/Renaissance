@@ -1,14 +1,17 @@
 import { useState } from 'react';
 import { ScriptType } from '../types';
 import { detectScriptType } from '../utils/parsers';
+import CodeEditor from './CodeEditor';
 import { X } from 'lucide-react';
 
 interface CreateScriptModalProps {
   onClose: () => void;
   onCreate: (name: string, type: ScriptType, content: string) => void;
+  isDarkTheme?: boolean;
+  darkThemeVariant?: 'slate' | 'vscode-gray';
 }
 
-export default function CreateScriptModal({ onClose, onCreate }: CreateScriptModalProps) {
+export default function CreateScriptModal({ onClose, onCreate, isDarkTheme = false, darkThemeVariant = 'slate' }: CreateScriptModalProps) {
   const [name, setName] = useState('');
   const [type, setType] = useState<ScriptType>('postgresql');
   const [content, setContent] = useState('');
@@ -85,12 +88,14 @@ export default function CreateScriptModal({ onClose, onCreate }: CreateScriptMod
 
           <div className="form-group">
             <label className="form-label">DDL / DBML Content</label>
-            <textarea
-              className="editor-textarea"
+            <CodeEditor
               value={content}
-              onChange={(e) => handleContentChange(e.target.value)}
+              onChange={handleContentChange}
+              language={type}
+              isDarkTheme={isDarkTheme}
+              darkThemeVariant={darkThemeVariant}
               placeholder={getPlaceholder(type)}
-              style={{ minHeight: '250px' }}
+              minHeight="250px"
             />
           </div>
         </div>

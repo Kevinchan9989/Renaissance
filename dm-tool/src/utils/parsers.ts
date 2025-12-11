@@ -229,15 +229,29 @@ export function parseOracleSQL(sql: string): ScriptData {
     .replace(/--.*$/gm, '')
     .replace(/\/\*[\s\S]*?\*\//g, '');
 
-  // Parse CREATE TABLE
-  const createRegex = /CREATE\s+TABLE\s+(?:["`]?(\w+)["`]?\.)?["`]?(\w+)["`]?\s*\(([\s\S]*?)\)\s*(?:TABLESPACE\s+\w+)?;?/gi;
+  // Parse CREATE TABLE - using manual parentheses matching to handle nested STORAGE(...)
+  // This approach finds the matching closing paren for the column list, then ignores everything after
+  const createRegex = /CREATE\s+TABLE\s+(?:["`]?(\w+)["`]?\.)?["`]?(\w+)["`]?\s*\(/gi;
   let match: RegExpExecArray | null;
   let idCounter = 1;
 
   while ((match = createRegex.exec(cleanSql)) !== null) {
     const schema = match[1] || 'SYSTEM';
     const tableName = match[2];
-    const body = match[3];
+
+    // Find the matching closing parenthesis for the column list
+    // Start after the opening paren
+    const startPos = match.index + match[0].length;
+    let depth = 1;
+    let endPos = startPos;
+
+    while (depth > 0 && endPos < cleanSql.length) {
+      if (cleanSql[endPos] === '(') depth++;
+      else if (cleanSql[endPos] === ')') depth--;
+      endPos++;
+    }
+
+    const body = cleanSql.substring(startPos, endPos - 1);
 
     const tableObj: Table = {
       id: idCounter++,
@@ -288,18 +302,24 @@ export function parseOracleSQL(sql: string): ScriptData {
       }
 
       // Column definition
-      // Oracle format: column_name DATA_TYPE(precision, scale) [DEFAULT value] [NOT NULL]
+      // Oracle format: column_name DATA_TYPE(precision, scale) [BYTE|CHAR] [DEFAULT value] [NOT NULL]
       const colMatch = trimmedLine.match(/^["`]?(\w+)["`]?\s+(\w+)(.*)$/);
       if (colMatch) {
         const name = colMatch[1];
         let type = colMatch[2];
         let rest = colMatch[3] || '';
 
-        // Handle types with arguments: NUMBER(10,2), VARCHAR2(100), etc.
+        // Handle types with arguments: NUMBER(10,2), VARCHAR2(100 BYTE), CHAR(8 BYTE), etc.
         if (rest.trim().startsWith('(')) {
           const parenMatch = rest.match(/^\s*\(([^)]+)\)/);
           if (parenMatch) {
-            type += `(${parenMatch[1]})`;
+            // Extract the content inside parentheses and clean it
+            let typeArgs = parenMatch[1].trim();
+
+            // Remove BYTE/CHAR qualifiers (Oracle-specific)
+            typeArgs = typeArgs.replace(/\s+BYTE\s*$/i, '').replace(/\s+CHAR\s*$/i, '');
+
+            type += `(${typeArgs})`;
             rest = rest.substring(rest.indexOf(')') + 1);
           }
         }
@@ -344,8 +364,8 @@ export function parseOracleSQL(sql: string): ScriptData {
     tablesMap[`${schema}.${tableName}`] = tableObj;
   }
 
-  // Parse ALTER TABLE for constraints
-  const alterFkRegex = /ALTER\s+TABLE\s+(?:["`]?(\w+)["`]?\.)?["`]?(\w+)["`]?\s+ADD\s+(?:CONSTRAINT\s+(\w+)\s+)?FOREIGN\s+KEY\s*\(([^)]+)\)\s*REFERENCES\s+(?:["`]?(\w+)["`]?\.)?["`]?(\w+)["`]?\s*\(([^)]+)\)/gi;
+  // Parse ALTER TABLE for constraints (with optional Oracle clauses)
+  const alterFkRegex = /ALTER\s+TABLE\s+(?:["`]?(\w+)["`]?\.)?["`]?(\w+)["`]?\s+ADD\s+(?:CONSTRAINT\s+["`]?(\w+)["`]?\s+)?FOREIGN\s+KEY\s*\(([^)]+)\)\s*REFERENCES\s+(?:["`]?(\w+)["`]?\.)?["`]?(\w+)["`]?\s*\(([^)]+)\)(?:\s+(?:ENABLE|DISABLE|NOT\s+DEFERRABLE|DEFERRABLE|INITIALLY\s+(?:IMMEDIATE|DEFERRED)|VALIDATE|NOVALIDATE|ON\s+DELETE\s+(?:CASCADE|SET\s+NULL)))*\s*;?/gi;
 
   while ((match = alterFkRegex.exec(cleanSql)) !== null) {
     const tSchema = match[1] || 'SYSTEM';
@@ -368,7 +388,7 @@ export function parseOracleSQL(sql: string): ScriptData {
   }
 
   // Parse ALTER TABLE for Primary Keys
-  const alterPkRegex = /ALTER\s+TABLE\s+(?:["`]?(\w+)["`]?\.)?["`]?(\w+)["`]?\s+ADD\s+(?:CONSTRAINT\s+(\w+)\s+)?PRIMARY\s+KEY\s*\(([^)]+)\)/gi;
+  const alterPkRegex = /ALTER\s+TABLE\s+(?:["`]?(\w+)["`]?\.)?["`]?(\w+)["`]?\s+ADD\s+(?:CONSTRAINT\s+["`]?(\w+)["`]?\s+)?PRIMARY\s+KEY\s*\(([^)]+)\)/gi;
 
   while ((match = alterPkRegex.exec(cleanSql)) !== null) {
     const tSchema = match[1] || 'SYSTEM';
@@ -383,6 +403,69 @@ export function parseOracleSQL(sql: string): ScriptData {
         type: 'Primary Key',
         localCols
       });
+    }
+  }
+
+  // Parse ALTER TABLE for UNIQUE constraints
+  const alterUqRegex = /ALTER\s+TABLE\s+(?:["`]?(\w+)["`]?\.)?["`]?(\w+)["`]?\s+ADD\s+(?:CONSTRAINT\s+["`]?(\w+)["`]?\s+)?UNIQUE\s*\(([^)]+)\)/gi;
+
+  while ((match = alterUqRegex.exec(cleanSql)) !== null) {
+    const tSchema = match[1] || 'SYSTEM';
+    const tName = match[2];
+    const cName = match[3] || `uq_${tName}`;
+    const localCols = match[4].split(',').map(c => cleanName(c)).join(', ');
+
+    const targetObj = tablesMap[`${tSchema}.${tName}`];
+    if (targetObj) {
+      targetObj.constraints.push({
+        name: cName,
+        type: 'Unique',
+        localCols
+      });
+    }
+  }
+
+  // Parse CREATE INDEX statements - handle schema-qualified index names and table names
+  const createIndexRegex = /CREATE\s+(?:(UNIQUE)\s+)?INDEX\s+(?:["`]?\w+["`]?\.)?["`]?(\w+)["`]?\s+ON\s+(?:["`]?(\w+)["`]?\.)?["`]?(\w+)["`]?\s*\(([^)]+)\)[^;]*;?/gi;
+
+  while ((match = createIndexRegex.exec(cleanSql)) !== null) {
+    const isUnique = match[1] !== undefined;
+    const indexName = match[2];
+    const tSchema = match[3] || 'SYSTEM';
+    const tName = match[4];
+    const indexCols = match[5].split(',').map(c => cleanName(c)).join(', ');
+
+    const targetObj = tablesMap[`${tSchema}.${tName}`];
+    if (targetObj && isUnique) {
+      // Check if constraint with same name already exists (avoid duplicates)
+      const exists = targetObj.constraints.some(c => c.name === indexName);
+      if (!exists) {
+        // Add unique constraint for unique indexes
+        targetObj.constraints.push({
+          name: indexName,
+          type: 'Unique',
+          localCols: indexCols
+        });
+      }
+    }
+    // Note: Regular (non-unique) indexes are not added as constraints
+  }
+
+  // Parse ALTER TABLE MODIFY for NOT NULL constraints
+  const alterModifyRegex = /ALTER\s+TABLE\s+(?:["`]?(\w+)["`]?\.)?["`]?(\w+)["`]?\s+MODIFY\s*\(\s*["`]?(\w+)["`]?\s+NOT\s+NULL(?:\s+ENABLE|\s+DISABLE)?\s*\)/gi;
+
+  while ((match = alterModifyRegex.exec(cleanSql)) !== null) {
+    const tSchema = match[1] || 'SYSTEM';
+    const tName = match[2];
+    const colName = match[3];
+
+    const targetObj = tablesMap[`${tSchema}.${tName}`];
+    if (targetObj) {
+      // Update the column's nullable status
+      const column = targetObj.columns.find(col => col.name.toUpperCase() === colName.toUpperCase());
+      if (column) {
+        column.nullable = 'No';
+      }
     }
   }
 

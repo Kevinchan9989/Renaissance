@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Oracle Parser Test</title>
+</head>
+<body>
+    <h1>Oracle Parser Debug</h1>
+    <pre id="output"></pre>
+
+    <script>
+        const testSQL = `--  DDL for Table ABA0001_SECURITY_MASTER_20230529
+--------------------------------------------------------
+
+CREATE TABLE "MS9ABA"."ABA0001_SECURITY_MASTER_20230529"
+(	ABA0001_SECURITY_CODE CHAR(8 BYTE),
+	ABA0001_ISSUE_NO VARCHAR2(3 BYTE),
+	ABA0001_CURR CHAR(3 BYTE),
+	ABA0001_SECURITY_NAME VARCHAR2(50 BYTE),
+	ABA0001_ISSUE_DATE DATE,
+	ABA0001_TENDER_DATE DATE,
+	ABA0001_ISSUE_SIZE NUMBER(16,0),
+	ABA0001_QTY_APPLIED NUMBER(16,0),
+	ABA0001_AVE_YIELD NUMBER(5,2),
+	ABA0001_CUTOFF_YIELD NUMBER(5,2),
+	ABA0001_MATURITY_DATE DATE,
+	ABA0001_PERCENT_COY NUMBER(5,2),
+	ABA0001_PERCENT_SUB NUMBER(5,2),
+	ABA0001_INTEREST_RATE NUMBER(7,4),
+	ABA0001_TAX_STATUS CHAR(1 BYTE),
+	ABA0001_AVE_PRICE NUMBER(7,4),
+	ABA0001_COY_PRICE NUMBER(7,4),
+	ABA0001_CLOSING_PRICE NUMBER(9,4),
+	ABA0001_REFERENCE_NO NUMBER(5,0),
+	ABA0001_ISIN_CODE CHAR(12 BYTE),
+	ABA0001_ANNOUNCE_DATE DATE,
+	ABA0001_RESULT_LOAD_DATE DATE,
+	ABA0001_LAST_INT_DATE DATE,
+	ABA0001_NEXT_INT_DATE DATE,
+	ABA0001_ACCRUED_INT_DAYS NUMBER(3,0),
+	ABA0001_INT_DATE1 DATE,
+	ABA0001_INT_DATE2 DATE,
+	ABA0001_INT_PAID_IND CHAR(1 BYTE),
+	ABA0001_TENOR NUMBER(3,0),
+	ABA0001_ETENDER_IND CHAR(1 BYTE),
+	ABA0001_MAS_APPLIED NUMBER(16,0),
+	ABA0001_MAS_ALLOTTED NUMBER(16,0),
+	ABA0001_NC_PERCENT NUMBER(5,2),
+	ABA0001_NC_QTY_ALLOT NUMBER(16,0),
+	ABA0001_EX_INT_DATE DATE,
+	ABA0001_QTY_APP_COMP NUMBER(16,0),
+	ABA0001_QTY_APP_NONCOMP NUMBER(16,0),
+	ABA0001_ACCRUED_INT NUMBER(7,4),
+	ABA0001_ANNOUNCE_INDICATOR CHAR(1 BYTE),
+	ABA0001_MEDIAN_YIELD NUMBER(5,2),
+	ABA0001_MEDIAN_PRICE NUMBER(7,4),
+	ABA0001_SEC_CAT VARCHAR2(10 BYTE),
+	ABA0001_SEC_TYPE_ID VARCHAR2(10 BYTE),
+	ABA0001_SEC_TYPE_DESC VARCHAR2(35 BYTE),
+	ABA0001_BENCHMARK_IND CHAR(1 BYTE),
+	ABA0001_FIRST_CPN_PAYM_DATE DATE,
+	ABA0001_TENOR_UNIT CHAR(1 BYTE),
+	ABA0001_RECORD_DATE DATE
+) SEGMENT CREATION IMMEDIATE
+PCTFREE 10 PCTUSED 40 INITRANS 1 MAXTRANS 255
+NOCOMPRESS LOGGING
+STORAGE(INITIAL 1048576 NEXT 1048576 MINEXTENTS 1 MAXEXTENTS 2147483645
+PCTINCREASE 0 FREELISTS 1 FREELIST GROUPS 1
+BUFFER_POOL DEFAULT FLASH_CACHE DEFAULT CELL_FLASH_CACHE DEFAULT)
+TABLESPACE "NETAPP" ;`;
+
+        const cleanSql = testSQL.replace(/--.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+
+        const createRegex = /CREATE\s+TABLE\s+(?:["`]?(\w+)["`]?\.)?["`]?(\w+)["`]?\s*\(([\s\S]*?)\)\s*(?:SEGMENT\s+CREATION\s+(?:IMMEDIATE|DEFERRED)\s*)?(?:PCTFREE\s+\d+\s*)?(?:PCTUSED\s+\d+\s*)?(?:INITRANS\s+\d+\s*)?(?:MAXTRANS\s+\d+\s*)?(?:NOCOMPRESS|COMPRESS\s+(?:BASIC|FOR\s+(?:OLTP|QUERY(?:\s+(?:LOW|HIGH))?|ARCHIVE(?:\s+(?:LOW|HIGH))?))?)?(?:\s+LOGGING|NOLOGGING)?(?:\s+STORAGE\s*\([^)]+\))?(?:\s+TABLESPACE\s+["`]?\w+["`]?)?(?:\s+PARALLEL\s*(?:\d+|\([^)]+\))?)?(?:\s+CACHE|NOCACHE)?(?:\s+MONITORING|NOMONITORING)?(?:\s*;)?/gi;
+
+        const match = createRegex.exec(cleanSql);
+
+        let output = '';
+        if (match) {
+            output += `Schema: ${match[1]}\n`;
+            output += `Table: ${match[2]}\n`;
+            output += `Body Length: ${match[3].length} chars\n\n`;
+            output += `Body Content:\n${match[3]}\n\n`;
+
+            // Test split
+            const lines = match[3].split(',');
+            output += `Split by comma: ${lines.length} parts\n\n`;
+
+            lines.forEach((line, i) => {
+                output += `Line ${i}: ${line.trim().substring(0, 50)}...\n`;
+            });
+        } else {
+            output = 'NO MATCH FOUND!\n\n';
+            output += 'Trying simpler regex...\n';
+
+            const simpleRegex = /CREATE\s+TABLE\s+[^(]+\(([\s\S]*?)\)/i;
+            const simpleMatch = simpleRegex.exec(cleanSql);
+            if (simpleMatch) {
+                output += `Found body: ${simpleMatch[1].length} chars\n`;
+                output += `First 500 chars:\n${simpleMatch[1].substring(0, 500)}`;
+            }
+        }
+
+        document.getElementById('output').textContent = output;
+    </script>
+</body>
+</html>

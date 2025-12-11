@@ -93,14 +93,20 @@ export default function Sidebar({
 
   const tablesBySchema = getTablesBySchema();
 
-  // Filter tables by search term
+  // Filter tables by search term - includes column name search
   const filterTables = (tables: Table[]) => {
     if (!searchTerm) return tables;
     const term = searchTerm.toLowerCase();
-    return tables.filter(t =>
-      t.tableName.toLowerCase().includes(term) ||
-      t.schema.toLowerCase().includes(term)
-    );
+    return tables.filter(t => {
+      // Search table name and schema
+      if (t.tableName.toLowerCase().includes(term) ||
+          t.schema.toLowerCase().includes(term)) {
+        return true;
+      }
+
+      // Search column names
+      return t.columns.some(col => col.name.toLowerCase().includes(term));
+    });
   };
 
   // Toggle schema collapse

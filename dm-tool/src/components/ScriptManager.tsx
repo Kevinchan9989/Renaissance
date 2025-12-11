@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Script, ScriptType } from '../types';
 import { parseScript } from '../utils/parsers';
+import CodeEditor from './CodeEditor';
 import {
   Plus,
   Trash2,
@@ -21,6 +22,8 @@ interface ScriptManagerProps {
   onCreateScript: (name: string, type: ScriptType, content: string) => void;
   onUpdateScript: (id: string, updates: Partial<Script>) => void;
   onDeleteScript: (id: string) => void;
+  isDarkTheme?: boolean;
+  darkThemeVariant?: 'slate' | 'vscode-gray';
 }
 
 export default function ScriptManager({
@@ -29,7 +32,9 @@ export default function ScriptManager({
   onSelectScript,
   onCreateScript,
   onUpdateScript,
-  onDeleteScript
+  onDeleteScript,
+  isDarkTheme = false,
+  darkThemeVariant = 'slate'
 }: ScriptManagerProps) {
   const [selectedScriptId, setSelectedScriptId] = useState<string | null>(activeScriptId);
   const [isEditing, setIsEditing] = useState(false);
@@ -261,12 +266,14 @@ export default function ScriptManager({
 
               <div className="form-group" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
                 <label className="form-label">DDL / Schema Content</label>
-                <textarea
-                  className="editor-textarea"
+                <CodeEditor
                   value={newContent}
-                  onChange={e => setNewContent(e.target.value)}
+                  onChange={setNewContent}
+                  language={newType}
+                  isDarkTheme={isDarkTheme}
+                  darkThemeVariant={darkThemeVariant}
                   placeholder="Paste your CREATE TABLE statements here..."
-                  style={{ flex: 1, minHeight: '300px' }}
+                  minHeight="300px"
                 />
               </div>
             </div>
@@ -343,16 +350,24 @@ export default function ScriptManager({
             {/* Content Area */}
             <div className="script-manager-content">
               {isEditing ? (
-                <textarea
-                  ref={textareaRef}
-                  className="editor-textarea"
+                <CodeEditor
                   value={editContent}
-                  onChange={e => setEditContent(e.target.value)}
+                  onChange={setEditContent}
+                  language={selectedScript.type}
+                  isDarkTheme={isDarkTheme}
+                  darkThemeVariant={darkThemeVariant}
+                  minHeight="100%"
                 />
               ) : (
-                <pre className="script-manager-preview">
-                  <code>{selectedScript.rawContent}</code>
-                </pre>
+                <CodeEditor
+                  value={selectedScript.rawContent}
+                  onChange={() => {}}
+                  language={selectedScript.type}
+                  isDarkTheme={isDarkTheme}
+                  darkThemeVariant={darkThemeVariant}
+                  readOnly={true}
+                  minHeight="100%"
+                />
               )}
             </div>
           </>

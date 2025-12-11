@@ -1,0 +1,147 @@
+/* Code Editor Styles with VS Code Theme Variables */
+
+.code-editor-container {
+  position: relative;
+  overflow: auto;
+}
+
+.code-editor-textarea {
+  outline: none !important;
+  background: transparent !important;
+  caret-color: var(--vscode-fg) !important;
+  color: var(--vscode-fg) !important;
+}
+
+.code-editor-textarea::selection,
+.code-editor-pre ::selection {
+  background: var(--vscode-selection) !important;
+}
+
+.code-editor-pre {
+  margin: 0 !important;
+  outline: none !important;
+  white-space: pre-wrap !important;
+  word-wrap: break-word !important;
+}
+
+/* Prism Token Colors - VS Code Style */
+.code-editor-container .token.comment,
+.code-editor-container .token.prolog,
+.code-editor-container .token.doctype,
+.code-editor-container .token.cdata {
+  color: var(--vscode-comment);
+}
+
+.code-editor-container .token.keyword,
+.code-editor-container .token.builtin {
+  color: var(--vscode-keyword);
+  font-weight: normal;
+}
+
+.code-editor-container .token.string,
+.code-editor-container .token.char {
+  color: var(--vscode-string);
+}
+
+.code-editor-container .token.number,
+.code-editor-container .token.boolean {
+  color: var(--vscode-number);
+}
+
+.code-editor-container .token.function,
+.code-editor-container .token.function-name {
+  color: var(--vscode-function);
+}
+
+.code-editor-container .token.operator,
+.code-editor-container .token.entity,
+.code-editor-container .token.url {
+  color: var(--vscode-operator);
+  background: none;
+}
+
+.code-editor-container .token.punctuation {
+  color: var(--vscode-punctuation);
+}
+
+.code-editor-container .token.class-name,
+.code-editor-container .token.type-class-name {
+  color: var(--vscode-type);
+}
+
+.code-editor-container .token.variable {
+  color: var(--vscode-variable);
+}
+
+.code-editor-container .token.property,
+.code-editor-container .token.property-access {
+  color: var(--vscode-property);
+}
+
+.code-editor-container .token.constant {
+  color: var(--vscode-constant);
+}
+
+/* SQL-specific highlighting */
+.code-editor-container .token.keyword.keyword-create,
+.code-editor-container .token.keyword.keyword-table,
+.code-editor-container .token.keyword.keyword-select,
+.code-editor-container .token.keyword.keyword-from,
+.code-editor-container .token.keyword.keyword-where,
+.code-editor-container .token.keyword.keyword-insert,
+.code-editor-container .token.keyword.keyword-update,
+.code-editor-container .token.keyword.keyword-delete,
+.code-editor-container .token.keyword.keyword-alter,
+.code-editor-container .token.keyword.keyword-drop,
+.code-editor-container .token.keyword.keyword-constraint,
+.code-editor-container .token.keyword.keyword-primary,
+.code-editor-container .token.keyword.keyword-foreign,
+.code-editor-container .token.keyword.keyword-key,
+.code-editor-container .token.keyword.keyword-references,
+.code-editor-container .token.keyword.keyword-not,
+.code-editor-container .token.keyword.keyword-null,
+.code-editor-container .token.keyword.keyword-default,
+.code-editor-container .token.keyword.keyword-unique,
+.code-editor-container .token.keyword.keyword-index {
+  color: var(--vscode-keyword);
+  font-weight: bold;
+}
+
+/* SQL data types */
+.code-editor-container .token.keyword.keyword-varchar,
+.code-editor-container .token.keyword.keyword-varchar2,
+.code-editor-container .token.keyword.keyword-char,
+.code-editor-container .token.keyword.keyword-int,
+.code-editor-container .token.keyword.keyword-integer,
+.code-editor-container .token.keyword.keyword-bigint,
+.code-editor-container .token.keyword.keyword-numeric,
+.code-editor-container .token.keyword.keyword-decimal,
+.code-editor-container .token.keyword.keyword-number,
+.code-editor-container .token.keyword.keyword-date,
+.code-editor-container .token.keyword.keyword-timestamp,
+.code-editor-container .token.keyword.keyword-boolean,
+.code-editor-container .token.keyword.keyword-text,
+.code-editor-container .token.keyword.keyword-blob,
+.code-editor-container .token.keyword.keyword-clob {
+  color: var(--vscode-type);
+  font-weight: normal;
+}
+
+/* Scrollbar styling for dark/light themes */
+.code-editor-container::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.code-editor-container::-webkit-scrollbar-track {
+  background: var(--vscode-bg);
+}
+
+.code-editor-container::-webkit-scrollbar-thumb {
+  background: var(--vscode-line-number);
+  border-radius: 5px;
+}
+
+.code-editor-container::-webkit-scrollbar-thumb:hover {
+  background: var(--vscode-line-number-active);
+}

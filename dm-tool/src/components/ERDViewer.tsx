@@ -4,13 +4,14 @@ import Konva from 'konva';
 import dagre from '@dagrejs/dagre';
 import { Table } from '../types';
 import { TABLE_COLORS, SIZING, FONTS, LIGHT_THEME, getDarkTheme, ThemeColors, DarkThemeVariant } from '../constants/erd';
-import { ZoomIn, ZoomOut, Maximize2, Download, RotateCcw, Maximize, Search, X } from 'lucide-react';
+import { ZoomIn, ZoomOut, Maximize2, Download, RotateCcw, Maximize, Search, X, RefreshCw } from 'lucide-react';
 
 interface ERDViewerProps {
   tables: Table[];
   isDarkTheme: boolean;
   darkThemeVariant?: DarkThemeVariant;
   scriptId: string;
+  onRefresh?: () => void;
 }
 
 interface TableNode {
@@ -182,7 +183,7 @@ function getManySymbol(x: number, y: number, position: Position): string {
   return `M${x},${y - halfHeight} L${offset.x},${y} L${x},${y + halfHeight}`;
 }
 
-export default function ERDViewer({ tables, isDarkTheme, darkThemeVariant = 'slate', scriptId }: ERDViewerProps) {
+export default function ERDViewer({ tables, isDarkTheme, darkThemeVariant = 'slate', scriptId, onRefresh }: ERDViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -205,6 +206,9 @@ export default function ERDViewer({ tables, isDarkTheme, darkThemeVariant = 'sla
   const [highlightedTable, setHighlightedTable] = useState<string | null>(null);
   const [highlightedColumn, setHighlightedColumn] = useState<{ table: string; column: string } | null>(null);
 
+  // Hover state for columns
+  const [hoveredColumn, setHoveredColumn] = useState<{ table: string; column: string } | null>(null);
+
   const theme = getTheme(isDarkTheme, darkThemeVariant);
 
   // Load saved positions on mount
@@ -214,7 +218,7 @@ export default function ERDViewer({ tables, isDarkTheme, darkThemeVariant = 'sla
       try {
         const parsed = JSON.parse(saved);
         setTablePositions(parsed);
-        setInitialLayoutDone(true);
+        setInitialLayoutDone(true); // Mark as done so we don't overwrite with auto-layout
       } catch (e) {
         console.error('Failed to load saved positions');
       }
@@ -402,15 +406,23 @@ export default function ERDViewer({ tables, isDarkTheme, darkThemeVariant = 'sla
 
   // Set initial positions from layout if not already set
   useEffect(() => {
+    // Only set positions from auto-layout if:
+    // 1. We haven't done initial layout yet
+    // 2. There's no saved positions in localStorage
+    // 3. We have tables to layout
     if (!initialLayoutDone && Object.keys(initialLayout).length > 0) {
-      const positions: Record<string, { x: number; y: number }> = {};
-      for (const [id, layout] of Object.entries(initialLayout)) {
-        positions[id] = { x: layout.x, y: layout.y };
+      const saved = localStorage.getItem(getStorageKey(scriptId));
+      if (!saved) {
+        // No saved positions, use auto-layout
+        const positions: Record<string, { x: number; y: number }> = {};
+        for (const [id, layout] of Object.entries(initialLayout)) {
+          positions[id] = { x: layout.x, y: layout.y };
+        }
+        setTablePositions(positions);
       }
-      setTablePositions(positions);
       setInitialLayoutDone(true);
     }
-  }, [initialLayout, initialLayoutDone]);
+  }, [initialLayout, initialLayoutDone, scriptId]);
 
   // Compute nodes with current positions
   const nodes = useMemo((): TableNode[] => {
@@ -764,6 +776,8 @@ export default function ERDViewer({ tables, isDarkTheme, darkThemeVariant = 'sla
           const isFk = fkCols.has(col.name.toUpperCase());
           const isColHighlighted = highlightedColumn?.table === node.id &&
                                     highlightedColumn?.column.toUpperCase() === col.name.toUpperCase();
+          const isColHovered = hoveredColumn?.table === node.id &&
+                               hoveredColumn?.column.toUpperCase() === col.name.toUpperCase();
 
           return (
             <Group key={col.name} y={colY}>
@@ -774,20 +788,41 @@ export default function ERDViewer({ tables, isDarkTheme, darkThemeVariant = 'sla
                   width={width - 2}
                   height={SIZING.COLUMN_HEIGHT}
                   fill={color.regular}
-                  opacity={0.3}
+                  opacity={0.15}
+                />
+              )}
+
+              {/* Row highlight for hover */}
+              {isColHovered && !isColHighlighted && (
+                <Rect
+                  x={1}
+                  width={width - 2}
+                  height={SIZING.COLUMN_HEIGHT}
+                  fill={theme.table.headerBackground}
+                  opacity={0.8}
                 />
               )}
 
               {/* Row background for PK/FK */}
-              {(isPk || isFk) && !isColHighlighted && (
+              {(isPk || isFk) && !isColHighlighted && !isColHovered && (
                 <Rect
                   x={1}
                   width={width - 2}
                   height={SIZING.COLUMN_HEIGHT}
                   fill={isPk ? color.lighter : '#f0f9ff'}
-                  opacity={0.5}
+                  opacity={0.3}
                 />
               )}
+
+              {/* Invisible rect for hover detection */}
+              <Rect
+                x={0}
+                width={width}
+                height={SIZING.COLUMN_HEIGHT}
+                fill="transparent"
+                onMouseEnter={() => setHoveredColumn({ table: node.id, column: col.name })}
+                onMouseLeave={() => setHoveredColumn(null)}
+              />
 
               {/* Key indicator */}
               {(isPk || isFk) && (
@@ -1045,7 +1080,13 @@ export default function ERDViewer({ tables, isDarkTheme, darkThemeVariant = 'sla
 
         <div style={{ flex: 1 }} />
 
-        <button className="btn btn-sm" onClick={handleResetPositions} title="Reset Table Positions">
+        {onRefresh && (
+          <button className="btn btn-sm" onClick={onRefresh} title="Refresh Schema">
+            <RefreshCw size={16} />
+          </button>
+        )}
+
+        <button className="btn btn-sm" onClick={handleResetPositions} title="Auto Arrange (Reset Positions)">
           Reset Layout
         </button>
 
