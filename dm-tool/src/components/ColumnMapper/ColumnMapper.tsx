@@ -24,6 +24,7 @@ import { TABLE_COLORS, SIZING, FONTS, LIGHT_THEME, getDarkTheme, DarkThemeVarian
 import {
   Trash2,
   ChevronDown,
+  ChevronRight,
   Database,
   ArrowRightLeft,
   Check,
@@ -32,6 +33,11 @@ import {
   Grid3X3,
   MousePointer,
   Layers,
+  AlertTriangle,
+  AlertCircle,
+  CheckCircle2,
+  Settings2,
+  ExternalLink,
 } from 'lucide-react';
 
 // Export mapping state interface for Sidebar integration
@@ -88,7 +94,7 @@ interface MappedColumnPopup {
 const LINE_COLORS = TABLE_COLORS.map(c => c.regular);
 
 // Tab for canvas view
-type CanvasTab = 'canvas' | 'linkage' | 'summary';
+type CanvasTab = 'canvas' | 'linkage' | 'summary' | 'rules';
 
 // Get theme based on dark mode and variant
 const getTheme = (isDark: boolean, variant: DarkThemeVariant = 'slate') =>
@@ -143,6 +149,7 @@ export default function ColumnMapper({
 
   // Tab for canvas view (canvas vs linkage table)
   const [activeTab, setActiveTab] = useState<CanvasTab>('canvas');
+  const [expandedTargetTables, setExpandedTargetTables] = useState<Set<string>>(new Set());
 
   // Load cached workspace state
   const cachedState = useMemo(() => loadMappingWorkspaceState(), []);
@@ -792,20 +799,38 @@ export default function ColumnMapper({
     const color = TABLE_COLORS[colorIndex];
     const isDropTarget = dragState.isDragging && dragState.startType !== side;
 
-    // Get mapped columns with their colors and mapping IDs
-    const mappedColsWithColors = new Map<string, { colorIndex: number; color: typeof TABLE_COLORS[0]; mappingId: string }>();
-    currentMappings
+    // Get mapped columns with their colors, mapping IDs, and connected table info
+    const mappedColsWithColors = new Map<string, {
+      colorIndex: number;
+      color: typeof TABLE_COLORS[0];
+      mappingId: string;
+      connectedTable: string;
+      isCurrentConnection: boolean;
+    }>();
+
+    // Get ALL mappings involving this table, not just current selection
+    const allProjectMappings = project?.mappings || [];
+    allProjectMappings
       .filter(m => side === 'source'
         ? m.sourceTable === table.tableName
         : m.targetTable === table.tableName
       )
       .forEach(m => {
         const colName = side === 'source' ? m.sourceColumn : m.targetColumn;
+        const connectedTable = side === 'source' ? m.targetTable : m.sourceTable;
         const mappingColorIndex = getMappingColorIndex(m);
+
+        // Check if this is the currently active connection (both tables selected)
+        const isCurrentConnection = side === 'source'
+          ? (m.targetTable === targetTableName)
+          : (m.sourceTable === sourceTableName);
+
         mappedColsWithColors.set(colName, {
           colorIndex: mappingColorIndex,
           color: TABLE_COLORS[mappingColorIndex],
-          mappingId: m.id
+          mappingId: m.id,
+          connectedTable: connectedTable,
+          isCurrentConnection: isCurrentConnection
         });
       });
 
@@ -919,12 +944,11 @@ export default function ColumnMapper({
                   hasPopupOpen ? (side === 'source' ? '#3b82f6' : '#22c55e') :
                   isBeingDragged ? (side === 'source' ? '#3b82f6' : '#22c55e') :
                   isValidDropTarget ? '#22c55e' :
-                  isSelected ? mappingColor.regular :
-                  isHovered && isDropTarget ? '#22c55e40' :
-                  isMapped ? mappingColor.lighter :
+                  isSelected ? (isDarkTheme ? '#808080' : mappingColor.regular) :
+                  isMapped ? (isDarkTheme ? '#808080' : mappingColor.lighter) :
                   'transparent'
                 }
-                opacity={hasPopupOpen || isBeingDragged || isValidDropTarget ? 0.4 : isSelected ? 0.6 : isMapped ? 0.5 : 1}
+                opacity={hasPopupOpen || isBeingDragged || isValidDropTarget ? 0.4 : isSelected ? (isDarkTheme ? 0.1 : 0.6) : isMapped ? (isDarkTheme ? 0.1 : 0.5) : 1}
                 stroke={isSelected ? mappingColor.regular : undefined}
                 strokeWidth={isSelected ? 2 : 0}
                 onMouseDown={(e) => handleDragStart(side, table.tableName, col.name, e)}
@@ -1007,7 +1031,7 @@ export default function ColumnMapper({
                 text={col.name}
                 x={SIZING.PADDING + 6}
                 y={8}
-                width={width * 0.5}
+                width={isMapped && !mappingInfo.isCurrentConnection ? width * 0.35 : width * 0.5}
                 fontSize={FONTS.SIZE_SM}
                 fontFamily={FONTS.FAMILY}
                 fontStyle={isMapped || hasPopupOpen ? 'bold' : 'normal'}
@@ -1015,6 +1039,76 @@ export default function ColumnMapper({
                 ellipsis
                 listening={false}
               />
+
+              {/* Connected table tag (for non-current connections) */}
+              {isMapped && !mappingInfo.isCurrentConnection && (() => {
+                // Get the connected table's color (not the mapping color)
+                const connectedTableName = mappingInfo.connectedTable;
+                // Find the connected table in the appropriate script
+                const connectedScript = side === 'source' ? targetScript : sourceScript;
+                const allTables = connectedScript?.data.sources.concat(connectedScript?.data.targets || []) || [];
+                const connectedTableIndex = allTables.findIndex(t => t.tableName === connectedTableName);
+                const tableColor = connectedTableIndex >= 0
+                  ? TABLE_COLORS[connectedTableIndex % TABLE_COLORS.length]
+                  : TABLE_COLORS[0];
+
+                // Calculate tag width - compact like SRC/TGT (SRC = 3 chars, ~34px)
+                const charWidth = 4.8; // pixels per character (tighter)
+                const padding = 12; // horizontal padding (6px on each side)
+                const maxWidth = width * 0.10; // Max 10% of column width to prevent overflow
+                const tagWidth = Math.min(connectedTableName.length * charWidth + padding, maxWidth);
+                const tagX = width * 0.37;
+
+                return (
+                  <Group
+                    onClick={() => {
+                      // Jump to the connection with this mapping
+                      const mapping = allProjectMappings.find(m => m.id === mappingInfo.mappingId);
+                      if (mapping) {
+                        setSourceTableName(mapping.sourceTable);
+                        setTargetTableName(mapping.targetTable);
+                        setSelectedMappingId(mapping.id);
+                      }
+                    }}
+                    onMouseEnter={() => {
+                      const stage = stageRef.current;
+                      if (stage) {
+                        stage.container().style.cursor = 'pointer';
+                      }
+                    }}
+                    onMouseLeave={() => {
+                      const stage = stageRef.current;
+                      if (stage) {
+                        stage.container().style.cursor = 'default';
+                      }
+                    }}
+                  >
+                    {/* Tag background - solid color like SRC/TGT */}
+                    <Rect
+                      x={tagX}
+                      y={8}
+                      width={tagWidth}
+                      height={14}
+                      fill={tableColor.regular}
+                      opacity={1}
+                      cornerRadius={10}
+                    />
+                    {/* Tag text - white text with proper ellipsis */}
+                    <Text
+                      text={connectedTableName}
+                      x={tagX + 6}
+                      y={10.5}
+                      width={tagWidth - 12}
+                      fontSize={10}
+                      fontFamily={FONTS.FAMILY}
+                      fontStyle="600"
+                      fill="#fff"
+                      ellipsis={true}
+                      align="center"
+                    />
+                  </Group>
+                );
+              })()}
 
               {/* Column type */}
               <Text
@@ -1155,11 +1249,14 @@ export default function ColumnMapper({
           tableLayout: 'fixed',
         }}>
           <colgroup>
-            <col style={{ width: '18%' }} />
-            <col style={{ width: '14%' }} />
+            <col style={{ width: '15%' }} />
+            <col style={{ width: '11%' }} />
+            <col style={{ width: '7%' }} />
             <col style={{ width: '40px' }} />
-            <col style={{ width: '18%' }} />
-            <col style={{ width: '14%' }} />
+            <col style={{ width: '15%' }} />
+            <col style={{ width: '11%' }} />
+            <col style={{ width: '7%' }} />
+            <col style={{ width: '50px' }} />
             <col style={{ width: 'auto' }} />
             <col style={{ width: '50px' }} />
           </colgroup>
@@ -1171,9 +1268,12 @@ export default function ColumnMapper({
             }}>
               <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600, color: '#3b82f6' }}>Source Column</th>
               <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600 }}>Type</th>
+              <th style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 600 }}>Null</th>
               <th style={{ padding: '10px 12px', textAlign: 'center' }}></th>
               <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600, color: '#22c55e' }}>Target Column</th>
               <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600 }}>Type</th>
+              <th style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 600 }}>Null</th>
+              <th style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 600 }} title="Validation Status">⚠</th>
               <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600 }}>Remarks</th>
               <th style={{ padding: '10px 12px', textAlign: 'center' }}></th>
             </tr>
@@ -1183,6 +1283,12 @@ export default function ColumnMapper({
               const colorIndex = getMappingColorIndex(mapping);
               const lineColor = LINE_COLORS[colorIndex];
               const isSelected = selectedMappingId === mapping.id;
+
+              // Get nullable values from source and target columns
+              const sourceCol = sourceTable?.columns.find(c => c.name === mapping.sourceColumn);
+              const targetCol = targetTable?.columns.find(c => c.name === mapping.targetColumn);
+              const sourceNullable = sourceCol?.nullable || '';
+              const targetNullable = targetCol?.nullable || '';
 
               return (
                 <tr
@@ -1213,6 +1319,9 @@ export default function ColumnMapper({
                   <td style={{ padding: '10px 12px', color: theme.text.secondary, fontFamily: 'monospace', fontSize: '12px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {mapping.sourceType}
                   </td>
+                  <td style={{ padding: '10px 12px', textAlign: 'center', color: theme.text.secondary, fontSize: '12px' }}>
+                    {sourceNullable}
+                  </td>
                   <td style={{ padding: '10px 12px', textAlign: 'center', color: theme.text.secondary }}>
                     →
                   </td>
@@ -1221,6 +1330,24 @@ export default function ColumnMapper({
                   </td>
                   <td style={{ padding: '10px 12px', color: theme.text.secondary, fontFamily: 'monospace', fontSize: '12px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {mapping.targetType}
+                  </td>
+                  <td style={{ padding: '10px 12px', textAlign: 'center', color: theme.text.secondary, fontSize: '12px' }}>
+                    {targetNullable}
+                  </td>
+                  <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                    {mapping.validation.errors.length > 0 ? (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', color: '#ef4444' }} title={mapping.validation.errors.join('\n')}>
+                        <AlertCircle size={16} />
+                      </div>
+                    ) : mapping.validation.warnings.length > 0 ? (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', color: '#f59e0b' }} title={mapping.validation.warnings.join('\n')}>
+                        <AlertTriangle size={16} />
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', color: '#22c55e' }} title="No validation issues">
+                        <CheckCircle2 size={16} />
+                      </div>
+                    )}
                   </td>
                   <td style={{ padding: '10px 12px', overflow: 'hidden' }}>
                     {editingRemarkId === mapping.id ? (
@@ -1358,46 +1485,69 @@ export default function ColumnMapper({
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-            {Array.from(groupedByTarget.entries()).sort((a, b) => a[0].localeCompare(b[0])).map(([targetTable, sourceMap]) => (
-              <div key={targetTable} style={{
-                background: theme.table.background,
-                borderRadius: '8px',
-                border: `1px solid ${theme.table.border}`,
-                overflow: 'hidden',
-              }}>
-                {/* Target Table Header */}
-                <div style={{
-                  padding: '12px 16px',
-                  background: theme.table.headerBackground,
-                  borderBottom: `1px solid ${theme.table.border}`,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                }}>
-                  <span style={{
-                    background: '#22c55e',
-                    color: '#fff',
-                    fontSize: '10px',
-                    padding: '2px 8px',
-                    borderRadius: '10px',
-                    fontWeight: 600,
-                  }}>TGT</span>
-                  <span style={{
-                    fontSize: '14px',
-                    fontWeight: 600,
-                    color: theme.text.primary,
-                  }}>{targetTable}</span>
-                  <span style={{
-                    fontSize: '12px',
-                    color: theme.text.secondary,
-                    marginLeft: 'auto',
-                  }}>
-                    {Array.from(sourceMap.values()).flat().length} mapping{Array.from(sourceMap.values()).flat().length !== 1 ? 's' : ''}
-                  </span>
-                </div>
+            {Array.from(groupedByTarget.entries()).sort((a, b) => a[0].localeCompare(b[0])).map(([targetTable, sourceMap]) => {
+              const isExpanded = expandedTargetTables.has(targetTable);
 
-                {/* Source tables within this target */}
-                {Array.from(sourceMap.entries()).sort((a, b) => a[0].localeCompare(b[0])).map(([sourceTable, mappings]) => (
+              return (
+                <div key={targetTable} style={{
+                  background: theme.table.background,
+                  borderRadius: '8px',
+                  border: `1px solid ${theme.table.border}`,
+                  overflow: 'hidden',
+                }}>
+                  {/* Target Table Header - Clickable */}
+                  <div
+                    onClick={() => {
+                      const newExpanded = new Set(expandedTargetTables);
+                      if (isExpanded) {
+                        newExpanded.delete(targetTable);
+                      } else {
+                        newExpanded.add(targetTable);
+                      }
+                      setExpandedTargetTables(newExpanded);
+                    }}
+                    style={{
+                      padding: '12px 16px',
+                      background: theme.table.headerBackground,
+                      borderBottom: isExpanded ? `1px solid ${theme.table.border}` : 'none',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      cursor: 'pointer',
+                      transition: 'background 0.2s',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = theme.canvas.grid;
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = theme.table.headerBackground;
+                    }}
+                  >
+                    {isExpanded ? <ChevronDown size={16} color={theme.text.secondary} /> : <ChevronRight size={16} color={theme.text.secondary} />}
+                    <span style={{
+                      background: '#22c55e',
+                      color: '#fff',
+                      fontSize: '10px',
+                      padding: '2px 8px',
+                      borderRadius: '10px',
+                      fontWeight: 600,
+                    }}>TGT</span>
+                    <span style={{
+                      fontSize: '14px',
+                      fontWeight: 600,
+                      color: theme.text.primary,
+                    }}>{targetTable}</span>
+                    <span style={{
+                      fontSize: '12px',
+                      color: theme.text.secondary,
+                      marginLeft: 'auto',
+                    }}>
+                      {Array.from(sourceMap.values()).flat().length} mapping{Array.from(sourceMap.values()).flat().length !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+
+                {/* Source tables within this target - only show if expanded */}
+                {isExpanded && Array.from(sourceMap.entries()).sort((a, b) => a[0].localeCompare(b[0])).map(([sourceTable, mappings]) => (
                   <div key={sourceTable}>
                     {/* Source Table Sub-header */}
                     <div style={{
@@ -1438,19 +1588,32 @@ export default function ColumnMapper({
                       tableLayout: 'fixed',
                     }}>
                       <colgroup>
-                        <col style={{ width: '20%' }} />
-                        <col style={{ width: '12%' }} />
+                        <col style={{ width: '16%' }} />
+                        <col style={{ width: '9%' }} />
+                        <col style={{ width: '5%' }} />
                         <col style={{ width: '40px' }} />
-                        <col style={{ width: '20%' }} />
-                        <col style={{ width: '12%' }} />
+                        <col style={{ width: '16%' }} />
+                        <col style={{ width: '9%' }} />
+                        <col style={{ width: '5%' }} />
+                        <col style={{ width: '40px' }} />
                         <col style={{ width: 'auto' }} />
-                        <col style={{ width: '50px' }} />
+                        <col style={{ width: '80px' }} />
                       </colgroup>
                       <tbody>
                         {mappings.map(mapping => {
                           const colorIndex = getMappingColorIndex(mapping);
                           const lineColor = LINE_COLORS[colorIndex];
                           const isSelected = selectedMappingId === mapping.id;
+
+                          // Get nullable values from scripts
+                          const srcScript = sourceScript?.data.sources.concat(sourceScript?.data.targets || []);
+                          const tgtScript = targetScript?.data.sources.concat(targetScript?.data.targets || []);
+                          const srcTable = srcScript?.find(t => t.tableName === mapping.sourceTable);
+                          const tgtTable = tgtScript?.find(t => t.tableName === mapping.targetTable);
+                          const sourceCol = srcTable?.columns.find(c => c.name === mapping.sourceColumn);
+                          const targetCol = tgtTable?.columns.find(c => c.name === mapping.targetColumn);
+                          const sourceNullable = sourceCol?.nullable || '';
+                          const targetNullable = targetCol?.nullable || '';
 
                           return (
                             <tr
@@ -1481,6 +1644,9 @@ export default function ColumnMapper({
                               <td style={{ padding: '8px 12px', color: theme.text.secondary, fontFamily: 'monospace', fontSize: '11px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                 {mapping.sourceType}
                               </td>
+                              <td style={{ padding: '8px 12px', textAlign: 'center', color: theme.text.secondary, fontSize: '11px' }}>
+                                {sourceNullable}
+                              </td>
                               <td style={{ padding: '8px 12px', textAlign: 'center', color: theme.text.secondary }}>
                                 →
                               </td>
@@ -1491,6 +1657,24 @@ export default function ColumnMapper({
                               </td>
                               <td style={{ padding: '8px 12px', color: theme.text.secondary, fontFamily: 'monospace', fontSize: '11px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                 {mapping.targetType}
+                              </td>
+                              <td style={{ padding: '8px 12px', textAlign: 'center', color: theme.text.secondary, fontSize: '11px' }}>
+                                {targetNullable}
+                              </td>
+                              <td style={{ padding: '8px 12px', textAlign: 'center' }}>
+                                {mapping.validation.errors.length > 0 ? (
+                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', color: '#ef4444' }} title={mapping.validation.errors.join('\n')}>
+                                    <AlertCircle size={14} />
+                                  </div>
+                                ) : mapping.validation.warnings.length > 0 ? (
+                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', color: '#f59e0b' }} title={mapping.validation.warnings.join('\n')}>
+                                    <AlertTriangle size={14} />
+                                  </div>
+                                ) : (
+                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', color: '#22c55e' }} title="No validation issues">
+                                    <CheckCircle2 size={14} />
+                                  </div>
+                                )}
                               </td>
                               <td style={{ padding: '8px 12px', overflow: 'hidden' }}>
                                 {editingRemarkId === mapping.id ? (
@@ -1561,22 +1745,44 @@ export default function ColumnMapper({
                                 )}
                               </td>
                               <td style={{ padding: '8px 12px', textAlign: 'center' }}>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDeleteMapping(mapping.id);
-                                  }}
-                                  style={{
-                                    padding: '4px',
-                                    background: 'transparent',
-                                    border: 'none',
-                                    cursor: 'pointer',
-                                    opacity: 0.6,
-                                  }}
-                                  title="Delete mapping"
-                                >
-                                  <Trash2 size={14} color="#ef4444" />
-                                </button>
+                                <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      // Switch to canvas tab and set the tables from this mapping
+                                      setActiveTab('canvas');
+                                      setSourceTableName(mapping.sourceTable);
+                                      setTargetTableName(mapping.targetTable);
+                                      setSelectedMappingId(mapping.id);
+                                    }}
+                                    style={{
+                                      padding: '4px',
+                                      background: 'transparent',
+                                      border: 'none',
+                                      cursor: 'pointer',
+                                      opacity: 0.6,
+                                    }}
+                                    title="Jump to canvas with this mapping"
+                                  >
+                                    <ExternalLink size={14} color={theme.accent.primary} />
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDeleteMapping(mapping.id);
+                                    }}
+                                    style={{
+                                      padding: '4px',
+                                      background: 'transparent',
+                                      border: 'none',
+                                      cursor: 'pointer',
+                                      opacity: 0.6,
+                                    }}
+                                    title="Delete mapping"
+                                  >
+                                    <Trash2 size={14} color="#ef4444" />
+                                  </button>
+                                </div>
                               </td>
                             </tr>
                           );
@@ -1586,7 +1792,8 @@ export default function ColumnMapper({
                   </div>
                 ))}
               </div>
-            ))}
+            );
+          })}
           </div>
         )}
       </div>
@@ -1603,25 +1810,41 @@ export default function ColumnMapper({
     setIsOpen: (open: boolean) => void,
     onChange: (id: string | null) => void,
     color: string
-  ) => (
-    <div className="mapper-dropdown" style={{ position: 'relative' }}>
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          setIsOpen(!isOpen);
-        }}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          padding: '8px 12px',
-          background: theme.table.headerBackground,
-          border: `1px solid ${theme.table.border}`,
-          borderRadius: '6px',
-          cursor: 'pointer',
-          minWidth: '180px',
-        }}
-      >
+  ) => {
+    // Calculate dynamic width based on longest option name
+    const longestName = options.reduce((longest, opt) =>
+      opt.name.length > longest.length ? opt.name : longest,
+      placeholder
+    );
+    // Approximate width: 8px per character + padding + icon space
+    const dynamicWidth = Math.max(180, longestName.length * 8 + 60);
+
+    return (
+      <div className="mapper-dropdown" style={{ position: 'relative' }}>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            // Close all other dropdowns first
+            if (!isOpen) {
+              setSourceScriptDropdownOpen(false);
+              setTargetScriptDropdownOpen(false);
+              setSourceTableDropdownOpen(false);
+              setTargetTableDropdownOpen(false);
+            }
+            setIsOpen(!isOpen);
+          }}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '8px 12px',
+            background: theme.table.headerBackground,
+            border: `1px solid ${theme.table.border}`,
+            borderRadius: '6px',
+            cursor: 'pointer',
+            minWidth: `${dynamicWidth}px`,
+          }}
+        >
         <span style={{
           width: '8px',
           height: '8px',
@@ -1685,7 +1908,307 @@ export default function ColumnMapper({
         </div>
       )}
     </div>
-  );
+    );
+  };
+
+  // Render Type Rules tab
+  const renderRulesTab = () => {
+    if (!project) return null;
+
+    const projectRules = project.typeRules || [];
+
+    return (
+      <div style={{
+        flex: 1,
+        overflow: 'auto',
+        padding: '16px',
+        background: theme.canvas.background,
+      }}>
+        <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 600, color: theme.text.primary }}>Type Compatibility Rules</h3>
+            <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: theme.text.secondary }}>
+              Define custom datatype mapping rules for {sourceScript?.type?.toUpperCase()} → {targetScript?.type?.toUpperCase()}
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              // Add new empty rule
+              const newRule = {
+                id: generateId(),
+                name: 'New Rule',
+                sourcePattern: '',
+                targetPattern: '',
+                compatibility: 'compatible' as const,
+                priority: projectRules.length,
+                enabled: true,
+              };
+              const updatedProject = {
+                ...project,
+                typeRules: [...projectRules, newRule],
+                updatedAt: Date.now(),
+              };
+              saveMappingProject(updatedProject);
+              onProjectChange?.(updatedProject);
+            }}
+            style={{
+              padding: '8px 16px',
+              background: '#22c55e',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontSize: '13px',
+              fontWeight: 500,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
+          >
+            <Check size={14} />
+            Add Rule
+          </button>
+        </div>
+
+        {projectRules.length === 0 ? (
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: 'calc(100% - 80px)',
+            color: theme.text.secondary,
+          }}>
+            <Settings2 size={48} style={{ marginBottom: '16px', opacity: 0.3 }} />
+            <div style={{ fontSize: '16px', marginBottom: '8px' }}>No custom type rules</div>
+            <div style={{ fontSize: '13px', opacity: 0.7, textAlign: 'center', maxWidth: '400px' }}>
+              Add custom rules to define how datatypes should map between source and target databases
+            </div>
+          </div>
+        ) : (
+          <table style={{
+            width: '100%',
+            borderCollapse: 'collapse',
+            fontSize: '13px',
+          }}>
+            <thead>
+              <tr style={{
+                background: theme.table.headerBackground,
+                position: 'sticky',
+                top: 0,
+              }}>
+                <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600, width: '20%' }}>Name</th>
+                <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600, width: '20%', color: '#3b82f6' }}>Source Type Pattern</th>
+                <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600, width: '20%', color: '#22c55e' }}>Target Type Pattern</th>
+                <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600, width: '15%' }}>Compatibility</th>
+                <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600, width: '15%' }}>Conversion SQL</th>
+                <th style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 600, width: '60px' }}>Enabled</th>
+                <th style={{ padding: '10px 12px', textAlign: 'center', width: '50px' }}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {projectRules.map((rule, index) => (
+                <tr
+                  key={rule.id}
+                  style={{
+                    background: theme.table.background,
+                    borderBottom: `1px solid ${theme.table.border}`,
+                  }}
+                >
+                  <td style={{ padding: '10px 12px' }}>
+                    <input
+                      type="text"
+                      value={rule.name || ''}
+                      onChange={(e) => {
+                        const updated = [...projectRules];
+                        updated[index] = { ...rule, name: e.target.value };
+                        const updatedProject = {
+                          ...project,
+                          typeRules: updated,
+                          updatedAt: Date.now(),
+                        };
+                        saveMappingProject(updatedProject);
+                        onProjectChange?.(updatedProject);
+                      }}
+                      style={{
+                        width: '100%',
+                        padding: '4px 8px',
+                        border: `1px solid ${theme.table.border}`,
+                        borderRadius: '4px',
+                        background: theme.canvas.background,
+                        color: theme.text.primary,
+                        fontSize: '12px',
+                      }}
+                    />
+                  </td>
+                  <td style={{ padding: '10px 12px' }}>
+                    <input
+                      type="text"
+                      value={rule.sourcePattern || ''}
+                      onChange={(e) => {
+                        const updated = [...projectRules];
+                        updated[index] = { ...rule, sourcePattern: e.target.value };
+                        const updatedProject = {
+                          ...project,
+                          typeRules: updated,
+                          updatedAt: Date.now(),
+                        };
+                        saveMappingProject(updatedProject);
+                        onProjectChange?.(updatedProject);
+                      }}
+                      placeholder="e.g. VARCHAR2.*"
+                      style={{
+                        width: '100%',
+                        padding: '4px 8px',
+                        border: `1px solid ${theme.table.border}`,
+                        borderRadius: '4px',
+                        background: theme.canvas.background,
+                        color: theme.text.primary,
+                        fontSize: '12px',
+                        fontFamily: 'monospace',
+                      }}
+                    />
+                  </td>
+                  <td style={{ padding: '10px 12px' }}>
+                    <input
+                      type="text"
+                      value={rule.targetPattern || ''}
+                      onChange={(e) => {
+                        const updated = [...projectRules];
+                        updated[index] = { ...rule, targetPattern: e.target.value };
+                        const updatedProject = {
+                          ...project,
+                          typeRules: updated,
+                          updatedAt: Date.now(),
+                        };
+                        saveMappingProject(updatedProject);
+                        onProjectChange?.(updatedProject);
+                      }}
+                      placeholder="e.g. VARCHAR.*"
+                      style={{
+                        width: '100%',
+                        padding: '4px 8px',
+                        border: `1px solid ${theme.table.border}`,
+                        borderRadius: '4px',
+                        background: theme.canvas.background,
+                        color: theme.text.primary,
+                        fontSize: '12px',
+                        fontFamily: 'monospace',
+                      }}
+                    />
+                  </td>
+                  <td style={{ padding: '10px 12px' }}>
+                    <select
+                      value={rule.compatibility || 'compatible'}
+                      onChange={(e) => {
+                        const updated = [...projectRules];
+                        updated[index] = { ...rule, compatibility: e.target.value as any };
+                        const updatedProject = {
+                          ...project,
+                          typeRules: updated,
+                          updatedAt: Date.now(),
+                        };
+                        saveMappingProject(updatedProject);
+                        onProjectChange?.(updatedProject);
+                      }}
+                      style={{
+                        width: '100%',
+                        padding: '4px 8px',
+                        border: `1px solid ${theme.table.border}`,
+                        borderRadius: '4px',
+                        background: theme.canvas.background,
+                        color: theme.text.primary,
+                        fontSize: '12px',
+                      }}
+                    >
+                      <option value="exact">Exact</option>
+                      <option value="compatible">Compatible</option>
+                      <option value="needs_conversion">Needs Conversion</option>
+                      <option value="incompatible">Incompatible</option>
+                    </select>
+                  </td>
+                  <td style={{ padding: '10px 12px' }}>
+                    <input
+                      type="text"
+                      value={rule.conversionSql || ''}
+                      onChange={(e) => {
+                        const updated = [...projectRules];
+                        updated[index] = { ...rule, conversionSql: e.target.value };
+                        const updatedProject = {
+                          ...project,
+                          typeRules: updated,
+                          updatedAt: Date.now(),
+                        };
+                        saveMappingProject(updatedProject);
+                        onProjectChange?.(updatedProject);
+                      }}
+                      placeholder="Optional"
+                      style={{
+                        width: '100%',
+                        padding: '4px 8px',
+                        border: `1px solid ${theme.table.border}`,
+                        borderRadius: '4px',
+                        background: theme.canvas.background,
+                        color: theme.text.primary,
+                        fontSize: '11px',
+                        fontFamily: 'monospace',
+                      }}
+                    />
+                  </td>
+                  <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                    <input
+                      type="checkbox"
+                      checked={rule.enabled !== false}
+                      onChange={(e) => {
+                        const updated = [...projectRules];
+                        updated[index] = { ...rule, enabled: e.target.checked };
+                        const updatedProject = {
+                          ...project,
+                          typeRules: updated,
+                          updatedAt: Date.now(),
+                        };
+                        saveMappingProject(updatedProject);
+                        onProjectChange?.(updatedProject);
+                      }}
+                      style={{
+                        width: '16px',
+                        height: '16px',
+                        cursor: 'pointer',
+                      }}
+                    />
+                  </td>
+                  <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                    <button
+                      onClick={() => {
+                        const updated = projectRules.filter((_, i) => i !== index);
+                        const updatedProject = {
+                          ...project,
+                          typeRules: updated,
+                          updatedAt: Date.now(),
+                        };
+                        saveMappingProject(updatedProject);
+                        onProjectChange?.(updatedProject);
+                      }}
+                      style={{
+                        padding: '4px',
+                        background: 'transparent',
+                        border: 'none',
+                        cursor: 'pointer',
+                        opacity: 0.6,
+                      }}
+                      title="Delete rule"
+                    >
+                      <Trash2 size={14} color="#ef4444" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    );
+  };
 
   // Check if we have valid selection
   const hasValidSelection = sourceTable && targetTable;
@@ -1910,6 +2433,39 @@ export default function ColumnMapper({
                   fontSize: '11px',
                 }}>
                   {project.mappings.length}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => setActiveTab('rules')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '8px 16px',
+                background: activeTab === 'rules'
+                  ? theme.table.headerBackground
+                  : 'transparent',
+                border: activeTab === 'rules'
+                  ? `1px solid ${theme.table.border}`
+                  : '1px solid transparent',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                color: activeTab === 'rules' ? theme.text.primary : theme.text.secondary,
+                fontSize: '13px',
+                fontWeight: activeTab === 'rules' ? 600 : 400,
+              }}
+            >
+              <Settings2 size={14} />
+              Type Rules
+              {project && project.typeRules && project.typeRules.length > 0 && (
+                <span style={{
+                  padding: '2px 6px',
+                  background: theme.table.border,
+                  borderRadius: '10px',
+                  fontSize: '11px',
+                }}>
+                  {project.typeRules.length}
                 </span>
               )}
             </button>
@@ -2272,6 +2828,7 @@ export default function ColumnMapper({
           )}
           {activeTab === 'linkage' && renderLinkageTable()}
           {activeTab === 'summary' && renderSummaryTable()}
+          {activeTab === 'rules' && renderRulesTab()}
         </div>
       )}
     </div>

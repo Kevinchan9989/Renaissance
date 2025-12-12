@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script>
+    // CRITICAL: Run IMMEDIATELY before anything else to capture the hash before HMR reload
+    (function() {
+      const hash = window.location.hash.substring(1);
+      if (hash) {
+        const params = new URLSearchParams(hash);
+        const token = params.get('access_token');
+        if (token) {
+          localStorage.setItem('gdrive_access_token', token);
+          console.log('🚀 TOKEN SAVED IMMEDIATELY:', token.substring(0, 20) + '...');
+
+          // Notify opener window
+          try {
+            if (window.opener && !window.opener.closed) {
+              window.opener.postMessage({
+                type: 'google_drive_auth_success',
+                accessToken: token
+              }, window.location.origin);
+              console.log('✓ Message sent to opener');
+            }
+          } catch (e) {
+            console.log('Could not send message to opener:', e);
+          }
+
+          // Auto-close after 500ms
+          setTimeout(() => {
+            console.log('Auto-closing window...');
+            window.close();
+          }, 500);
+        }
+      }
+    })();
+
+    // Disable Vite HMR for this page
+    if (import.meta.hot) {
+      import.meta.hot.decline();
+    }
+  </script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Google Drive Authentication</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+      background: #f8fafc;
+    }
+    .container {
+      text-align: center;
+      padding: 40px;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      max-width: 400px;
+    }
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 4px solid #e2e8f0;
+      border-top-color: #3b82f6;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 20px;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .success {
+      color: #22c55e;
+      font-size: 48px;
+      margin-bottom: 16px;
+    }
+    .error {
+      color: #ef4444;
+      font-size: 48px;
+      margin-bottom: 16px;
+    }
+    h1 {
+      font-size: 18px;
+      font-weight: 600;
+      margin: 0 0 8px;
+      color: #1e293b;
+    }
+    p {
+      font-size: 14px;
+      color: #64748b;
+      margin: 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="spinner"></div>
+    <h1>Authenticating...</h1>
+    <p>Please wait while we complete the authentication.</p>
+  </div>
+
+  <script>
+    // Run immediately - don't wait for DOMContentLoaded
+    console.log('=== CALLBACK PAGE SCRIPT STARTED ===');
+    console.log('Callback page loaded');
+    console.log('URL:', window.location.href);
+    console.log('Hash:', window.location.hash);
+
+    (function() {
+      try {
+        // Get the hash fragment from the URL
+        const hash = window.location.hash.substring(1);
+        console.log('Hash substring:', hash);
+
+        const params = new URLSearchParams(hash);
+        console.log('Parsed params:', Array.from(params.entries()));
+
+        // Extract access token
+        const accessToken = params.get('access_token');
+        const error = params.get('error');
+
+        console.log('Access Token:', accessToken ? 'Found (' + accessToken.length + ' chars)' : 'Not found');
+        console.log('Error:', error);
+
+        if (error) {
+          console.error('OAuth Error:', error);
+          document.querySelector('.spinner').style.display = 'none';
+          document.querySelector('.container').innerHTML = `
+            <div class="error">✗</div>
+            <h1>Authentication Failed</h1>
+            <p>Error: ${error}</p>
+            <p style="margin-top: 12px;">You can close this window and try again.</p>
+          `;
+          return;
+        }
+
+        if (accessToken) {
+          console.log('✅ Access token received, saving to localStorage');
+
+          // Store token in localStorage
+          localStorage.setItem('gdrive_access_token', accessToken);
+          console.log('Token saved to localStorage');
+
+          // Show success message
+          document.querySelector('.spinner').style.display = 'none';
+          document.querySelector('.container').innerHTML = `
+            <div class="success">✓</div>
+            <h1>Authentication Successful!</h1>
+            <p>Closing window...</p>
+          `;
+
+          // Try to notify opener window
+          if (window.opener && !window.opener.closed) {
+            console.log('Sending message to opener window');
+            try {
+              window.opener.postMessage({
+                type: 'google_drive_auth_success',
+                accessToken: accessToken
+              }, window.location.origin);
+              console.log('Message sent successfully');
+            } catch (e) {
+              console.error('Failed to send message:', e);
+            }
+          } else {
+            console.warn('No opener window found');
+          }
+
+          // Auto-close after 1 second
+          setTimeout(() => {
+            console.log('Closing window');
+            window.close();
+          }, 1000);
+        } else {
+          console.error('No access token in URL');
+          throw new Error('No access token received');
+        }
+      } catch (err) {
+        console.error('Callback error:', err);
+        document.querySelector('.spinner').style.display = 'none';
+        document.querySelector('.container').innerHTML = `
+          <div class="error">✗</div>
+          <h1>Authentication Error</h1>
+          <p>${err.message}</p>
+          <p style="margin-top: 12px;">You can close this window and try again.</p>
+        `;
+      }
+    })();
+  </script>
+</body>
+</html>

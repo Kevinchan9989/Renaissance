@@ -270,6 +270,12 @@ body {
   overflow: hidden;
 }
 
+/* Backup Settings Mode */
+.content-area-backup {
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
 .toolbar-erd {
   padding: 8px 16px;
 }
@@ -4184,4 +4190,87 @@ body.dark-theme.vscode-gray .detail-row span {
 
 body.dark-theme.vscode-gray .detail-separator {
   background-color: #3c3c3c;
+}
+
+/* =========================================
+   Custom Scrollbar Styles
+   ========================================= */
+
+/* Light Theme Scrollbars */
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 6px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 6px;
+  border: 2px solid #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+::-webkit-scrollbar-corner {
+  background: #f1f1f1;
+}
+
+/* Dark Theme Scrollbars */
+body.dark-theme ::-webkit-scrollbar-track {
+  background: #2c2c2c;
+  border-radius: 6px;
+}
+
+body.dark-theme ::-webkit-scrollbar-thumb {
+  background: #5a5a5a;
+  border-radius: 6px;
+  border: 2px solid #2c2c2c;
+}
+
+body.dark-theme ::-webkit-scrollbar-thumb:hover {
+  background: #707070;
+}
+
+body.dark-theme ::-webkit-scrollbar-corner {
+  background: #2c2c2c;
+}
+
+/* VS Code Gray Theme Scrollbars */
+body.dark-theme.vscode-gray ::-webkit-scrollbar-track {
+  background: #1e1e1e;
+  border-radius: 6px;
+}
+
+body.dark-theme.vscode-gray ::-webkit-scrollbar-thumb {
+  background: #424242;
+  border-radius: 6px;
+  border: 2px solid #1e1e1e;
+}
+
+body.dark-theme.vscode-gray ::-webkit-scrollbar-thumb:hover {
+  background: #4e4e4e;
+}
+
+body.dark-theme.vscode-gray ::-webkit-scrollbar-corner {
+  background: #1e1e1e;
+}
+
+/* Firefox Scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #c1c1c1 #f1f1f1;
+}
+
+body.dark-theme * {
+  scrollbar-color: #5a5a5a #2c2c2c;
+}
+
+body.dark-theme.vscode-gray * {
+  scrollbar-color: #424242 #1e1e1e;
 }

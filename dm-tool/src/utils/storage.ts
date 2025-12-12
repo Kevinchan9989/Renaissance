@@ -62,6 +62,81 @@ export function saveDarkThemeVariant(variant: DarkThemeVariant): void {
 }
 
 // ============================================
+// Workspace Export/Import
+// ============================================
+
+export interface WorkspaceData {
+  version: string;
+  exportDate: string;
+  scripts: Script[];
+  mappingProjects: MappingProject[];
+  typeRuleSets: TypeRuleSet[];
+  theme: 'light' | 'dark';
+  themeVariant: DarkThemeVariant;
+  erdPositions: Record<string, Record<string, { x: number; y: number }>>;
+}
+
+export function exportWorkspace(): WorkspaceData {
+  // Collect all ERD positions from localStorage
+  const erdPositions: Record<string, Record<string, { x: number; y: number }>> = {};
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith('erd_positions_')) {
+      const scriptId = key.replace('erd_positions_', '');
+      const data = localStorage.getItem(key);
+      if (data) {
+        try {
+          erdPositions[scriptId] = JSON.parse(data);
+        } catch (e) {
+          console.warn(`Failed to parse ERD positions for ${scriptId}`);
+        }
+      }
+    }
+  }
+
+  return {
+    version: '1.0.0',
+    exportDate: new Date().toISOString(),
+    scripts: loadScripts(),
+    mappingProjects: loadMappingProjects(),
+    typeRuleSets: loadTypeRuleSets(),
+    theme: loadTheme(),
+    themeVariant: loadDarkThemeVariant(),
+    erdPositions,
+  };
+}
+
+export function importWorkspace(data: WorkspaceData): void {
+  // Import scripts
+  saveScripts(data.scripts || []);
+
+  // Import mapping projects
+  saveMappingProjects(data.mappingProjects || []);
+
+  // Import type rule sets
+  if (data.typeRuleSets) {
+    localStorage.setItem(TYPE_RULE_SETS_KEY, JSON.stringify(data.typeRuleSets));
+  }
+
+  // Import theme
+  if (data.theme) {
+    saveTheme(data.theme);
+  }
+
+  // Import theme variant
+  if (data.themeVariant) {
+    saveDarkThemeVariant(data.themeVariant);
+  }
+
+  // Import ERD positions
+  if (data.erdPositions) {
+    for (const [scriptId, positions] of Object.entries(data.erdPositions)) {
+      localStorage.setItem(`erd_positions_${scriptId}`, JSON.stringify(positions));
+    }
+  }
+}
+
+// ============================================
 // Export/Download
 // ============================================
 
