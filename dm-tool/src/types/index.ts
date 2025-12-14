@@ -42,6 +42,70 @@ export interface Script {
   data: ScriptData;
   createdAt: number;
   updatedAt: number;
+  // Versioning fields (optional for backward compatibility)
+  currentVersionId?: string;
+  versions?: ScriptVersion[];
+  versioningEnabled?: boolean;
+  maxVersions?: number;
+}
+
+// ============================================
+// Script Versioning Types
+// ============================================
+
+export interface ScriptVersion {
+  id: string;
+  versionNumber: number;
+  content: string;
+  data: ScriptData;
+  message?: string;
+  createdAt: number;
+}
+
+export interface VersionDiffStats {
+  linesAdded: number;
+  linesDeleted: number;
+  linesModified: number;
+  tablesAdded: number;
+  tablesDeleted: number;
+  tablesModified: number;
+}
+
+export type LineDiffType = 'unchanged' | 'added' | 'deleted' | 'modified';
+
+export interface LineDiff {
+  type: LineDiffType;
+  oldContent?: string;
+  newContent?: string;
+  oldLineNumber?: number;
+  newLineNumber?: number;
+}
+
+export type DiffHunkType = 'addition' | 'deletion' | 'modification' | 'context';
+
+export interface DiffHunk {
+  startLine: number;
+  endLine: number;
+  lines: LineDiff[];
+  type: DiffHunkType;
+}
+
+export interface VersionCompareResult {
+  oldVersion: ScriptVersion;
+  newVersion: ScriptVersion;
+  hunks: DiffHunk[];
+  stats: VersionDiffStats;
+  schemaDiff?: Record<string, TableDiff>;
+}
+
+export type DiffMarkerType = 'added' | 'deleted' | 'modified';
+
+export interface DiffMarker {
+  startPercent: number;
+  endPercent: number;
+  type: DiffMarkerType;
+  lineStart: number;
+  lineEnd: number;
 }
 
 // ============================================

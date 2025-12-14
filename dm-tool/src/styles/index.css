@@ -2,6 +2,9 @@
    Global Styles - Renaissance DM Tool
    ========================================= */
 
+/* Import additional style modules */
+@import './versioning.css';
+
 * {
   margin: 0;
   padding: 0;

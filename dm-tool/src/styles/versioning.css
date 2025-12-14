@@ -1,0 +1,1648 @@
+/* =========================================
+   Versioning Styles - Renaissance DM Tool
+   ========================================= */
+
+/* CSS Variables for Diff Colors */
+:root {
+  /* Git-style diff colors - increased opacity for better visibility */
+  --diff-added-line-bg: rgba(46, 160, 67, 0.25);
+  --diff-added-text-bg: rgba(46, 160, 67, 0.5);
+  --diff-added-marker: #2ea043;
+  --diff-deleted-line-bg: rgba(248, 81, 73, 0.25);
+  --diff-deleted-text-bg: rgba(248, 81, 73, 0.5);
+  --diff-deleted-marker: #f85149;
+  --diff-modified-line-bg: rgba(187, 128, 9, 0.25);
+  --diff-modified-marker: #bb8009;
+  --diff-context-bg: transparent;
+}
+
+/* Dark theme adjustments */
+.dark-theme {
+  --diff-added-line-bg: rgba(46, 160, 67, 0.3);
+  --diff-added-text-bg: rgba(46, 160, 67, 0.45);
+  --diff-deleted-line-bg: rgba(248, 81, 73, 0.3);
+  --diff-deleted-text-bg: rgba(248, 81, 73, 0.45);
+  --diff-modified-line-bg: rgba(187, 128, 9, 0.3);
+}
+
+/* =========================================
+   Version Badge
+   ========================================= */
+
+.version-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: linear-gradient(135deg, #e7f5ff 0%, #d0ebff 100%);
+  border: 1px solid #74c0fc;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1971c2;
+  cursor: default;
+  transition: all 0.15s ease;
+}
+
+.version-badge-clickable {
+  cursor: pointer;
+}
+
+.version-badge-clickable:hover {
+  background: linear-gradient(135deg, #d0ebff 0%, #a5d8ff 100%);
+  border-color: #339af0;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.version-badge-sm {
+  padding: 2px 6px;
+  font-size: 10px;
+  gap: 2px;
+}
+
+.version-badge-lg {
+  padding: 6px 12px;
+  font-size: 14px;
+  gap: 6px;
+}
+
+.version-badge-number {
+  font-weight: 700;
+}
+
+.version-badge-unsaved {
+  background: linear-gradient(135deg, #fff4e6 0%, #ffe8cc 100%);
+  border-color: #ffc078;
+  color: #e67700;
+}
+
+.version-badge-unsaved-icon {
+  color: #e67700;
+}
+
+.version-badge-history-icon {
+  opacity: 0.6;
+  margin-left: 2px;
+}
+
+/* Script item version indicator */
+.script-manager-item-version {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  background: #e7f5ff;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #1971c2;
+}
+
+.script-manager-item-badges {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.script-manager-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* =========================================
+   Version History Panel
+   ========================================= */
+
+.version-history-overlay {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 400px;
+  background: white;
+  box-shadow: -4px 0 20px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  animation: slideInRight 0.2s ease;
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.version-history-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.version-history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e9ecef;
+  background: #f8f9fa;
+}
+
+.version-history-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.version-history-title h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #212529;
+}
+
+.version-history-count {
+  padding: 2px 8px;
+  background: #e7f5ff;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #1971c2;
+}
+
+.version-history-storage {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 20px;
+  background: #f1f3f5;
+  font-size: 11px;
+  color: #868e96;
+}
+
+.version-history-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px;
+}
+
+.version-history-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 20px;
+  color: #868e96;
+  text-align: center;
+}
+
+.version-history-empty svg {
+  margin-bottom: 12px;
+  opacity: 0.5;
+}
+
+.version-history-empty-hint {
+  font-size: 12px;
+  margin-top: 4px;
+  color: #adb5bd;
+}
+
+.version-history-confirm {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: #868e96;
+}
+
+.version-history-help {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: #e7f5ff;
+  border-bottom: 1px solid #74c0fc;
+  font-size: 12px;
+  color: #1971c2;
+}
+
+/* =========================================
+   Version Items (Script Manager Style)
+   ========================================= */
+
+.version-items {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.version-item {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  background: white;
+  border: 1px solid #e9ecef;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.version-item:hover {
+  background: #f8f9fa;
+  border-color: #339af0;
+}
+
+.version-item.current {
+  background: #e7f5ff;
+  border-color: #74c0fc;
+  cursor: default;
+}
+
+.version-item.current:hover {
+  background: #e7f5ff;
+  border-color: #74c0fc;
+}
+
+.version-item-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.version-item-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.version-item-number {
+  font-weight: 700;
+  font-size: 14px;
+  color: #212529;
+}
+
+.version-item-current-badge {
+  padding: 2px 8px;
+  background: #2ea043;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 600;
+  color: white;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.version-item-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #868e96;
+}
+
+.version-item-separator {
+  color: #ced4da;
+}
+
+.version-item-message {
+  color: #495057;
+  font-style: italic;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 180px;
+}
+
+.version-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.version-item-arrow {
+  color: #adb5bd;
+  margin-left: 4px;
+}
+
+/* =========================================
+   Version Compare View
+   ========================================= */
+
+.version-compare-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.2s ease;
+}
+
+.version-compare-overlay.fullscreen {
+  background: white;
+}
+
+.version-compare-overlay.fullscreen .version-compare-container {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  border-radius: 0;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.version-compare-container {
+  width: 95%;
+  max-width: 1400px;
+  height: 90%;
+  max-height: 900px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.version-compare-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.version-compare-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.version-compare-title h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #212529;
+}
+
+.version-compare-stats {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.stat-added {
+  color: var(--diff-added-marker);
+}
+
+.stat-deleted {
+  color: var(--diff-deleted-marker);
+}
+
+.stat-modified {
+  color: var(--diff-modified-marker);
+}
+
+.version-compare-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.version-compare-sync-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #495057;
+  cursor: pointer;
+}
+
+.version-compare-sync-toggle input {
+  cursor: pointer;
+}
+
+.version-compare-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 8px 20px;
+  background: #f1f3f5;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.version-compare-nav-info {
+  font-size: 12px;
+  color: #495057;
+  font-weight: 500;
+}
+
+.version-compare-panels {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+  position: relative;
+}
+
+.version-compare-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-right: 1px solid #e9ecef;
+}
+
+.version-compare-panel:last-of-type {
+  border-right: none;
+}
+
+.version-compare-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.version-compare-panel-title {
+  font-weight: 600;
+  font-size: 13px;
+  color: #212529;
+}
+
+.version-compare-panel-date {
+  font-size: 11px;
+  color: #868e96;
+  margin-left: auto;
+}
+
+.version-compare-panel-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: auto;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+/* =========================================
+   GitHub-Style Diff Table
+   ========================================= */
+
+.diff-table-wrapper {
+  flex: 1;
+  overflow: auto;
+  background: white;
+}
+
+.diff-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  table-layout: fixed;
+}
+
+.diff-col-num {
+  width: 50px;
+}
+
+.diff-col-content {
+  width: calc(50% - 50px);
+}
+
+/* Header row */
+.diff-table-header-row {
+  background: #f6f8fa;
+  border-bottom: 1px solid #d0d7de;
+}
+
+.diff-table-header-cell {
+  padding: 8px 12px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 12px;
+  color: #24292f;
+  border-bottom: 1px solid #d0d7de;
+}
+
+.diff-table-header-cell svg {
+  vertical-align: middle;
+  margin-right: 6px;
+  opacity: 0.6;
+}
+
+.diff-table-header-old {
+  border-right: 1px solid #d0d7de;
+}
+
+.diff-header-version {
+  font-weight: 700;
+  margin-right: 8px;
+}
+
+.diff-header-date {
+  font-weight: 400;
+  color: #656d76;
+  font-size: 11px;
+}
+
+/* Table rows */
+.diff-table-row {
+  border-bottom: 1px solid #eaeef2;
+}
+
+.diff-table-row:hover {
+  background: rgba(234, 238, 242, 0.5);
+}
+
+/* Cell styles */
+.diff-cell-num {
+  width: 50px;
+  padding: 0 8px;
+  text-align: right;
+  color: #656d76;
+  background: #f6f8fa;
+  border-right: 1px solid #eaeef2;
+  user-select: none;
+  font-size: 11px;
+  vertical-align: top;
+}
+
+.diff-cell-content {
+  padding: 0 4px 0 8px;
+  vertical-align: top;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* Add border between old and new sides */
+.diff-cell-content:nth-child(2) {
+  border-right: 1px solid #d0d7de;
+}
+
+/* Empty cells (for added/deleted lines) */
+.diff-cell-empty {
+  background: #f6f8fa;
+}
+
+/* Unchanged rows */
+.diff-row-unchanged .diff-cell-content {
+  background: white;
+}
+
+/* Added rows - COLORS SHOWN BY DEFAULT (not on hover) */
+.diff-row-added .diff-cell-num:nth-child(3),
+.diff-row-added .diff-cell-content:nth-child(4) {
+  background-color: rgba(46, 160, 67, 0.25) !important;
+}
+
+.diff-row-added .diff-cell-num:nth-child(1),
+.diff-row-added .diff-cell-content:nth-child(2) {
+  background-color: #f6f8fa !important;
+}
+
+/* Deleted rows - COLORS SHOWN BY DEFAULT (not on hover) */
+.diff-row-deleted .diff-cell-num:nth-child(1),
+.diff-row-deleted .diff-cell-content:nth-child(2) {
+  background-color: rgba(248, 81, 73, 0.25) !important;
+}
+
+.diff-row-deleted .diff-cell-num:nth-child(3),
+.diff-row-deleted .diff-cell-content:nth-child(4) {
+  background-color: #f6f8fa !important;
+}
+
+/* Modified rows - COLORS SHOWN BY DEFAULT (not on hover) */
+.diff-row-modified .diff-cell-num:nth-child(1),
+.diff-row-modified .diff-cell-content:nth-child(2) {
+  background-color: rgba(248, 81, 73, 0.25) !important;
+}
+
+.diff-row-modified .diff-cell-num:nth-child(3),
+.diff-row-modified .diff-cell-content:nth-child(4) {
+  background-color: rgba(46, 160, 67, 0.25) !important;
+}
+
+/* Diff markers (+/-) */
+.diff-marker {
+  display: inline-block;
+  width: 16px;
+  font-weight: 700;
+  user-select: none;
+}
+
+.diff-marker-added {
+  color: var(--diff-added-marker);
+}
+
+.diff-marker-deleted {
+  color: var(--diff-deleted-marker);
+}
+
+/* Code content */
+.diff-code {
+  font-family: inherit;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* Character-level highlighting - stronger colors for visibility */
+.diff-char-added {
+  background: rgba(46, 160, 67, 0.6);
+  border-radius: 2px;
+  padding: 0 2px;
+  font-weight: 500;
+}
+
+.diff-char-deleted {
+  background: rgba(248, 81, 73, 0.6);
+  border-radius: 2px;
+  padding: 0 2px;
+  text-decoration: line-through;
+  text-decoration-color: rgba(248, 81, 73, 0.8);
+}
+
+/* Inline compare view (embedded in script manager) */
+.version-compare-inline {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+}
+
+.version-compare-inline .version-compare-container {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.script-manager-compare-inline {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* Schema Diff Summary */
+.version-compare-schema {
+  padding: 12px 20px;
+  background: #f8f9fa;
+  border-top: 1px solid #e9ecef;
+}
+
+.version-compare-schema h4 {
+  font-size: 12px;
+  font-weight: 600;
+  color: #495057;
+  margin-bottom: 8px;
+}
+
+.version-compare-schema-stats {
+  display: flex;
+  gap: 16px;
+}
+
+.schema-stat {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 4px;
+}
+
+.schema-stat-added {
+  background: var(--diff-added-line-bg);
+  color: var(--diff-added-marker);
+}
+
+.schema-stat-deleted {
+  background: var(--diff-deleted-line-bg);
+  color: var(--diff-deleted-marker);
+}
+
+.schema-stat-modified {
+  background: var(--diff-modified-line-bg);
+  color: var(--diff-modified-marker);
+}
+
+/* Loading state */
+.version-compare-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 12px;
+  color: #868e96;
+}
+
+/* =========================================
+   Version Minimap
+   ========================================= */
+
+.version-minimap {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 40px;
+  height: 100%;
+  background: rgba(248, 249, 250, 0.9);
+  border-left: 1px solid #e9ecef;
+  cursor: pointer;
+  z-index: 10;
+}
+
+.version-minimap-track {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 12px;
+  height: 100%;
+  background: #e9ecef;
+  border-radius: 6px;
+}
+
+.version-minimap-marker {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 12px;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: width 0.15s, opacity 0.15s;
+  z-index: 1;
+}
+
+.version-minimap-marker:hover {
+  width: 16px;
+  opacity: 0.9;
+}
+
+.version-minimap-viewport {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 20px;
+  background: rgba(52, 152, 219, 0.3);
+  border: 2px solid rgba(52, 152, 219, 0.6);
+  border-radius: 4px;
+  cursor: grab;
+  z-index: 2;
+  transition: background 0.15s;
+}
+
+.version-minimap-viewport:hover,
+.version-minimap-viewport.dragging {
+  background: rgba(52, 152, 219, 0.5);
+  border-color: rgba(52, 152, 219, 0.8);
+}
+
+.version-minimap-viewport.dragging {
+  cursor: grabbing;
+}
+
+/* =========================================
+   Version Save Prompt
+   ========================================= */
+
+.version-save-prompt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.version-save-prompt .form-input {
+  width: 200px;
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+/* =========================================
+   Dark Theme Overrides
+   ========================================= */
+
+.dark-theme .version-badge {
+  background: linear-gradient(135deg, #1c3a5e 0%, #1a3550 100%);
+  border-color: #2d5a87;
+  color: #74c0fc;
+}
+
+.dark-theme .version-badge-clickable:hover {
+  background: linear-gradient(135deg, #1a3550 0%, #163049 100%);
+  border-color: #3b82c4;
+}
+
+.dark-theme .version-badge-unsaved {
+  background: linear-gradient(135deg, #3d2d0f 0%, #352608 100%);
+  border-color: #6b4f18;
+  color: #ffc078;
+}
+
+.dark-theme .version-history-overlay {
+  background: #1e1e1e;
+}
+
+.dark-theme .version-history-header {
+  background: #252526;
+  border-color: #3c3c3c;
+}
+
+.dark-theme .version-history-title h3 {
+  color: #e0e0e0;
+}
+
+.dark-theme .version-history-count {
+  background: #1c3a5e;
+  color: #74c0fc;
+}
+
+.dark-theme .version-history-storage {
+  background: #252526;
+  color: #808080;
+}
+
+.dark-theme .version-history-compare-bar {
+  background: #1c3a5e;
+  border-color: #2d5a87;
+}
+
+.dark-theme .version-history-item {
+  border-color: #3c3c3c;
+}
+
+.dark-theme .version-history-item:hover {
+  background: #2a2a2a;
+}
+
+.dark-theme .version-history-item.current {
+  background: #1c3a5e;
+}
+
+.dark-theme .version-history-item.selected {
+  background: #3d3d00;
+}
+
+.dark-theme .version-history-checkbox {
+  border-color: #555;
+  background: #2a2a2a;
+}
+
+.dark-theme .version-history-checkbox.checked {
+  background: #339af0;
+  border-color: #339af0;
+}
+
+.dark-theme .version-history-item-number {
+  color: #e0e0e0;
+}
+
+.dark-theme .version-history-item-message {
+  background: #2a2a2a;
+  color: #b0b0b0;
+}
+
+.dark-theme .version-history-help {
+  background: #1c3a5e;
+  border-color: #2d5a87;
+  color: #74c0fc;
+}
+
+/* Version Items Dark Theme */
+.dark-theme .version-item {
+  background: #252526;
+  border-color: #3c3c3c;
+}
+
+.dark-theme .version-item:hover {
+  background: #2a2a2a;
+  border-color: #339af0;
+}
+
+.dark-theme .version-item.current {
+  background: #1c3a5e;
+  border-color: #2d5a87;
+}
+
+.dark-theme .version-item.current:hover {
+  background: #1c3a5e;
+  border-color: #2d5a87;
+}
+
+.dark-theme .version-item-number {
+  color: #e0e0e0;
+}
+
+.dark-theme .version-item-meta {
+  color: #808080;
+}
+
+.dark-theme .version-item-message {
+  color: #b0b0b0;
+}
+
+.dark-theme .version-item-arrow {
+  color: #606060;
+}
+
+/* GitHub-Style Diff Table Dark Theme */
+.dark-theme .diff-table-wrapper {
+  background: #1e1e1e;
+}
+
+.dark-theme .diff-table-header-row {
+  background: #252526;
+  border-color: #3c3c3c;
+}
+
+.dark-theme .diff-table-header-cell {
+  background: #252526;
+  border-color: #3c3c3c;
+  color: #e0e0e0;
+}
+
+.dark-theme .diff-table-header-old {
+  border-color: #3c3c3c;
+}
+
+.dark-theme .diff-header-date {
+  color: #808080;
+}
+
+.dark-theme .diff-table-row {
+  border-color: #3c3c3c;
+}
+
+.dark-theme .diff-table-row:hover {
+  background: rgba(60, 60, 60, 0.3);
+}
+
+.dark-theme .diff-cell-num {
+  background: #252526;
+  border-color: #3c3c3c;
+  color: #808080;
+}
+
+.dark-theme .diff-cell-content:nth-child(2) {
+  border-color: #3c3c3c;
+}
+
+.dark-theme .diff-cell-empty {
+  background: #252526;
+}
+
+.dark-theme .diff-row-unchanged .diff-cell-content {
+  background: #1e1e1e;
+}
+
+/* Dark theme: Added cells - green (INTENSE by default) */
+.dark-theme .diff-cell-added {
+  background: rgba(46, 160, 67, 0.35) !important;
+}
+
+/* Dark theme: Deleted cells - red (INTENSE by default) */
+.dark-theme .diff-cell-deleted {
+  background: rgba(248, 81, 73, 0.35) !important;
+}
+
+/* Dark theme: Modified cells - uses both added and deleted classes */
+.dark-theme .diff-cell-modified {
+  background: rgba(187, 128, 9, 0.35) !important;
+}
+
+/* Dark theme HOVER states - LIGHTER colors on hover */
+.dark-theme .diff-table-row:hover .diff-cell-added {
+  background: rgba(46, 160, 67, 0.2) !important;
+}
+
+.dark-theme .diff-table-row:hover .diff-cell-deleted {
+  background: rgba(248, 81, 73, 0.2) !important;
+}
+
+.dark-theme .diff-table-row:hover .diff-cell-modified {
+  background: rgba(187, 128, 9, 0.2) !important;
+}
+
+.dark-theme .diff-code {
+  color: #e0e0e0;
+}
+
+.dark-theme .version-compare-container {
+  background: #1e1e1e;
+}
+
+.dark-theme .version-compare-header {
+  background: #252526;
+  border-color: #3c3c3c;
+}
+
+.dark-theme .version-compare-title h3 {
+  color: #e0e0e0;
+}
+
+.dark-theme .version-compare-nav {
+  background: #252526;
+  border-color: #3c3c3c;
+}
+
+.dark-theme .version-compare-nav-info {
+  color: #b0b0b0;
+}
+
+.dark-theme .version-compare-panel {
+  border-color: #3c3c3c;
+}
+
+.dark-theme .version-compare-panel-header {
+  background: #252526;
+  border-color: #3c3c3c;
+}
+
+.dark-theme .version-compare-panel-title {
+  color: #e0e0e0;
+}
+
+.dark-theme .diff-line-number {
+  background: #252526;
+  border-color: #3c3c3c;
+  color: #808080;
+}
+
+.dark-theme .diff-line-empty,
+.dark-theme .diff-line-empty .diff-line-number {
+  background: #252526;
+}
+
+.dark-theme .diff-line-modified {
+  background: var(--diff-modified-line-bg);
+}
+
+.dark-theme .diff-line-modified .diff-line-number {
+  background: var(--diff-modified-line-bg);
+}
+
+.dark-theme .diff-char-added {
+  background: rgba(46, 160, 67, 0.7);
+}
+
+.dark-theme .diff-char-deleted {
+  background: rgba(248, 81, 73, 0.7);
+}
+
+.dark-theme .version-compare-schema {
+  background: #252526;
+  border-color: #3c3c3c;
+}
+
+.dark-theme .version-compare-schema h4 {
+  color: #b0b0b0;
+}
+
+.dark-theme .version-minimap {
+  background: rgba(30, 30, 30, 0.9);
+  border-color: #3c3c3c;
+}
+
+.dark-theme .version-minimap-track {
+  background: #3c3c3c;
+}
+
+.dark-theme .script-manager-item-version {
+  background: #1c3a5e;
+  color: #74c0fc;
+}
+
+/* =========================================
+   Additional Button Styles
+   ========================================= */
+
+.btn-xs {
+  padding: 2px 6px;
+  font-size: 11px;
+}
+
+.btn-icon {
+  padding: 6px;
+  min-width: auto;
+}
+
+.form-input-sm {
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+/* =========================================
+   Version History Popup (Full-Page Modal)
+   ========================================= */
+
+.version-popup-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.2s ease;
+}
+
+.version-popup-container {
+  width: calc(100% - 60px);
+  height: calc(100% - 60px);
+  max-width: 1600px;
+  max-height: 1000px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 25px 80px rgba(0, 0, 0, 0.4);
+  /* Explicitly set display and flex properties for reliable flexbox behavior */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  /* Critical: min-height 0 allows flex children to shrink */
+  min-height: 0;
+  animation: popupSlideIn 0.25s ease;
+}
+
+@keyframes popupSlideIn {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.version-popup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e9ecef;
+  /* Prevent header from shrinking */
+  flex-shrink: 0;
+}
+
+.version-popup-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.version-popup-title svg {
+  color: #339af0;
+}
+
+.version-popup-title h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: #212529;
+  margin: 0;
+}
+
+.version-popup-count {
+  padding: 4px 10px;
+  background: #e7f5ff;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1971c2;
+}
+
+/* Main Content - Two Column Layout - MUST ALLOW CHILDREN TO SCROLL */
+.version-popup-content {
+  /* flex: 1 1 0 is critical - basis must be 0, not auto */
+  flex: 1 1 0;
+  display: flex;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* Left Panel - Version List (Script Manager Style) */
+.version-popup-list {
+  width: 320px;
+  min-width: 280px;
+  border-right: 1px solid #e9ecef;
+  display: flex;
+  flex-direction: column;
+  background: #f8f9fa;
+  /* Prevent from shrinking and ensure full height */
+  flex-shrink: 0;
+  min-height: 0;
+}
+
+.version-popup-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid #e9ecef;
+  font-size: 13px;
+  font-weight: 600;
+  color: #495057;
+}
+
+.version-popup-storage {
+  font-weight: 500;
+  color: #868e96;
+  font-size: 11px;
+}
+
+.version-popup-list-items {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0;
+}
+
+/* Version Items - EXACTLY matches script-manager-item design */
+.version-popup-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  cursor: pointer;
+  border-bottom: 1px solid #e9ecef;
+  background: white;
+  transition: background 0.15s;
+}
+
+.version-popup-item:hover {
+  background-color: #e9ecef;
+}
+
+.version-popup-item.current {
+  background-color: #e7f5ff;
+  border-left: 3px solid #3498db;
+  padding-left: 13px;
+}
+
+.version-popup-item.selected {
+  background-color: #fff3bf;
+  border-left: 3px solid #ffc078;
+  padding-left: 13px;
+}
+
+.version-popup-item.current.selected {
+  background-color: #d0ebff;
+  border-left: 3px solid #339af0;
+  padding-left: 13px;
+}
+
+.version-popup-item-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.version-popup-item-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.version-popup-item-name {
+  font-weight: 700;
+  font-size: 14px;
+  color: #212529;
+}
+
+.version-popup-item-badge {
+  padding: 2px 8px;
+  background: #2ea043;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 600;
+  color: white;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.version-popup-item-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #868e96;
+}
+
+.version-popup-item-message {
+  margin-top: 4px;
+  font-size: 11px;
+  color: #495057;
+  font-style: italic;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.version-popup-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.version-popup-item-arrow {
+  color: #adb5bd;
+  margin-left: 4px;
+}
+
+.version-popup-confirm {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: #868e96;
+}
+
+/* Right Panel - Comparison View - MUST ALLOW CHILDREN TO SCROLL */
+.version-popup-compare {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: white;
+  min-height: 0;
+  /* REMOVED height: 100% - conflicts with flex: 1 */
+}
+
+.version-popup-compare-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e9ecef;
+  /* Prevent header from shrinking */
+  flex-shrink: 0;
+}
+
+.version-popup-compare-info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.version-popup-compare-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #495057;
+}
+
+.version-popup-compare-stats {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.version-popup-compare-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.version-popup-nav-info {
+  font-size: 12px;
+  color: #495057;
+  font-weight: 500;
+  min-width: 60px;
+  text-align: center;
+}
+
+/* Diff Table in Popup - MUST BE SCROLLABLE */
+.version-popup-diff-wrapper {
+  /* Key: flex-grow 1, flex-shrink 1, flex-basis 0 (not auto) */
+  flex: 1 1 0;
+  /* Key: min-height 0 to allow shrinking below content size */
+  min-height: 0;
+  /* Key: overflow auto enables scrolling when content exceeds */
+  overflow: auto;
+  background: white;
+}
+
+.version-popup-diff-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  table-layout: fixed;
+}
+
+.version-popup-diff-header-row {
+  background: #f6f8fa;
+  border-bottom: 1px solid #d0d7de;
+}
+
+.version-popup-diff-header-cell {
+  padding: 10px 16px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 12px;
+  color: #24292f;
+  border-bottom: 1px solid #d0d7de;
+}
+
+.version-popup-diff-header-cell svg {
+  vertical-align: middle;
+  margin-right: 8px;
+  opacity: 0.6;
+}
+
+.version-popup-diff-header-old {
+  border-right: 1px solid #d0d7de;
+}
+
+.version-popup-diff-header-date {
+  font-weight: 400;
+  color: #656d76;
+  font-size: 11px;
+  margin-left: 8px;
+}
+
+/* Empty State for Compare */
+.version-popup-empty,
+.version-popup-compare-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 32px;
+  color: #868e96;
+  text-align: center;
+}
+
+.version-popup-empty svg,
+.version-popup-compare-empty svg {
+  margin-bottom: 16px;
+  opacity: 0.4;
+}
+
+.version-popup-empty h4,
+.version-popup-compare-empty h4 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #495057;
+  margin-bottom: 8px;
+}
+
+.version-popup-empty p,
+.version-popup-compare-empty p {
+  font-size: 13px;
+  color: #868e96;
+  max-width: 280px;
+}
+
+/* Dark Theme for Version Popup */
+.dark-theme .version-popup-container {
+  background: #1e1e1e;
+}
+
+.dark-theme .version-popup-header {
+  background: #252526;
+  border-color: #3c3c3c;
+}
+
+.dark-theme .version-popup-title h3 {
+  color: #e0e0e0;
+}
+
+.dark-theme .version-popup-count {
+  background: #1c3a5e;
+  color: #74c0fc;
+}
+
+.dark-theme .version-popup-list {
+  background: #252526;
+  border-color: #3c3c3c;
+}
+
+.dark-theme .version-popup-list-header {
+  border-color: #3c3c3c;
+  color: #b0b0b0;
+}
+
+.dark-theme .version-popup-storage {
+  color: #808080;
+}
+
+.dark-theme .version-popup-item {
+  background: #2a2a2a;
+  border-bottom: 1px solid #3c3c3c;
+}
+
+.dark-theme .version-popup-item:hover {
+  background-color: #3c3c3c;
+}
+
+.dark-theme .version-popup-item.current {
+  background-color: #1c3a5e;
+  border-left: 3px solid #3498db;
+  padding-left: 13px;
+}
+
+.dark-theme .version-popup-item.selected {
+  background-color: #3d3d00;
+  border-left: 3px solid #6b6b00;
+  padding-left: 13px;
+}
+
+.dark-theme .version-popup-item-name {
+  color: #e0e0e0;
+}
+
+.dark-theme .version-popup-item-meta {
+  color: #808080;
+}
+
+.dark-theme .version-popup-item-message {
+  color: #b0b0b0;
+}
+
+.dark-theme .version-popup-item-arrow {
+  color: #606060;
+}
+
+.dark-theme .version-popup-compare {
+  background: #1e1e1e;
+}
+
+.dark-theme .version-popup-compare-header {
+  background: #252526;
+  border-color: #3c3c3c;
+}
+
+.dark-theme .version-popup-compare-label {
+  color: #b0b0b0;
+}
+
+.dark-theme .version-popup-nav-info {
+  color: #b0b0b0;
+}
+
+.dark-theme .version-popup-diff-wrapper {
+  background: #1e1e1e;
+}
+
+.dark-theme .version-popup-diff-header-row {
+  background: #252526;
+  border-color: #3c3c3c;
+}
+
+.dark-theme .version-popup-diff-header-cell {
+  background: #252526;
+  border-color: #3c3c3c;
+  color: #e0e0e0;
+}
+
+.dark-theme .version-popup-diff-header-old {
+  border-color: #3c3c3c;
+}
+
+.dark-theme .version-popup-diff-header-date {
+  color: #808080;
+}
+
+.dark-theme .version-popup-empty,
+.dark-theme .version-popup-compare-empty {
+  color: #808080;
+}
+
+.dark-theme .version-popup-empty h4,
+.dark-theme .version-popup-compare-empty h4 {
+  color: #b0b0b0;
+}
+
+.dark-theme .version-popup-empty p,
+.dark-theme .version-popup-compare-empty p {
+  color: #808080;
+}

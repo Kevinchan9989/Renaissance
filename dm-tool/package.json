@@ -36,6 +36,7 @@
   },
   "dependencies": {
     "@dagrejs/dagre": "^1.1.2",
+    "@types/prismjs": "^1.26.5",
     "konva": "^9.3.6",
     "lucide-react": "^0.365.0",
     "prismjs": "^1.30.0",

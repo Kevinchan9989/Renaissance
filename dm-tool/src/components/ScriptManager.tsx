@@ -1,7 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { Script, ScriptType } from '../types';
 import { parseScript } from '../utils/parsers';
+import {
+  createScriptVersion,
+  migrateScriptToVersioning,
+  getCurrentVersion
+} from '../utils/storage';
 import CodeEditor from './CodeEditor';
+import { VersionBadge, VersionHistoryPopup } from './versioning';
 import {
   Plus,
   Trash2,
@@ -12,7 +18,9 @@ import {
   Clock,
   ChevronRight,
   Copy,
-  Download
+  Download,
+  GitBranch,
+  History
 } from 'lucide-react';
 
 interface ScriptManagerProps {
@@ -45,6 +53,9 @@ export default function ScriptManager({
   const [newType, setNewType] = useState<ScriptType>('postgresql');
   const [newContent, setNewContent] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Versioning state
+  const [showVersionHistory, setShowVersionHistory] = useState(false);
 
   const selectedScript = scripts.find(s => s.id === selectedScriptId);
 
@@ -95,16 +106,36 @@ export default function ScriptManager({
     setTimeout(() => textareaRef.current?.focus(), 100);
   };
 
-  // Save edit
+  // Save edit with auto-versioning (no prompt)
   const handleSaveEdit = () => {
     if (!selectedScript) return;
 
     const data = parseScript(editContent, selectedScript.type);
-    onUpdateScript(selectedScript.id, {
+
+    // Migrate script to versioning if not already enabled
+    let scriptToUpdate = selectedScript;
+    if (!selectedScript.versioningEnabled) {
+      scriptToUpdate = migrateScriptToVersioning(selectedScript);
+    }
+
+    // Update the script content
+    const updatedScript: Partial<Script> = {
       name: editName,
       rawContent: editContent,
-      data
-    });
+      data,
+      versioningEnabled: true,
+      versions: scriptToUpdate.versions,
+      currentVersionId: scriptToUpdate.currentVersionId,
+      maxVersions: scriptToUpdate.maxVersions
+    };
+
+    // Auto-create a new version (no message prompt)
+    const tempScript = { ...scriptToUpdate, ...updatedScript } as Script;
+    const versionedScript = createScriptVersion(tempScript);
+    updatedScript.versions = versionedScript.versions;
+    updatedScript.currentVersionId = versionedScript.currentVersionId;
+
+    onUpdateScript(selectedScript.id, updatedScript);
     setIsEditing(false);
   };
 
@@ -155,6 +186,28 @@ export default function ScriptManager({
     setSelectedScriptId(scripts.length > 1 ? scripts.find(s => s.id !== selectedScript.id)?.id || null : null);
   };
 
+  // Enable versioning for script
+  const handleEnableVersioning = () => {
+    if (!selectedScript) return;
+    const versionedScript = migrateScriptToVersioning(selectedScript);
+    onUpdateScript(selectedScript.id, {
+      versioningEnabled: versionedScript.versioningEnabled,
+      versions: versionedScript.versions,
+      currentVersionId: versionedScript.currentVersionId,
+      maxVersions: versionedScript.maxVersions
+    });
+  };
+
+  // Handle version history panel script update
+  const handleVersionHistoryUpdate = (updatedScript: Script) => {
+    onUpdateScript(updatedScript.id, {
+      versions: updatedScript.versions,
+      currentVersionId: updatedScript.currentVersionId,
+      rawContent: updatedScript.rawContent,
+      data: updatedScript.data
+    });
+  };
+
   return (
     <div className="script-manager">
       {/* Left Panel - Script List */}
@@ -186,6 +239,7 @@ export default function ScriptManager({
             scripts.map(script => {
               const typeBadge = getTypeBadgeColor(script.type);
               const isSelected = selectedScriptId === script.id;
+              const currentVersion = getCurrentVersion(script);
 
               return (
                 <div
@@ -196,12 +250,19 @@ export default function ScriptManager({
                   <div className="script-manager-item-content">
                     <div className="script-manager-item-header">
                       <span className="script-manager-item-name">{script.name}</span>
-                      <span
-                        className="script-manager-item-type"
-                        style={{ backgroundColor: typeBadge.bg, color: typeBadge.color }}
-                      >
-                        {script.type}
-                      </span>
+                      <div className="script-manager-item-badges">
+                        {script.versioningEnabled && currentVersion && (
+                          <span className="script-manager-item-version">
+                            v{currentVersion.versionNumber}
+                          </span>
+                        )}
+                        <span
+                          className="script-manager-item-type"
+                          style={{ backgroundColor: typeBadge.bg, color: typeBadge.color }}
+                        >
+                          {script.type}
+                        </span>
+                      </div>
                     </div>
                     <div className="script-manager-item-meta">
                       <Clock size={12} />
@@ -219,7 +280,7 @@ export default function ScriptManager({
         </div>
       </div>
 
-      {/* Right Panel - Preview/Edit */}
+      {/* Right Panel - Preview/Edit/Compare */}
       <div className="script-manager-detail">
         {isCreating ? (
           /* Create New Script Form */
@@ -290,7 +351,16 @@ export default function ScriptManager({
                   onChange={e => setEditName(e.target.value)}
                 />
               ) : (
-                <h3>{selectedScript.name}</h3>
+                <div className="script-manager-title-row">
+                  <h3>{selectedScript.name}</h3>
+                  {selectedScript.versioningEnabled && (
+                    <VersionBadge
+                      script={selectedScript}
+                      onClick={() => setShowVersionHistory(true)}
+                      size="md"
+                    />
+                  )}
+                </div>
               )}
 
               <div className="script-manager-actions">
@@ -307,6 +377,25 @@ export default function ScriptManager({
                   </>
                 ) : (
                   <>
+                    {!selectedScript.versioningEnabled && (
+                      <button
+                        className="btn btn-sm"
+                        onClick={handleEnableVersioning}
+                        title="Enable version history"
+                      >
+                        <GitBranch size={14} />
+                        Enable Versioning
+                      </button>
+                    )}
+                    {selectedScript.versioningEnabled && (
+                      <button
+                        className="btn btn-sm"
+                        onClick={() => setShowVersionHistory(true)}
+                        title="View version history"
+                      >
+                        <History size={14} />
+                      </button>
+                    )}
                     <button className="btn btn-sm" onClick={handleCopy} title="Copy to clipboard">
                       <Copy size={14} />
                     </button>
@@ -344,6 +433,12 @@ export default function ScriptManager({
                 <span className="script-manager-info-item">
                   {selectedScript.rawContent.split('\n').length} lines
                 </span>
+                {selectedScript.versioningEnabled && selectedScript.versions && (
+                  <span className="script-manager-info-item">
+                    <GitBranch size={12} />
+                    {selectedScript.versions.length} versions
+                  </span>
+                )}
               </div>
             )}
 
@@ -380,6 +475,16 @@ export default function ScriptManager({
           </div>
         )}
       </div>
+
+      {/* Version History Popup */}
+      {showVersionHistory && selectedScript && (
+        <VersionHistoryPopup
+          script={selectedScript}
+          onClose={() => setShowVersionHistory(false)}
+          onScriptUpdate={handleVersionHistoryUpdate}
+          isDarkTheme={isDarkTheme}
+        />
+      )}
     </div>
   );
 }

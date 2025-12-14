@@ -1,4 +1,4 @@
-import { Script, AppView, Table, MappingProject } from '../types';
+import { Script, AppView, Table, MappingProject, Column } from '../types';
 import { COMPATIBILITY_COLORS } from '../constants/typeMatrix';
 import {
   Database,
@@ -16,7 +16,42 @@ import {
   Download,
   Settings,
   Eye,
+  Columns,
 } from 'lucide-react';
+
+// Helper function to highlight matched characters in a string
+function highlightMatch(text: string, searchTerm: string): React.ReactNode {
+  if (!searchTerm) return text;
+
+  const lowerText = text.toLowerCase();
+  const lowerSearch = searchTerm.toLowerCase();
+  const index = lowerText.indexOf(lowerSearch);
+
+  if (index === -1) return text;
+
+  return (
+    <>
+      {text.slice(0, index)}
+      <span style={{
+        backgroundColor: '#fef08a',
+        color: '#854d0e',
+        fontWeight: 600,
+        borderRadius: '2px',
+        padding: '0 1px'
+      }}>
+        {text.slice(index, index + searchTerm.length)}
+      </span>
+      {text.slice(index + searchTerm.length)}
+    </>
+  );
+}
+
+// Get matching columns for a table
+function getMatchingColumns(table: Table, searchTerm: string): Column[] {
+  if (!searchTerm) return [];
+  const term = searchTerm.toLowerCase();
+  return table.columns.filter(col => col.name.toLowerCase().includes(term));
+}
 
 interface MappingState {
   project: MappingProject | null;
@@ -194,15 +229,61 @@ export default function Sidebar({
                     <ChevronDown size={14} className="schema-arrow" />
                   </div>
                   <ul className="table-list">
-                    {filteredTables.map(table => (
-                      <li
-                        key={table.id}
-                        className={`table-item ${selectedTableId === table.id ? 'active' : ''}`}
-                        onClick={() => onSelectTable(table.id)}
-                      >
-                        {table.tableName}
-                      </li>
-                    ))}
+                    {filteredTables.map(table => {
+                      const matchingColumns = getMatchingColumns(table, searchTerm);
+                      const tableNameMatches = table.tableName.toLowerCase().includes(searchTerm.toLowerCase());
+
+                      return (
+                        <li
+                          key={table.id}
+                          className={`table-item ${selectedTableId === table.id ? 'active' : ''}`}
+                          onClick={() => onSelectTable(table.id)}
+                          style={{ flexDirection: 'column', alignItems: 'flex-start' }}
+                        >
+                          <span style={{ display: 'block' }}>
+                            {tableNameMatches ? highlightMatch(table.tableName, searchTerm) : table.tableName}
+                          </span>
+                          {/* Show matching columns preview when searching by column name */}
+                          {matchingColumns.length > 0 && !tableNameMatches && (
+                            <div style={{
+                              display: 'flex',
+                              flexWrap: 'wrap',
+                              gap: '4px',
+                              marginTop: '4px',
+                              paddingLeft: '4px'
+                            }}>
+                              {matchingColumns.slice(0, 3).map(col => (
+                                <span
+                                  key={col.name}
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '3px',
+                                    fontSize: '10px',
+                                    color: '#6b7280',
+                                    backgroundColor: '#f3f4f6',
+                                    padding: '2px 6px',
+                                    borderRadius: '3px'
+                                  }}
+                                >
+                                  <Columns size={9} style={{ opacity: 0.6 }} />
+                                  {highlightMatch(col.name, searchTerm)}
+                                </span>
+                              ))}
+                              {matchingColumns.length > 3 && (
+                                <span style={{
+                                  fontSize: '10px',
+                                  color: '#9ca3af',
+                                  padding: '2px 4px'
+                                }}>
+                                  +{matchingColumns.length - 3} more
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </li>
+                      );
+                    })}
                   </ul>
                 </div>
               );

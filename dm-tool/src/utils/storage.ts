@@ -1,4 +1,4 @@
-import { Script, MappingProject, TypeRuleSet } from '../types';
+import { Script, MappingProject, TypeRuleSet, ScriptVersion } from '../types';
 
 const STORAGE_KEY = 'dm_tool_data';
 const THEME_KEY = 'dm_tool_theme';
@@ -533,4 +533,241 @@ export function clearERDPositions(scriptId: string): void {
   } catch (e) {
     console.error('Failed to clear ERD positions:', e);
   }
+}
+
+// ============================================
+// Script Versioning
+// ============================================
+
+const DEFAULT_MAX_VERSIONS = 50;
+
+/**
+ * Migrate existing scripts to include versioning fields
+ * Creates an initial version from the current state
+ */
+export function migrateScriptToVersioning(script: Script): Script {
+  // Already has versioning
+  if (script.versions && script.versions.length > 0) {
+    return script;
+  }
+
+  // Create initial version from current state
+  const initialVersion: ScriptVersion = {
+    id: generateId(),
+    versionNumber: 1,
+    content: script.rawContent,
+    data: script.data,
+    message: 'Initial version',
+    createdAt: script.createdAt,
+  };
+
+  return {
+    ...script,
+    currentVersionId: initialVersion.id,
+    versions: [initialVersion],
+    versioningEnabled: true,
+    maxVersions: DEFAULT_MAX_VERSIONS,
+  };
+}
+
+/**
+ * Migrate all scripts to versioning format
+ */
+export function migrateScriptsToVersioning(scripts: Script[]): Script[] {
+  return scripts.map(migrateScriptToVersioning);
+}
+
+/**
+ * Create a new version for a script
+ * Returns the updated script with the new version
+ */
+export function createScriptVersion(
+  script: Script,
+  message?: string
+): Script {
+  // Ensure script has versioning enabled
+  const migratedScript = migrateScriptToVersioning(script);
+
+  const versions = migratedScript.versions || [];
+  const newVersionNumber = versions.length > 0
+    ? Math.max(...versions.map(v => v.versionNumber)) + 1
+    : 1;
+
+  const newVersion: ScriptVersion = {
+    id: generateId(),
+    versionNumber: newVersionNumber,
+    content: migratedScript.rawContent,
+    data: migratedScript.data,
+    message: message || `Version ${newVersionNumber}`,
+    createdAt: Date.now(),
+  };
+
+  // Prepend new version (newest first)
+  let updatedVersions = [newVersion, ...versions];
+
+  // Enforce max versions limit
+  const maxVersions = migratedScript.maxVersions || DEFAULT_MAX_VERSIONS;
+  if (updatedVersions.length > maxVersions) {
+    updatedVersions = updatedVersions.slice(0, maxVersions);
+  }
+
+  return {
+    ...migratedScript,
+    currentVersionId: newVersion.id,
+    versions: updatedVersions,
+    updatedAt: Date.now(),
+  };
+}
+
+/**
+ * Set a version as the current version (jump to that version)
+ * Does NOT create a new version - just switches the current pointer
+ * If user edits after this, a new version will be created
+ */
+export function setCurrentVersion(
+  script: Script,
+  versionId: string
+): Script {
+  const versions = script.versions || [];
+  const targetVersion = versions.find(v => v.id === versionId);
+
+  if (!targetVersion) {
+    throw new Error(`Version ${versionId} not found`);
+  }
+
+  return {
+    ...script,
+    currentVersionId: targetVersion.id,
+    rawContent: targetVersion.content,
+    data: targetVersion.data,
+    updatedAt: Date.now(),
+  };
+}
+
+/**
+ * @deprecated Use setCurrentVersion instead
+ * Restore a previous version by setting it as current
+ */
+export function restoreScriptVersion(
+  script: Script,
+  versionId: string
+): Script {
+  return setCurrentVersion(script, versionId);
+}
+
+/**
+ * Get a specific version by ID
+ */
+export function getScriptVersion(
+  script: Script,
+  versionId: string
+): ScriptVersion | null {
+  return script.versions?.find(v => v.id === versionId) || null;
+}
+
+/**
+ * Get the current version of a script
+ */
+export function getCurrentVersion(script: Script): ScriptVersion | null {
+  if (!script.currentVersionId || !script.versions) {
+    return null;
+  }
+  return script.versions.find(v => v.id === script.currentVersionId) || null;
+}
+
+/**
+ * Get the previous version (before current)
+ */
+export function getPreviousVersion(script: Script): ScriptVersion | null {
+  if (!script.versions || script.versions.length < 2) {
+    return null;
+  }
+  // Versions are sorted newest first, so index 1 is the previous
+  return script.versions[1] || null;
+}
+
+/**
+ * Check if script has unsaved changes compared to current version
+ */
+export function hasUnsavedChanges(script: Script): boolean {
+  const currentVersion = getCurrentVersion(script);
+  if (!currentVersion) {
+    return true; // No versions means changes haven't been saved
+  }
+  return script.rawContent !== currentVersion.content;
+}
+
+/**
+ * Delete a specific version (cannot delete the only version)
+ */
+export function deleteScriptVersion(
+  script: Script,
+  versionId: string
+): Script {
+  const versions = script.versions || [];
+
+  if (versions.length <= 1) {
+    throw new Error('Cannot delete the only version');
+  }
+
+  const filteredVersions = versions.filter(v => v.id !== versionId);
+
+  // If we deleted the current version, set current to the newest remaining
+  let currentVersionId = script.currentVersionId;
+  if (currentVersionId === versionId) {
+    currentVersionId = filteredVersions[0]?.id;
+  }
+
+  return {
+    ...script,
+    currentVersionId,
+    versions: filteredVersions,
+    updatedAt: Date.now(),
+  };
+}
+
+/**
+ * Update max versions setting for a script
+ */
+export function setMaxVersions(script: Script, maxVersions: number): Script {
+  const clampedMax = Math.max(1, Math.min(100, maxVersions));
+  let versions = script.versions || [];
+
+  // Trim versions if exceeding new limit
+  if (versions.length > clampedMax) {
+    versions = versions.slice(0, clampedMax);
+  }
+
+  return {
+    ...script,
+    maxVersions: clampedMax,
+    versions,
+    updatedAt: Date.now(),
+  };
+}
+
+/**
+ * Calculate approximate storage size for a script's versions
+ */
+export function getVersionsStorageSize(script: Script): number {
+  if (!script.versions) return 0;
+
+  let totalSize = 0;
+  for (const version of script.versions) {
+    // Rough estimate: content length + JSON overhead
+    totalSize += (version.content?.length || 0) * 2; // UTF-16 encoding
+    totalSize += JSON.stringify(version.data || {}).length;
+    totalSize += 200; // Metadata overhead
+  }
+
+  return totalSize;
+}
+
+/**
+ * Get storage size in human-readable format
+ */
+export function formatStorageSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
