@@ -11,6 +11,8 @@ export interface Column {
   default: string | null;
   explanation: string;
   mapping: string;
+  migrationNeeded?: boolean;
+  nonMigrationComment?: string;
 }
 
 export interface Constraint {

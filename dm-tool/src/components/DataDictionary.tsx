@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Script, Table, Column } from '../types';
-import { downloadJson } from '../utils/storage';
+import { Script, Table, Column, MappingProject } from '../types';
+import { downloadJson, loadMappingProjects } from '../utils/storage';
 import CodeEditor from './CodeEditor';
 import { FileDown, Edit3, Save, X } from 'lucide-react';
 
@@ -29,6 +29,38 @@ export default function DataDictionary({
   const [editContent, setEditContent] = useState('');
 
   const selectedTable = script.data.targets.find(t => t.id === selectedTableId);
+
+  // Load mapping projects to show mapping info
+  const mappingProjects = loadMappingProjects();
+
+  // Find relevant mapping for current column
+  const getMappingInfo = (tableName: string, columnName: string) => {
+    for (const project of mappingProjects) {
+      // Check if this script is source
+      if (project.sourceScriptId === script.id) {
+        const mapping = project.mappings.find(
+          m => m.sourceTable === tableName && m.sourceColumn === columnName
+        );
+        if (mapping) {
+          const targetInfo = `${mapping.targetTable}.${mapping.targetColumn}`;
+          const remarks = mapping.remarks || '';
+          return `Mapped to ${targetInfo}${remarks ? ` - ${remarks}` : ''}`;
+        }
+      }
+      // Check if this script is target
+      if (project.targetScriptId === script.id) {
+        const mapping = project.mappings.find(
+          m => m.targetTable === tableName && m.targetColumn === columnName
+        );
+        if (mapping) {
+          const sourceInfo = `${mapping.sourceTable}.${mapping.sourceColumn}`;
+          const remarks = mapping.remarks || '';
+          return `Mapped from ${sourceInfo}${remarks ? ` - ${remarks}` : ''}`;
+        }
+      }
+    }
+    return null;
+  };
 
   // Get PK, FK, UQ columns
   const getColumnTags = (table: Table, colName: string) => {
@@ -219,6 +251,18 @@ export default function DataDictionary({
         <tbody>
           {selectedTable.columns.map((col, i) => {
             const tags = getColumnTags(selectedTable, col.name);
+            const mappingInfo = getMappingInfo(selectedTable.tableName, col.name);
+            const migrationNeeded = col.migrationNeeded !== false; // default true
+
+            // Determine display text for mapping cell
+            let mappingDisplay = '';
+            if (mappingInfo) {
+              mappingDisplay = mappingInfo;
+            } else if (!migrationNeeded) {
+              mappingDisplay = `Not Mapped${col.nonMigrationComment ? ` - ${col.nonMigrationComment}` : ''}`;
+            } else {
+              mappingDisplay = col.mapping || '';
+            }
 
             return (
               <tr key={i}>
@@ -231,19 +275,43 @@ export default function DataDictionary({
                 <td
                   contentEditable
                   suppressContentEditableWarning
-                  onBlur={(e) => updateColumnField(col.name, 'explanation', e.currentTarget.textContent || '')}
-                  style={{ cursor: 'text', minWidth: '150px' }}
-                >
-                  {col.explanation || ''}
-                </td>
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      e.currentTarget.blur();
+                    }
+                  }}
+                  onBlur={(e) => updateColumnField(col.name, 'explanation', e.currentTarget.innerHTML || '')}
+                  dangerouslySetInnerHTML={{ __html: col.explanation || '' }}
+                  style={{
+                    cursor: 'text',
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word',
+                    maxWidth: '300px',
+                  }}
+                />
                 <td
-                  contentEditable
+                  contentEditable={!mappingInfo && migrationNeeded}
                   suppressContentEditableWarning
-                  onBlur={(e) => updateColumnField(col.name, 'mapping', e.currentTarget.textContent || '')}
-                  style={{ cursor: 'text', color: '#3498db', minWidth: '150px' }}
-                >
-                  {col.mapping || ''}
-                </td>
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      e.currentTarget.blur();
+                    }
+                  }}
+                  onBlur={(e) => {
+                    if (!mappingInfo && migrationNeeded) {
+                      updateColumnField(col.name, 'mapping', e.currentTarget.innerHTML || '');
+                    }
+                  }}
+                  dangerouslySetInnerHTML={{ __html: mappingDisplay }}
+                  style={{
+                    cursor: mappingInfo || !migrationNeeded ? 'default' : 'text',
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word',
+                    maxWidth: '300px',
+                  }}
+                />
               </tr>
             );
           })}

@@ -1,4 +1,5 @@
 import { Script, MappingProject, TypeRuleSet, ScriptVersion } from '../types';
+import { saveWorkspaceToFile, isElectron } from '../services/electronStorage';
 
 const STORAGE_KEY = 'dm_tool_data';
 const THEME_KEY = 'dm_tool_theme';
@@ -6,6 +7,27 @@ const THEME_VARIANT_KEY = 'dm_tool_theme_variant';
 const MAPPING_PROJECTS_KEY = 'dm_tool_mapping_projects';
 const TYPE_RULE_SETS_KEY = 'dm_tool_type_rule_sets';
 const MAPPING_WORKSPACE_KEY = 'dm_tool_mapping_workspace';
+
+// Auto-save to Electron file system when data changes (debounced)
+let electronSaveTimeout: NodeJS.Timeout | null = null;
+function scheduleElectronSave() {
+  if (!isElectron()) return;
+
+  // Debounce: wait 2 seconds after last change before saving
+  if (electronSaveTimeout) {
+    clearTimeout(electronSaveTimeout);
+  }
+
+  electronSaveTimeout = setTimeout(async () => {
+    try {
+      const workspaceData = exportWorkspace();
+      await saveWorkspaceToFile(workspaceData);
+      console.log('📁 Auto-saved to local file');
+    } catch (error) {
+      console.error('Failed to auto-save to file:', error);
+    }
+  }, 2000);
+}
 
 // ============================================
 // Script Storage
@@ -26,6 +48,7 @@ export function loadScripts(): Script[] {
 export function saveScripts(scripts: Script[]): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(scripts));
+    scheduleElectronSave(); // Auto-save to file when running in Electron
   } catch (e) {
     console.error('Failed to save scripts:', e);
   }
@@ -134,6 +157,36 @@ export function importWorkspace(data: WorkspaceData): void {
       localStorage.setItem(`erd_positions_${scriptId}`, JSON.stringify(positions));
     }
   }
+
+  // Save to Electron file if running in Electron
+  scheduleElectronSave();
+}
+
+/**
+ * Load workspace from Electron file system on startup
+ * This should be called when the app initializes
+ */
+export async function loadWorkspaceFromElectron(): Promise<boolean> {
+  if (!isElectron()) {
+    return false;
+  }
+
+  try {
+    const { loadWorkspaceFromFile } = await import('../services/electronStorage');
+    const data = await loadWorkspaceFromFile();
+
+    if (data) {
+      console.log('📁 Loading workspace from local file...');
+      importWorkspace(data);
+      console.log('✅ Workspace loaded from local file');
+      return true;
+    }
+
+    return false;
+  } catch (error) {
+    console.error('Failed to load workspace from Electron:', error);
+    return false;
+  }
 }
 
 // ============================================
@@ -179,6 +232,7 @@ export function loadMappingProjects(): MappingProject[] {
 export function saveMappingProjects(projects: MappingProject[]): void {
   try {
     localStorage.setItem(MAPPING_PROJECTS_KEY, JSON.stringify(projects));
+    scheduleElectronSave(); // Auto-save to file when running in Electron
   } catch (e) {
     console.error('Failed to save mapping projects:', e);
   }
@@ -227,6 +281,7 @@ export function loadTypeRuleSets(): TypeRuleSet[] {
 export function saveTypeRuleSets(ruleSets: TypeRuleSet[]): void {
   try {
     localStorage.setItem(TYPE_RULE_SETS_KEY, JSON.stringify(ruleSets));
+    scheduleElectronSave(); // Auto-save to file when running in Electron
   } catch (e) {
     console.error('Failed to save type rule sets:', e);
   }
@@ -434,6 +489,53 @@ export interface MappingWorkspaceState {
   tablePositions: Record<string, { x: number; y: number }>;
   scale: number;
   stagePosition: { x: number; y: number };
+  activeTab?: 'canvas' | 'linkage' | 'summary' | 'rules'; // Active tab per schema
+  expandedTargetTables?: string[]; // Expanded tables in summary view
+}
+
+// Store per-schema UI state
+interface SchemaUIState {
+  activeTab: 'canvas' | 'linkage' | 'summary' | 'rules';
+  expandedTargetTables: string[];
+  selectedSourceTable: string | null;
+  selectedTargetTable: string | null;
+}
+
+// Global storage for per-schema states
+const SCHEMA_STATES_KEY = 'dm_tool_schema_states';
+
+function getSchemaKey(sourceScriptId: string, targetScriptId: string): string {
+  return `${sourceScriptId}::${targetScriptId}`;
+}
+
+export function loadSchemaUIState(sourceScriptId: string, targetScriptId: string): SchemaUIState | null {
+  try {
+    const data = localStorage.getItem(SCHEMA_STATES_KEY);
+    if (data) {
+      const allStates = JSON.parse(data) as Record<string, SchemaUIState>;
+      const key = getSchemaKey(sourceScriptId, targetScriptId);
+      return allStates[key] || null;
+    }
+  } catch (e) {
+    console.error('Failed to load schema UI state:', e);
+  }
+  return null;
+}
+
+export function saveSchemaUIState(
+  sourceScriptId: string,
+  targetScriptId: string,
+  state: SchemaUIState
+): void {
+  try {
+    const data = localStorage.getItem(SCHEMA_STATES_KEY);
+    const allStates = data ? JSON.parse(data) as Record<string, SchemaUIState> : {};
+    const key = getSchemaKey(sourceScriptId, targetScriptId);
+    allStates[key] = state;
+    localStorage.setItem(SCHEMA_STATES_KEY, JSON.stringify(allStates));
+  } catch (e) {
+    console.error('Failed to save schema UI state:', e);
+  }
 }
 
 export function loadMappingWorkspaceState(): MappingWorkspaceState | null {

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Script, ScriptType, AppView, Table, MappingProject } from './types';
-import { loadScripts, saveScripts, generateId, loadTheme, saveTheme, saveMappingProject, loadDarkThemeVariant, saveDarkThemeVariant, DarkThemeVariant } from './utils/storage';
+import { loadScripts, saveScripts, generateId, loadTheme, saveTheme, saveMappingProject, loadDarkThemeVariant, saveDarkThemeVariant, DarkThemeVariant, loadWorkspaceFromElectron } from './utils/storage';
 import { parseScript } from './utils/parsers';
 import Sidebar from './components/Sidebar';
 import DataDictionary from './components/DataDictionary';
@@ -10,6 +10,7 @@ import ScriptManager from './components/ScriptManager';
 import ColumnMapper, { MappingStateForSidebar } from './components/ColumnMapper';
 import { Database, Sun, Moon, PanelLeftClose, PanelLeft, ChevronDown, GripVertical, Palette, Settings, Download, Upload } from 'lucide-react';
 import { exportWorkspace, importWorkspace, downloadJson, WorkspaceData } from './utils/storage';
+import { isElectron } from './services/electronStorage';
 
 // Mapping state interface for sidebar - includes callbacks from ColumnMapper
 interface MappingState {
@@ -46,23 +47,70 @@ export default function App() {
 
   // Load initial data
   useEffect(() => {
-    const savedScripts = loadScripts();
-    const savedTheme = loadTheme();
-    const savedVariant = loadDarkThemeVariant();
-    setScripts(savedScripts);
-    setTheme(savedTheme);
-    setDarkThemeVariant(savedVariant);
+    const initializeApp = async () => {
+      // Try to load from Electron file first if running in Electron
+      if (isElectron()) {
+        console.log('🚀 Running in Electron, attempting to load from local file...');
+        const loadedFromFile = await loadWorkspaceFromElectron();
 
-    if (savedScripts.length > 0) {
-      setActiveScriptId(savedScripts[0].id);
-    }
+        if (loadedFromFile) {
+          console.log('✅ Loaded workspace from Electron file');
+          // Reload data from localStorage (which was updated by loadWorkspaceFromElectron)
+          const savedScripts = loadScripts();
+          const savedTheme = loadTheme();
+          const savedVariant = loadDarkThemeVariant();
+          setScripts(savedScripts);
+          setTheme(savedTheme);
+          setDarkThemeVariant(savedVariant);
 
-    if (savedTheme === 'dark') {
-      document.body.classList.add('dark-theme');
-      if (savedVariant === 'vscode-gray') {
-        document.body.classList.add('vscode-gray');
+          if (savedScripts.length > 0) {
+            setActiveScriptId(savedScripts[0].id);
+          }
+
+          if (savedTheme === 'dark') {
+            document.body.classList.add('dark-theme');
+            if (savedVariant === 'vscode-gray') {
+              document.body.classList.add('vscode-gray');
+            }
+          }
+          return;
+        }
       }
-    }
+
+      // Fallback to loading from localStorage (web mode or no Electron file)
+      const savedScripts = loadScripts();
+      const savedTheme = loadTheme();
+      const savedVariant = loadDarkThemeVariant();
+      setScripts(savedScripts);
+      setTheme(savedTheme);
+      setDarkThemeVariant(savedVariant);
+
+      if (savedScripts.length > 0) {
+        setActiveScriptId(savedScripts[0].id);
+      }
+
+      if (savedTheme === 'dark') {
+        document.body.classList.add('dark-theme');
+        if (savedVariant === 'vscode-gray') {
+          document.body.classList.add('vscode-gray');
+        }
+      }
+    };
+
+    initializeApp();
+  }, []);
+
+  // Listen for storage events to reload scripts when updated
+  useEffect(() => {
+    const handleStorageEvent = () => {
+      const savedScripts = loadScripts();
+      setScripts(savedScripts);
+    };
+
+    window.addEventListener('storage', handleStorageEvent);
+    return () => {
+      window.removeEventListener('storage', handleStorageEvent);
+    };
   }, []);
 
   // Close dropdown when clicking outside

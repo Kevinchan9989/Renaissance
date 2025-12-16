@@ -116,6 +116,26 @@ export function parsePostgreSQL(sql: string): ScriptData {
         continue;
       }
 
+      // Inline constraint: FOREIGN KEY
+      if (upperLine.includes('FOREIGN KEY') && (upperLine.startsWith('CONSTRAINT') || upperLine.startsWith('FOREIGN'))) {
+        const fkMatch = trimmedLine.match(/(?:CONSTRAINT\s+(\w+)\s+)?FOREIGN\s+KEY\s*\(([^)]+)\)\s*REFERENCES\s+(?:["`]?(\w+)["`]?\.)?["`]?(\w+)["`]?\s*\(([^)]+)\)/i);
+        if (fkMatch) {
+          const constraintName = fkMatch[1] || `fk_${tableName}`;
+          const localCols = fkMatch[2].split(',').map(c => cleanName(c)).join(', ');
+          const refSchema = fkMatch[3] || 'public';
+          const refTable = fkMatch[4];
+          const refCols = fkMatch[5].split(',').map(c => cleanName(c)).join(', ');
+
+          tableObj.constraints.push({
+            name: constraintName,
+            type: 'Foreign Key',
+            localCols,
+            ref: `${refSchema}.${refTable}(${refCols})`
+          });
+        }
+        continue;
+      }
+
       // Column definition
       const colMatch = trimmedLine.match(/^["`]?(\w+)["`]?\s+([^\s,]+)(.*)$/);
       if (colMatch && !upperLine.startsWith('CONSTRAINT') && !upperLine.startsWith('PRIMARY') && !upperLine.startsWith('FOREIGN') && !upperLine.startsWith('UNIQUE') && !upperLine.startsWith('CHECK')) {
