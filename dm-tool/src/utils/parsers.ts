@@ -179,6 +179,11 @@ export function parsePostgreSQL(sql: string): ScriptData {
         if (typeMatch) {
           type = typeMatch[1] + (typeMatch[2] || '');
           rest = typeMatch[3] || '';
+
+          // Debug specific types
+          if (type.includes('NUMERIC') && typeMatch[2]) {
+            console.log(`📊 PARSER: Column ${name} type extracted: "${type}" from rest: "${rest.substring(0, 50)}"`);
+          }
         } else {
           // Fallback: take first word as type
           const parts = rest.split(/\s+/);
@@ -205,14 +210,21 @@ export function parsePostgreSQL(sql: string): ScriptData {
 
         const normalizedType = normalizeType(type);
 
-        tableObj.columns.push({
+        const column = {
           name,
           type: normalizedType,
           nullable,
           default: defaultVal,
           explanation: '',
           mapping: ''
-        });
+        };
+
+        // Debug specific columns
+        if (name === 'limit_per_issue_pd_pct' || name === 'min_tender_amt') {
+          console.log(`📊 COLUMN STORED: ${name}`, column);
+        }
+
+        tableObj.columns.push(column);
       }
     }
 

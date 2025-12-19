@@ -10,13 +10,16 @@ interface SettingsModalProps {
   darkThemeVariant: 'slate' | 'vscode-gray';
 }
 
-type TabType = 'workspace' | 'logs';
+type TabType = 'workspace' | 'logs' | 'erd';
 
 export default function SettingsModal({ isOpen, onClose, theme, darkThemeVariant }: SettingsModalProps) {
   const [activeTab, setActiveTab] = useState<TabType>('workspace');
   const [logs, setLogs] = useState(getLogs());
   const [autoScroll, setAutoScroll] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [groupTemporalColors, setGroupTemporalColors] = useState(
+    localStorage.getItem('erd_group_temporal_colors') === 'true'
+  );
   const logsEndRef = useRef<HTMLDivElement>(null);
 
   // Subscribe to log updates
@@ -196,6 +199,22 @@ export default function SettingsModal({ isOpen, onClose, theme, darkThemeVariant
             Workspace
           </button>
           <button
+            onClick={() => setActiveTab('erd')}
+            style={{
+              padding: '12px 20px',
+              background: activeTab === 'erd' ? bgColor : 'transparent',
+              border: 'none',
+              borderBottom: activeTab === 'erd' ? `2px solid #3b82f6` : '2px solid transparent',
+              color: activeTab === 'erd' ? textColor : textSecondary,
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: 500,
+              transition: 'all 0.2s',
+            }}
+          >
+            ERD
+          </button>
+          <button
             onClick={() => setActiveTab('logs')}
             style={{
               padding: '12px 20px',
@@ -219,6 +238,84 @@ export default function SettingsModal({ isOpen, onClose, theme, darkThemeVariant
           padding: '32px',
           overflowY: 'auto',
         }}>
+          {activeTab === 'erd' && (
+            <div>
+              <p style={{
+                margin: '0 0 24px 0',
+                color: textSecondary,
+                fontSize: '14px',
+                lineHeight: '1.6',
+              }}>
+                Configure how ERD diagrams display tables and relationships.
+              </p>
+
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '16px',
+                borderRadius: '8px',
+                backgroundColor: isDark ? (isVscode ? '#252526' : '#1e293b') : '#f9fafb',
+                border: `1px solid ${borderColor}`,
+              }}>
+                <div>
+                  <div style={{ color: textColor, fontSize: '14px', fontWeight: 500, marginBottom: '4px' }}>
+                    Group Temporal Tables Colors
+                  </div>
+                  <div style={{ color: textSecondary, fontSize: '13px' }}>
+                    Master tables and their _t temporal tables share the same color
+                  </div>
+                </div>
+                <label style={{
+                  position: 'relative',
+                  display: 'inline-block',
+                  width: '48px',
+                  height: '26px',
+                  cursor: 'pointer',
+                }}>
+                  <input
+                    type="checkbox"
+                    checked={groupTemporalColors}
+                    onChange={(e) => {
+                      const newValue = e.target.checked;
+                      setGroupTemporalColors(newValue);
+                      localStorage.setItem('erd_group_temporal_colors', String(newValue));
+                      window.dispatchEvent(new CustomEvent('erd-settings-changed'));
+                    }}
+                    style={{
+                      opacity: 0,
+                      width: 0,
+                      height: 0,
+                    }}
+                  />
+                  <span style={{
+                    position: 'absolute',
+                    cursor: 'pointer',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: groupTemporalColors ? '#3b82f6' : (isDark ? '#4b5563' : '#d1d5db'),
+                    transition: '0.3s',
+                    borderRadius: '26px',
+                  }}>
+                    <span style={{
+                      position: 'absolute',
+                      content: '',
+                      height: '20px',
+                      width: '20px',
+                      left: groupTemporalColors ? '25px' : '3px',
+                      bottom: '3px',
+                      backgroundColor: 'white',
+                      transition: '0.3s',
+                      borderRadius: '50%',
+                    }} />
+                  </span>
+                </label>
+              </div>
+            </div>
+          )}
+
           {activeTab === 'workspace' && (
             <div>
               <p style={{

@@ -52,6 +52,29 @@ const getStorageKey = (scriptId: string) => `erd_positions_${scriptId}`;
 const getTheme = (isDark: boolean, variant: DarkThemeVariant = 'slate'): ThemeColors =>
   isDark ? getDarkTheme(variant) : LIGHT_THEME;
 
+// Helper to get color index for a table, grouping temporal tables with their master
+const getTableColorIndex = (tableName: string, allTables: Table[], groupTemporal: boolean): number => {
+  if (!groupTemporal) {
+    const index = allTables.findIndex(t => t.tableName === tableName);
+    return index % TABLE_COLORS.length;
+  }
+
+  // Check if this is a temporal table (ends with _t)
+  const upperName = tableName.toUpperCase();
+  if (upperName.endsWith('_T')) {
+    // Find the master table (without _t suffix)
+    const masterName = tableName.slice(0, -2);
+    const masterIndex = allTables.findIndex(t => t.tableName.toUpperCase() === masterName.toUpperCase());
+    if (masterIndex !== -1) {
+      return masterIndex % TABLE_COLORS.length;
+    }
+  }
+
+  // For master tables or tables without a temporal pair, use their own index
+  const index = allTables.findIndex(t => t.tableName === tableName);
+  return index % TABLE_COLORS.length;
+};
+
 // Calculate table width based on content - ensure column name + type fit without wrapping
 const calculateTableWidth = (table: Table): number => {
   // Measure table name (with some padding for header)
@@ -209,6 +232,20 @@ export default function ERDViewer({ tables, isDarkTheme, darkThemeVariant = 'sla
   // Hover state for columns
   const [hoveredColumn, setHoveredColumn] = useState<{ table: string; column: string } | null>(null);
 
+  // ERD settings
+  const [groupTemporalColors, setGroupTemporalColors] = useState(
+    localStorage.getItem('erd_group_temporal_colors') === 'true'
+  );
+
+  // Listen for settings changes
+  useEffect(() => {
+    const handleSettingsChange = () => {
+      setGroupTemporalColors(localStorage.getItem('erd_group_temporal_colors') === 'true');
+    };
+    window.addEventListener('erd-settings-changed', handleSettingsChange);
+    return () => window.removeEventListener('erd-settings-changed', handleSettingsChange);
+  }, []);
+
   const theme = getTheme(isDarkTheme, darkThemeVariant);
 
   // Load saved positions on mount
@@ -359,8 +396,8 @@ export default function ERDViewer({ tables, isDarkTheme, darkThemeVariant = 'sla
       connectedTablesList.forEach((table) => {
         const width = calculateTableWidth(table);
         const height = calculateTableHeight(table);
-        const originalIndex = tables.findIndex(t => t.tableName === table.tableName);
-        g.setNode(table.tableName.toUpperCase(), { width, height, colorIndex: originalIndex % TABLE_COLORS.length });
+        const colorIndex = getTableColorIndex(table.tableName, tables, groupTemporalColors);
+        g.setNode(table.tableName.toUpperCase(), { width, height, colorIndex });
       });
 
       // Add edges
@@ -377,7 +414,7 @@ export default function ERDViewer({ tables, isDarkTheme, darkThemeVariant = 'sla
         const width = calculateTableWidth(table);
         const height = calculateTableHeight(table);
         const tableId = table.tableName.toUpperCase();
-        const originalIndex = tables.findIndex(t => t.tableName === table.tableName);
+        const colorIndex = getTableColorIndex(table.tableName, tables, groupTemporalColors);
 
         const x = node ? node.x - width / 2 : SIZING.DIAGRAM_PADDING;
         const y = node ? node.y - height / 2 : SIZING.DIAGRAM_PADDING;
@@ -387,7 +424,7 @@ export default function ERDViewer({ tables, isDarkTheme, darkThemeVariant = 'sla
           y,
           width,
           height,
-          colorIndex: originalIndex % TABLE_COLORS.length
+          colorIndex
         };
 
         maxX = Math.max(maxX, x + width);
@@ -407,7 +444,7 @@ export default function ERDViewer({ tables, isDarkTheme, darkThemeVariant = 'sla
         const width = calculateTableWidth(table);
         const height = calculateTableHeight(table);
         const tableId = table.tableName.toUpperCase();
-        const originalIndex = tables.findIndex(t => t.tableName === table.tableName);
+        const colorIndex = getTableColorIndex(table.tableName, tables, groupTemporalColors);
 
         // Check if we need to wrap to next row
         if (currentX + width > maxRowWidth && currentX > SIZING.DIAGRAM_PADDING) {
@@ -421,7 +458,7 @@ export default function ERDViewer({ tables, isDarkTheme, darkThemeVariant = 'sla
           y: currentY,
           width,
           height,
-          colorIndex: originalIndex % TABLE_COLORS.length
+          colorIndex
         };
 
         currentX += width + SIZING.TABLES_GAP_X;
@@ -430,7 +467,7 @@ export default function ERDViewer({ tables, isDarkTheme, darkThemeVariant = 'sla
     }
 
     return layout;
-  }, [tables, edges]);
+  }, [tables, edges, groupTemporalColors]);
 
   // Set initial positions from layout if not already set
   useEffect(() => {
@@ -466,10 +503,10 @@ export default function ERDViewer({ tables, isDarkTheme, darkThemeVariant = 'sla
         y: savedPos?.y ?? layout?.y ?? index * 50,
         width: layout?.width ?? calculateTableWidth(table),
         height: layout?.height ?? calculateTableHeight(table),
-        colorIndex: layout?.colorIndex ?? index % TABLE_COLORS.length
+        colorIndex: layout?.colorIndex ?? getTableColorIndex(table.tableName, tables, groupTemporalColors)
       };
     });
-  }, [tables, initialLayout, tablePositions]);
+  }, [tables, initialLayout, tablePositions, groupTemporalColors]);
 
   // Search functionality
   useEffect(() => {

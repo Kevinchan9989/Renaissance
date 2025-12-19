@@ -1923,12 +1923,12 @@ export default function ColumnMapper({
             tableLayout: 'fixed',
           }}>
           <colgroup>
-            <col style={{ width: '14%' }} />
             <col style={{ width: '13%' }} />
+            <col style={{ width: '15%' }} />
             <col style={{ width: '6%' }} />
             <col style={{ width: '40px' }} />
-            <col style={{ width: '14%' }} />
             <col style={{ width: '13%' }} />
+            <col style={{ width: '15%' }} />
             <col style={{ width: '6%' }} />
             <col style={{ width: '50px' }} />
             <col style={{ width: 'auto' }} />
@@ -1962,15 +1962,32 @@ export default function ColumnMapper({
               const mappingSourceTable = mapping.sourceTable === sourceTableName
                 ? sourceTable
                 : sourceScript?.data.targets.find(t => t.tableName === mapping.sourceTable);
-              const mappingTargetTable = mapping.targetTable === targetTableName
+
+              // For target table, search in current target script first, then search all scripts
+              let mappingTargetTable = mapping.targetTable === targetTableName
                 ? targetTable
                 : targetScript?.data.targets.find(t => t.tableName === mapping.targetTable);
+
+              // If not found in target script, search all scripts (for ISS schema tables etc)
+              if (!mappingTargetTable) {
+                for (const script of scripts) {
+                  const found = script.data.targets.find(t => t.tableName === mapping.targetTable);
+                  if (found) {
+                    mappingTargetTable = found;
+                    break;
+                  }
+                }
+              }
 
               // Get nullable values from source and target columns
               const sourceCol = mappingSourceTable?.columns.find(c => c.name === mapping.sourceColumn);
               const targetCol = mappingTargetTable?.columns.find(c => c.name === mapping.targetColumn);
               const sourceNullable = sourceCol?.nullable ? (sourceCol.nullable.toUpperCase() === 'YES' || sourceCol.nullable.toUpperCase() === 'Y' ? 'NULL' : 'NOT NULL') : '';
               const targetNullable = targetCol?.nullable ? (targetCol.nullable.toUpperCase() === 'YES' || targetCol.nullable.toUpperCase() === 'Y' ? 'NULL' : 'NOT NULL') : '';
+
+              // Use actual column types instead of stored mapping types (in case mapping data is stale)
+              const displaySourceType = sourceCol?.type || mapping.sourceType;
+              const displayTargetType = targetCol?.type || mapping.targetType;
 
               // Check if this is a cross-schema mapping
               const isCrossSchemaSource = mapping.sourceTable !== sourceTableName;
@@ -2014,8 +2031,8 @@ export default function ColumnMapper({
                       </div>
                     </div>
                   </td>
-                  <td style={{ padding: '10px 12px', color: theme.text.secondary, fontFamily: 'monospace', fontSize: '12px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {mapping.sourceType}
+                  <td style={{ padding: '10px 12px', color: theme.text.secondary, fontFamily: 'monospace', fontSize: '12px' }}>
+                    {displaySourceType}
                   </td>
                   <td style={{ padding: '10px 12px', textAlign: 'center', color: theme.text.secondary, fontSize: '12px' }}>
                     {sourceNullable}
@@ -2035,8 +2052,8 @@ export default function ColumnMapper({
                       )}
                     </div>
                   </td>
-                  <td style={{ padding: '10px 12px', color: theme.text.secondary, fontFamily: 'monospace', fontSize: '12px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {mapping.targetType}
+                  <td style={{ padding: '10px 12px', color: theme.text.secondary, fontFamily: 'monospace', fontSize: '12px' }}>
+                    {displayTargetType}
                   </td>
                   <td style={{ padding: '10px 12px', textAlign: 'center', color: theme.text.secondary, fontSize: '12px' }}>
                     {targetNullable}
@@ -2307,15 +2324,15 @@ export default function ColumnMapper({
                       width: '100%',
                       borderCollapse: 'collapse',
                       fontSize: '13px',
-                      tableLayout: 'fixed',
+                      tableLayout: 'auto',
                     }}>
                       <colgroup>
-                        <col style={{ width: '16%' }} />
-                        <col style={{ width: '9%' }} />
+                        <col style={{ width: '14%' }} />
+                        <col style={{ width: '12%' }} />
                         <col style={{ width: '5%' }} />
                         <col style={{ width: '40px' }} />
-                        <col style={{ width: '16%' }} />
-                        <col style={{ width: '9%' }} />
+                        <col style={{ width: '14%' }} />
+                        <col style={{ width: '12%' }} />
                         <col style={{ width: '5%' }} />
                         <col style={{ width: '40px' }} />
                         <col style={{ width: 'auto' }} />
@@ -2331,11 +2348,28 @@ export default function ColumnMapper({
                           const srcScript = sourceScript?.data.sources.concat(sourceScript?.data.targets || []);
                           const tgtScript = targetScript?.data.sources.concat(targetScript?.data.targets || []);
                           const srcTable = srcScript?.find(t => t.tableName === mapping.sourceTable);
-                          const tgtTable = tgtScript?.find(t => t.tableName === mapping.targetTable);
+                          let tgtTable = tgtScript?.find(t => t.tableName === mapping.targetTable);
+
+                          // If not found in target script, search all scripts (for ISS schema tables etc)
+                          if (!tgtTable) {
+                            for (const script of scripts) {
+                              const allTables = script.data.sources.concat(script.data.targets || []);
+                              const found = allTables.find(t => t.tableName === mapping.targetTable);
+                              if (found) {
+                                tgtTable = found;
+                                break;
+                              }
+                            }
+                          }
+
                           const sourceCol = srcTable?.columns.find(c => c.name === mapping.sourceColumn);
                           const targetCol = tgtTable?.columns.find(c => c.name === mapping.targetColumn);
                           const sourceNullable = sourceCol?.nullable ? (sourceCol.nullable.toUpperCase() === 'YES' || sourceCol.nullable.toUpperCase() === 'Y' ? 'NULL' : 'NOT NULL') : '';
                           const targetNullable = targetCol?.nullable ? (targetCol.nullable.toUpperCase() === 'YES' || targetCol.nullable.toUpperCase() === 'Y' ? 'NULL' : 'NOT NULL') : '';
+
+                          // Use actual column types instead of stored mapping types (in case mapping data is stale)
+                          const displaySourceType = sourceCol?.type || mapping.sourceType;
+                          const displayTargetType = targetCol?.type || mapping.targetType;
 
                           return (
                             <tr
@@ -2363,8 +2397,8 @@ export default function ColumnMapper({
                                   </span>
                                 </div>
                               </td>
-                              <td style={{ padding: '8px 12px', color: theme.text.secondary, fontFamily: 'monospace', fontSize: '11px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {mapping.sourceType}
+                              <td style={{ padding: '8px 12px', color: theme.text.secondary, fontFamily: 'monospace', fontSize: '11px' }}>
+                                {displaySourceType}
                               </td>
                               <td style={{ padding: '8px 12px', textAlign: 'center', color: theme.text.secondary, fontSize: '11px' }}>
                                 {sourceNullable}
@@ -2377,8 +2411,8 @@ export default function ColumnMapper({
                                   {mapping.targetColumn}
                                 </span>
                               </td>
-                              <td style={{ padding: '8px 12px', color: theme.text.secondary, fontFamily: 'monospace', fontSize: '11px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {mapping.targetType}
+                              <td style={{ padding: '8px 12px', color: theme.text.secondary, fontFamily: 'monospace', fontSize: '11px' }}>
+                                {displayTargetType}
                               </td>
                               <td style={{ padding: '8px 12px', textAlign: 'center', color: theme.text.secondary, fontSize: '11px' }}>
                                 {targetNullable}
