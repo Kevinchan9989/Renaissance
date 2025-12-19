@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Script, ScriptType, AppView, Table, MappingProject } from './types';
-import { loadScripts, saveScripts, generateId, loadTheme, saveTheme, saveMappingProject, loadDarkThemeVariant, saveDarkThemeVariant, DarkThemeVariant, loadWorkspaceFromElectron } from './utils/storage';
+import { loadScripts, saveScripts, generateId, loadTheme, saveTheme, saveMappingProject, loadDarkThemeVariant, saveDarkThemeVariant, DarkThemeVariant, loadWorkspaceFromElectron, getSortedScripts } from './utils/storage';
 import { parseScript } from './utils/parsers';
 import Sidebar from './components/Sidebar';
 import DataDictionary from './components/DataDictionary';
@@ -11,6 +11,8 @@ import ColumnMapper, { MappingStateForSidebar } from './components/ColumnMapper'
 import { Database, Sun, Moon, PanelLeftClose, PanelLeft, ChevronDown, GripVertical, Palette, Settings, Download, Upload } from 'lucide-react';
 import { exportWorkspace, importWorkspace, downloadJson, WorkspaceData } from './utils/storage';
 import { isElectron } from './services/electronStorage';
+import { initDebugLogger } from './utils/debugLogger';
+import SettingsModal from './components/SettingsModal';
 
 // Mapping state interface for sidebar - includes callbacks from ColumnMapper
 interface MappingState {
@@ -44,6 +46,12 @@ export default function App() {
 
   // Settings modal
   const [showSettings, setShowSettings] = useState(false);
+
+  // Initialize debug logger on mount
+  useEffect(() => {
+    initDebugLogger();
+    console.log('🚀 Renaissance DM Tool initialized');
+  }, []);
 
   // Load initial data
   useEffect(() => {
@@ -234,44 +242,6 @@ export default function App() {
     }
   }, [darkThemeVariant, theme]);
 
-  // Export workspace
-  const handleExportWorkspace = useCallback(() => {
-    const workspace = exportWorkspace();
-    const filename = `renaissance-workspace-${new Date().toISOString().split('T')[0]}.json`;
-    downloadJson(workspace, filename);
-    setShowSettings(false);
-  }, []);
-
-  // Import workspace
-  const handleImportWorkspace = useCallback(() => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.json';
-    input.onchange = (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          try {
-            const data = JSON.parse(event.target?.result as string) as WorkspaceData;
-            const confirmed = window.confirm(
-              'This will replace all current data including scripts, mappings, and ERD positions. Are you sure?'
-            );
-            if (confirmed) {
-              importWorkspace(data);
-              setShowSettings(false);
-              window.location.reload();
-            }
-          } catch (error) {
-            alert('Failed to import workspace. Please check the file format.');
-            console.error('Import error:', error);
-          }
-        };
-        reader.readAsText(file);
-      }
-    };
-    input.click();
-  }, []);
 
   // Update table data (for inline editing)
   const updateTable = useCallback((tableId: number, updates: Partial<Table>) => {
@@ -359,9 +329,10 @@ export default function App() {
 
     // Mapping view has its own script selectors
     if (view === 'mapping') {
+      const sortedScripts = getSortedScripts(scripts);
       return (
         <ColumnMapper
-          scripts={scripts}
+          scripts={sortedScripts}
           isDarkTheme={theme === 'dark'}
           darkThemeVariant={darkThemeVariant}
           onMappingStateChange={handleMappingStateChange}
@@ -597,118 +568,12 @@ export default function App() {
       </div>
 
       {/* Settings Modal */}
-      {showSettings && (
-        <div
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000,
-          }}
-          onClick={() => setShowSettings(false)}
-        >
-          <div
-            style={{
-              backgroundColor: theme === 'dark'
-                ? (darkThemeVariant === 'vscode-gray' ? '#1e1e1e' : '#1e293b')
-                : '#ffffff',
-              borderRadius: '12px',
-              padding: '32px',
-              maxWidth: '500px',
-              width: '90%',
-              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3)',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 style={{
-              margin: '0 0 24px 0',
-              color: theme === 'dark' ? '#e4e4e7' : '#18181b',
-              fontSize: '24px',
-              fontWeight: 600,
-            }}>
-              Workspace Settings
-            </h2>
-
-            <p style={{
-              margin: '0 0 24px 0',
-              color: theme === 'dark' ? '#a1a1aa' : '#71717a',
-              fontSize: '14px',
-              lineHeight: '1.6',
-            }}>
-              Export your entire workspace (scripts, mappings, ERD positions, theme) or import a previously exported workspace.
-            </p>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <button
-                className="btn btn-primary"
-                onClick={handleExportWorkspace}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
-                  fontSize: '15px',
-                  padding: '12px 20px',
-                }}
-              >
-                <Download size={18} />
-                Export Workspace
-              </button>
-
-              <button
-                className="btn"
-                onClick={handleImportWorkspace}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
-                  fontSize: '15px',
-                  padding: '12px 20px',
-                }}
-              >
-                <Upload size={18} />
-                Import Workspace
-              </button>
-
-              <button
-                className="btn"
-                onClick={() => setShowSettings(false)}
-                style={{
-                  marginTop: '8px',
-                  fontSize: '14px',
-                  padding: '10px 16px',
-                }}
-              >
-                Close
-              </button>
-            </div>
-
-            <div style={{
-              marginTop: '24px',
-              padding: '12px',
-              borderRadius: '6px',
-              backgroundColor: theme === 'dark' ? 'rgba(59, 130, 246, 0.1)' : 'rgba(59, 130, 246, 0.05)',
-              border: `1px solid ${theme === 'dark' ? 'rgba(59, 130, 246, 0.2)' : 'rgba(59, 130, 246, 0.1)'}`,
-            }}>
-              <p style={{
-                margin: 0,
-                fontSize: '12px',
-                color: theme === 'dark' ? '#94a3b8' : '#64748b',
-                lineHeight: '1.5',
-              }}>
-                <strong>Note:</strong> The exported file includes all your work and can be used as a backup or to transfer your workspace to another device.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
+      <SettingsModal
+        isOpen={showSettings}
+        onClose={() => setShowSettings(false)}
+        theme={theme}
+        darkThemeVariant={darkThemeVariant}
+      />
     </div>
   );
 }

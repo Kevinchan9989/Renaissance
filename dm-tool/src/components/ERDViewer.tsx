@@ -272,27 +272,55 @@ export default function ERDViewer({ tables, isDarkTheme, darkThemeVariant = 'sla
     const result: Edge[] = [];
     const tableNames = new Set(tables.map(t => t.tableName.toUpperCase()));
 
+    console.log('🔍 ERD: Available tables:', Array.from(tableNames));
+    console.log('🔍 ERD: Total tables loaded:', tables.length);
+
+    // Log each table with its constraints
+    tables.forEach(table => {
+      const fkConstraints = table.constraints.filter(c => c.type === 'Foreign Key');
+      console.log(`📊 ERD: Table ${table.tableName} has ${table.constraints.length} constraints (${fkConstraints.length} FKs)`);
+      if (fkConstraints.length > 0) {
+        fkConstraints.forEach(fk => {
+          console.log(`  FK: ${fk.name} → ${fk.ref}`);
+        });
+      }
+    });
+
     for (const table of tables) {
       for (const constraint of table.constraints) {
         if (constraint.type === 'Foreign Key' && constraint.ref) {
+          console.log(`🔍 ERD: Processing FK in ${table.tableName}:`, constraint.name, '→', constraint.ref);
+
           const refMatch = constraint.ref.match(/(?:(\w+)\.)?(\w+)\(([^)]+)\)/);
           if (refMatch) {
             const refTable = refMatch[2].toUpperCase();
             const refCol = refMatch[3].split(',')[0].trim();
 
+            console.log(`  Schema: ${refMatch[1]}, Table: ${refTable}, Column: ${refCol}`);
+            console.log(`  Looking for table: ${refTable} in set:`, tableNames.has(refTable));
+
             if (tableNames.has(refTable)) {
-              result.push({
+              const edge = {
                 id: `${table.tableName}-${refTable}-${constraint.localCols}`,
                 sourceTable: table.tableName.toUpperCase(),
                 sourceColumn: constraint.localCols.split(',')[0].trim(),
                 targetTable: refTable,
                 targetColumn: refCol
-              });
+              };
+              console.log(`  ✅ Creating edge:`, edge);
+              result.push(edge);
+            } else {
+              console.log(`  ❌ Target table ${refTable} not found in diagram`);
             }
+          } else {
+            console.log(`  ❌ Regex failed to match ref:`, constraint.ref);
           }
         }
       }
     }
+
+    console.log('🔍 ERD: Total edges created:', result.length);
+    result.forEach(e => console.log(`  ${e.sourceTable}.${e.sourceColumn} → ${e.targetTable}.${e.targetColumn}`));
 
     return result;
   }, [tables]);

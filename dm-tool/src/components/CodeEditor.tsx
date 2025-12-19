@@ -15,6 +15,9 @@ interface CodeEditorProps {
   placeholder?: string;
   readOnly?: boolean;
   minHeight?: string;
+  searchText?: string;
+  searchMatches?: Array<{ start: number; end: number }>;
+  currentMatchIndex?: number;
 }
 
 export default function CodeEditor({
@@ -25,9 +28,13 @@ export default function CodeEditor({
   darkThemeVariant = 'slate',
   placeholder,
   readOnly = false,
-  minHeight = '300px'
+  minHeight = '300px',
+  searchText = '',
+  searchMatches = [],
+  currentMatchIndex = 0
 }: CodeEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const editorRef = useRef<HTMLDivElement>(null);
   const theme = getVSCodeTheme(isDarkTheme, darkThemeVariant);
 
   // Map script type to Prism language
@@ -77,6 +84,103 @@ export default function CodeEditor({
       root.style.setProperty('--vscode-constant', theme.constant);
     }
   }, [theme]);
+
+  // Apply search highlights using DOM manipulation
+  useEffect(() => {
+    if (!containerRef.current || !searchText || searchMatches.length === 0) {
+      return;
+    }
+
+    const preElement = containerRef.current.querySelector('.code-editor-pre');
+    if (!preElement) return;
+
+    // Remove existing highlights
+    const existingMarks = preElement.querySelectorAll('mark.search-highlight');
+    existingMarks.forEach(mark => {
+      const parent = mark.parentNode;
+      if (parent) {
+        parent.replaceChild(document.createTextNode(mark.textContent || ''), mark);
+        parent.normalize();
+      }
+    });
+
+    // Get the text content
+    const textContent = preElement.textContent || '';
+
+    // Create a tree walker to find text nodes
+    const walker = document.createTreeWalker(
+      preElement,
+      NodeFilter.SHOW_TEXT,
+      null
+    );
+
+    const textNodes: { node: Text; offset: number }[] = [];
+    let currentOffset = 0;
+
+    let node;
+    while ((node = walker.nextNode() as Text)) {
+      textNodes.push({ node, offset: currentOffset });
+      currentOffset += node.textContent?.length || 0;
+    }
+
+    // Apply highlights from end to start
+    const sortedMatches = [...searchMatches].sort((a, b) => b.start - a.start);
+
+    sortedMatches.forEach((match, index) => {
+      const matchIndex = searchMatches.length - 1 - index;
+      const isActive = matchIndex === currentMatchIndex;
+
+      // Find which text node(s) contain this match
+      for (let i = textNodes.length - 1; i >= 0; i--) {
+        const { node, offset } = textNodes[i];
+        const nodeEnd = offset + (node.textContent?.length || 0);
+
+        if (match.start >= offset && match.start < nodeEnd) {
+          const startInNode = match.start - offset;
+          const endInNode = Math.min(match.end - offset, node.textContent?.length || 0);
+
+          // Split the text node if needed
+          if (endInNode < (node.textContent?.length || 0)) {
+            node.splitText(endInNode);
+          }
+
+          if (startInNode > 0) {
+            const remainingNode = node.splitText(startInNode);
+            // Create mark element
+            const mark = document.createElement('mark');
+            mark.className = isActive ? 'search-highlight active' : 'search-highlight';
+            mark.textContent = remainingNode.textContent;
+            remainingNode.parentNode?.replaceChild(mark, remainingNode);
+          } else {
+            // Wrap the entire node
+            const mark = document.createElement('mark');
+            mark.className = isActive ? 'search-highlight active' : 'search-highlight';
+            mark.textContent = node.textContent;
+            node.parentNode?.replaceChild(mark, node);
+          }
+
+          break;
+        }
+      }
+    });
+  }, [searchText, searchMatches, currentMatchIndex]);
+
+  // Scroll to current match
+  useEffect(() => {
+    if (searchMatches.length > 0 && containerRef.current) {
+      // Wait for DOM update
+      setTimeout(() => {
+        const activeHighlight = containerRef.current?.querySelector('.search-highlight.active') as HTMLElement;
+        if (activeHighlight) {
+          activeHighlight.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center',
+            inline: 'nearest'
+          });
+        }
+      }, 100);
+    }
+  }, [currentMatchIndex]);
 
   return (
     <div

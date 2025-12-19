@@ -49,6 +49,8 @@ function normalizeType(t: string): string {
 // ============================================
 
 export function parsePostgreSQL(sql: string): ScriptData {
+  console.log('🚀 PARSER: parsePostgreSQL CALLED! SQL length:', sql.length);
+
   const tables: Table[] = [];
   const tablesMap: Record<string, Table> = {};
 
@@ -57,10 +59,14 @@ export function parsePostgreSQL(sql: string): ScriptData {
     .replace(/--.*$/gm, '')
     .replace(/\/\*[\s\S]*?\*\//g, '');
 
+  console.log('🚀 PARSER: After cleaning, length:', cleanSql.length);
+
   // Parse CREATE TABLE
   const createRegex = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:["`]?(\w+)["`]?\.)?["`]?(\w+)["`]?\s*\(([\s\S]*?)\)\s*;/gi;
   let match: RegExpExecArray | null;
   let idCounter = 1;
+
+  console.log('🔍 PARSER: Starting PostgreSQL parsing...');
 
   while ((match = createRegex.exec(cleanSql)) !== null) {
     const schema = match[1] || 'public';
@@ -80,6 +86,25 @@ export function parsePostgreSQL(sql: string): ScriptData {
     const pkCols = new Set<string>();
     const uniqueCols = new Set<string>();
 
+    // Debug log for specific tables
+    const debugTables = ['iss_sec_params', 'iss_calendar_params', 'iss_announcement_allotment_params'];
+    if (debugTables.includes(tableName.toLowerCase())) {
+      console.log(`\n🔍 PARSER: Processing table ${schema}.${tableName}`);
+      console.log(`  Body length: ${body.length} chars`);
+      console.log(`  Split into ${lines.length} lines`);
+      lines.forEach((line, idx) => {
+        const preview = line.trim().substring(0, 80);
+        const fullLine = line.trim();
+        console.log(`  Line ${idx}: ${preview}${line.trim().length > 80 ? '...' : ''}`);
+
+        // Check if this line contains FK
+        if (fullLine.toUpperCase().includes('FOREIGN KEY')) {
+          console.log(`    ⚠️ FK DETECTED on line ${idx}! Full length: ${fullLine.length}`);
+          console.log(`    Full content: "${fullLine}"`);
+        }
+      });
+    }
+
     for (const line of lines) {
       const trimmedLine = line.trim();
       if (!trimmedLine) continue;
@@ -87,7 +112,7 @@ export function parsePostgreSQL(sql: string): ScriptData {
       const upperLine = trimmedLine.toUpperCase();
 
       // Inline constraint: PRIMARY KEY
-      if (upperLine.startsWith('CONSTRAINT') || upperLine.startsWith('PRIMARY KEY')) {
+      if (upperLine.includes('PRIMARY KEY') && (upperLine.startsWith('CONSTRAINT') || upperLine.startsWith('PRIMARY KEY'))) {
         const pkMatch = trimmedLine.match(/(?:CONSTRAINT\s+(\w+)\s+)?PRIMARY\s+KEY\s*\(([^)]+)\)/i);
         if (pkMatch) {
           const cols = pkMatch[2].split(',').map(c => cleanName(c)).join(', ');
@@ -118,6 +143,8 @@ export function parsePostgreSQL(sql: string): ScriptData {
 
       // Inline constraint: FOREIGN KEY
       if (upperLine.includes('FOREIGN KEY') && (upperLine.startsWith('CONSTRAINT') || upperLine.startsWith('FOREIGN'))) {
+        console.log(`🔍 PARSER: Found FK line in ${schema}.${tableName}`);
+        console.log(`  Full line (${trimmedLine.length} chars):`, trimmedLine);
         const fkMatch = trimmedLine.match(/(?:CONSTRAINT\s+(\w+)\s+)?FOREIGN\s+KEY\s*\(([^)]+)\)\s*REFERENCES\s+(?:["`]?(\w+)["`]?\.)?["`]?(\w+)["`]?\s*\(([^)]+)\)/i);
         if (fkMatch) {
           const constraintName = fkMatch[1] || `fk_${tableName}`;
@@ -126,28 +153,37 @@ export function parsePostgreSQL(sql: string): ScriptData {
           const refTable = fkMatch[4];
           const refCols = fkMatch[5].split(',').map(c => cleanName(c)).join(', ');
 
+          console.log(`✅ PARSER: FK matched! ${constraintName} → ${refSchema}.${refTable}(${refCols})`);
           tableObj.constraints.push({
             name: constraintName,
             type: 'Foreign Key',
             localCols,
             ref: `${refSchema}.${refTable}(${refCols})`
           });
+        } else {
+          console.log(`❌ PARSER: FK regex did NOT match in ${schema}.${tableName}`);
         }
         continue;
       }
 
       // Column definition
-      const colMatch = trimmedLine.match(/^["`]?(\w+)["`]?\s+([^\s,]+)(.*)$/);
+      const colMatch = trimmedLine.match(/^["`]?(\w+)["`]?\s+(.+)$/);
       if (colMatch && !upperLine.startsWith('CONSTRAINT') && !upperLine.startsWith('PRIMARY') && !upperLine.startsWith('FOREIGN') && !upperLine.startsWith('UNIQUE') && !upperLine.startsWith('CHECK')) {
         const name = colMatch[1];
-        let type = colMatch[2];
-        let rest = colMatch[3] || '';
+        let rest = colMatch[2];
+        let type = '';
 
-        // Handle types with arguments e.g., numeric(10, 2)
-        if (rest.trim().startsWith('(')) {
-          const closingParen = rest.indexOf(')');
-          type += rest.substring(0, closingParen + 1);
-          rest = rest.substring(closingParen + 1);
+        // Extract type (may include parentheses with precision/scale)
+        // Match patterns like: VARCHAR(100), NUMERIC(10,2), NUMERIC(13), INTEGER, etc.
+        const typeMatch = rest.match(/^([A-Za-z_]\w*)\s*(\([^)]*\))?(.*)$/);
+        if (typeMatch) {
+          type = typeMatch[1] + (typeMatch[2] || '');
+          rest = typeMatch[3] || '';
+        } else {
+          // Fallback: take first word as type
+          const parts = rest.split(/\s+/);
+          type = parts[0];
+          rest = parts.slice(1).join(' ');
         }
 
         const nullable = rest.toUpperCase().includes('NOT NULL') ? 'No' : 'Yes';
@@ -167,9 +203,11 @@ export function parsePostgreSQL(sql: string): ScriptData {
           pkCols.add(name);
         }
 
+        const normalizedType = normalizeType(type);
+
         tableObj.columns.push({
           name,
-          type: normalizeType(type),
+          type: normalizedType,
           nullable,
           default: defaultVal,
           explanation: '',

@@ -58,6 +58,78 @@ export function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 }
 
+export function loadScriptOrder(): string[] {
+  try {
+    const data = localStorage.getItem('dm_tool_script_order');
+    if (data) {
+      return JSON.parse(data);
+    }
+  } catch (e) {
+    console.error('Failed to load script order:', e);
+  }
+  return [];
+}
+
+export function getSortedScripts(scripts: Script[]): Script[] {
+  const order = loadScriptOrder();
+  if (order.length === 0) return scripts;
+
+  return [...scripts].sort((a, b) => {
+    const indexA = order.indexOf(a.id);
+    const indexB = order.indexOf(b.id);
+    // If not in order list, put at end
+    if (indexA === -1 && indexB === -1) return 0;
+    if (indexA === -1) return 1;
+    if (indexB === -1) return -1;
+    return indexA - indexB;
+  });
+}
+
+export function reparseScript(scriptId: string): void {
+  const scripts = loadScripts();
+  const scriptIndex = scripts.findIndex(s => s.id === scriptId);
+
+  if (scriptIndex === -1) {
+    console.error('Script not found');
+    return;
+  }
+
+  const script = scripts[scriptIndex];
+
+  // Re-parse the raw content
+  const { parsePostgreSQL, parseOracle, parseDBML } = require('./parsers');
+
+  let newData;
+  switch (script.type) {
+    case 'postgresql':
+      newData = parsePostgreSQL(script.rawContent);
+      break;
+    case 'oracle':
+      newData = parseOracle(script.rawContent);
+      break;
+    case 'dbml':
+      newData = parseDBML(script.rawContent);
+      break;
+    default:
+      console.error('Unknown script type');
+      return;
+  }
+
+  // Update the script with new parsed data
+  scripts[scriptIndex] = {
+    ...script,
+    data: newData,
+    updatedAt: Date.now()
+  };
+
+  saveScripts(scripts);
+
+  // Trigger storage event to reload in other components
+  window.dispatchEvent(new Event('storage'));
+
+  console.log('Script re-parsed successfully');
+}
+
 // ============================================
 // Theme Storage
 // ============================================

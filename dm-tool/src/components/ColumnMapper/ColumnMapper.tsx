@@ -18,7 +18,13 @@ import {
   saveScripts,
 } from '../../utils/storage';
 import {
+  generateAlignmentSql,
+  getDefaultDatatypeMappings,
+} from '../../utils/sqlAlignment';
+import {
   createManualMapping,
+  validateColumnMapping,
+  checkTypeCompatibility,
 } from '../../utils/mapping';
 import {
   getRuleSetsForDatabases,
@@ -41,6 +47,9 @@ import {
   CheckCircle2,
   Settings2,
   ExternalLink,
+  Code,
+  Copy,
+  Download,
 } from 'lucide-react';
 
 // Export mapping state interface for Sidebar integration
@@ -251,6 +260,30 @@ export default function ColumnMapper({
   // Editing remarks
   const [editingRemarkId, setEditingRemarkId] = useState<string | null>(null);
   const [editingRemarkValue, setEditingRemarkValue] = useState('');
+
+  // SQL Generator state
+  const [showSqlGenerator, setShowSqlGenerator] = useState(false);
+  const [sqlAlignDirection, setSqlAlignDirection] = useState<'toSource' | 'toTarget'>('toSource');
+  const [sqlIncludeNullable, setSqlIncludeNullable] = useState(true);
+  const [sqlIncludeDatatype, setSqlIncludeDatatype] = useState(true);
+  const [generatedSql, setGeneratedSql] = useState<string>('');
+
+  // Context menu state for linkage table
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    mapping: ColumnMapping;
+  } | null>(null);
+
+  // SQL Preview modal state
+  const [sqlPreview, setSqlPreview] = useState<{
+    sql: string;
+    direction: 'toSource' | 'toTarget';
+  } | null>(null);
+
+  // Multi-select state for linkage table
+  const [selectedMappingIds, setSelectedMappingIds] = useState<Set<string>>(new Set());
+  const [lastClickedIndex, setLastClickedIndex] = useState<number | null>(null);
 
   // Sidebar state - manage expandedTables here and sync to parent
   const [searchTerm] = useState('');
@@ -597,6 +630,7 @@ export default function ColumnMapper({
 
   // Filter mappings for current tables - show all mappings involving either selected table
   // This allows viewing cross-schema mappings in linkage table
+  // Also re-validates mappings when scripts change
   const currentMappings = useMemo(() => {
     if (!project) return [];
 
@@ -615,6 +649,41 @@ export default function ColumnMapper({
     // If only target is selected, show all mappings to that target
     else if (targetTableName) {
       filteredMappings = project.mappings.filter(m => m.targetTable === targetTableName);
+    }
+
+    // Re-validate mappings with current script data
+    // This ensures validation status updates when scripts are modified
+    if (sourceScript && targetScript && filteredMappings.length > 0) {
+      const ruleSets = getRuleSetsForDatabases(sourceScript.type, targetScript.type);
+
+      filteredMappings = filteredMappings.map(mapping => {
+        // Find the current column definitions from the scripts
+        const sourceTable = sourceScript.data.targets.find(t => t.tableName === mapping.sourceTable);
+        const targetTable = targetScript.data.targets.find(t => t.tableName === mapping.targetTable);
+
+        if (sourceTable && targetTable) {
+          const sourceCol = sourceTable.columns.find(c => c.name === mapping.sourceColumn);
+          const targetCol = targetTable.columns.find(c => c.name === mapping.targetColumn);
+
+          if (sourceCol && targetCol) {
+            // Re-validate with current column data
+            const validation = validateColumnMapping(sourceCol, targetCol, sourceTable, targetTable, ruleSets);
+            const typeCheck = checkTypeCompatibility(sourceCol.type, targetCol.type, ruleSets);
+
+            // Return mapping with updated validation and types
+            return {
+              ...mapping,
+              sourceType: sourceCol.type,
+              targetType: targetCol.type,
+              typeCompatibility: typeCheck.compatibility,
+              validation,
+            };
+          }
+        }
+
+        // If we can't find the columns, return the mapping as-is
+        return mapping;
+      });
     }
 
     // Sort mappings: group by source table, then target table, then column order in DDL
@@ -649,7 +718,7 @@ export default function ColumnMapper({
     }
 
     return filteredMappings;
-  }, [project, sourceTableName, targetTableName, sourceScript]);
+  }, [project, sourceTableName, targetTableName, sourceScript, targetScript]);
 
   // For canvas, only show mappings where BOTH tables are visible
   // (source and target must match the currently selected tables)
@@ -1188,6 +1257,165 @@ export default function ColumnMapper({
     }
   }, [sourceScript, targetScript]);
 
+  // Handle SQL generation
+  const handleGenerateSql = useCallback(() => {
+    if (!sourceScript || !targetScript || !project) return;
+
+    const mappings = currentMappings;
+    if (mappings.length === 0) {
+      setGeneratedSql('-- No mappings available to generate SQL');
+      return;
+    }
+
+    // Get default datatype mappings based on script types
+    const datatypeMappings = sqlIncludeDatatype
+      ? getDefaultDatatypeMappings(
+          sqlAlignDirection === 'toSource' ? targetScript.type : sourceScript.type,
+          sqlAlignDirection === 'toSource' ? sourceScript.type : targetScript.type
+        )
+      : [];
+
+    const sql = generateAlignmentSql(
+      mappings,
+      sourceScript,
+      targetScript,
+      sqlAlignDirection,
+      sqlIncludeNullable,
+      sqlIncludeDatatype,
+      datatypeMappings
+    );
+
+    setGeneratedSql(sql);
+  }, [sourceScript, targetScript, project, currentMappings, sqlAlignDirection, sqlIncludeNullable, sqlIncludeDatatype]);
+
+  // Copy SQL to clipboard
+  const handleCopySql = useCallback(() => {
+    navigator.clipboard.writeText(generatedSql);
+  }, [generatedSql]);
+
+  // Download SQL as file
+  const handleDownloadSql = useCallback(() => {
+    const blob = new Blob([generatedSql], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `alignment_${sqlAlignDirection}_${new Date().toISOString().split('T')[0]}.sql`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, [generatedSql, sqlAlignDirection]);
+
+  // Generate SQL for a single column mapping
+  const handleGenerateSingleColumnSql = useCallback((mapping: ColumnMapping, direction: 'toSource' | 'toTarget') => {
+    if (!sourceScript || !targetScript) return '';
+
+    // Get default datatype mappings
+    const datatypeMappings = getDefaultDatatypeMappings(
+      direction === 'toSource' ? targetScript.type : sourceScript.type,
+      direction === 'toSource' ? sourceScript.type : targetScript.type
+    );
+
+    const sql = generateAlignmentSql(
+      [mapping], // Single mapping
+      sourceScript,
+      targetScript,
+      direction,
+      true, // include nullable
+      true, // include datatype
+      datatypeMappings
+    );
+
+    return sql;
+  }, [sourceScript, targetScript]);
+
+  // Generate SQL for multiple selected mappings
+  const handleGenerateMultipleColumnsSql = useCallback((mappingIds: Set<string>, direction: 'toSource' | 'toTarget') => {
+    if (!sourceScript || !targetScript || mappingIds.size === 0) return '';
+
+    // Get all selected mappings
+    const selectedMappings = currentMappings.filter(m => mappingIds.has(m.id));
+
+    if (selectedMappings.length === 0) return '';
+
+    // Get default datatype mappings
+    const datatypeMappings = getDefaultDatatypeMappings(
+      direction === 'toSource' ? targetScript.type : sourceScript.type,
+      direction === 'toSource' ? sourceScript.type : targetScript.type
+    );
+
+    const sql = generateAlignmentSql(
+      selectedMappings,
+      sourceScript,
+      targetScript,
+      direction,
+      true, // include nullable
+      true, // include datatype
+      datatypeMappings
+    );
+
+    return sql;
+  }, [sourceScript, targetScript, currentMappings]);
+
+  // Handle row click with multi-select support
+  const handleLinkageRowClick = useCallback((e: React.MouseEvent, mapping: ColumnMapping, index: number) => {
+    if (e.shiftKey && lastClickedIndex !== null) {
+      // Shift+click: select range
+      const start = Math.min(lastClickedIndex, index);
+      const end = Math.max(lastClickedIndex, index);
+      const newSelection = new Set(selectedMappingIds);
+
+      for (let i = start; i <= end; i++) {
+        const mappingAtIndex = currentMappings[i];
+        if (mappingAtIndex) {
+          newSelection.add(mappingAtIndex.id);
+        }
+      }
+
+      setSelectedMappingIds(newSelection);
+    } else if (e.ctrlKey || e.metaKey) {
+      // Ctrl+click: toggle selection
+      const newSelection = new Set(selectedMappingIds);
+      if (newSelection.has(mapping.id)) {
+        newSelection.delete(mapping.id);
+      } else {
+        newSelection.add(mapping.id);
+      }
+      setSelectedMappingIds(newSelection);
+      setLastClickedIndex(index);
+    } else {
+      // Normal click: single select
+      setSelectedMappingIds(new Set([mapping.id]));
+      setSelectedMappingId(mapping.id);
+      setLastClickedIndex(index);
+    }
+  }, [lastClickedIndex, selectedMappingIds, currentMappings]);
+
+  // Handle context menu for linkage table
+  const handleLinkageRowContextMenu = useCallback((e: React.MouseEvent, mapping: ColumnMapping) => {
+    e.preventDefault();
+
+    // If right-clicked row is not in selection, select only that row
+    if (!selectedMappingIds.has(mapping.id)) {
+      setSelectedMappingIds(new Set([mapping.id]));
+    }
+
+    setContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      mapping
+    });
+  }, [selectedMappingIds]);
+
+  // Close context menu
+  useEffect(() => {
+    const handleClickOutside = () => setContextMenu(null);
+    if (contextMenu) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  }, [contextMenu]);
+
   // Update column migration status
   const handleUpdateColumnMigration = useCallback((
     side: 'source' | 'target',
@@ -1662,9 +1890,10 @@ export default function ColumnMapper({
   const renderLinkageTable = () => (
     <div style={{
       flex: 1,
-      overflow: 'auto',
-      padding: '16px',
+      display: 'flex',
+      flexDirection: 'column',
       background: theme.canvas.background,
+      overflow: 'hidden',
     }}>
       {currentMappings.length === 0 ? (
         <div style={{
@@ -1674,6 +1903,7 @@ export default function ColumnMapper({
           justifyContent: 'center',
           height: '100%',
           color: theme.text.secondary,
+          padding: '16px',
         }}>
           <ArrowRightLeft size={48} style={{ marginBottom: '16px', opacity: 0.3 }} />
           <div style={{ fontSize: '16px', marginBottom: '8px' }}>No mappings yet</div>
@@ -1682,20 +1912,24 @@ export default function ColumnMapper({
           </div>
         </div>
       ) : (
-        <table style={{
-          width: '100%',
-          borderCollapse: 'collapse',
-          fontSize: '13px',
-          tableLayout: 'fixed',
+        <div style={{
+          flex: 1,
+          overflow: 'auto',
         }}>
+          <table style={{
+            width: '100%',
+            borderCollapse: 'collapse',
+            fontSize: '13px',
+            tableLayout: 'fixed',
+          }}>
           <colgroup>
-            <col style={{ width: '15%' }} />
-            <col style={{ width: '11%' }} />
-            <col style={{ width: '7%' }} />
+            <col style={{ width: '14%' }} />
+            <col style={{ width: '13%' }} />
+            <col style={{ width: '6%' }} />
             <col style={{ width: '40px' }} />
-            <col style={{ width: '15%' }} />
-            <col style={{ width: '11%' }} />
-            <col style={{ width: '7%' }} />
+            <col style={{ width: '14%' }} />
+            <col style={{ width: '13%' }} />
+            <col style={{ width: '6%' }} />
             <col style={{ width: '50px' }} />
             <col style={{ width: 'auto' }} />
             <col style={{ width: '50px' }} />
@@ -1719,7 +1953,7 @@ export default function ColumnMapper({
             </tr>
           </thead>
           <tbody>
-            {currentMappings.map(mapping => {
+            {currentMappings.map((mapping, i) => {
               const colorIndex = getMappingColorIndex(mapping);
               const lineColor = LINE_COLORS[colorIndex];
               const isSelected = selectedMappingId === mapping.id;
@@ -1742,13 +1976,18 @@ export default function ColumnMapper({
               const isCrossSchemaSource = mapping.sourceTable !== sourceTableName;
               const isCrossSchemaTarget = mapping.targetTable !== targetTableName;
 
+              const isMultiSelected = selectedMappingIds.has(mapping.id);
+
               return (
                 <tr
                   key={mapping.id}
-                  onClick={() => setSelectedMappingId(mapping.id)}
+                  onClick={(e) => handleLinkageRowClick(e, mapping, i)}
+                  onContextMenu={(e) => handleLinkageRowContextMenu(e, mapping)}
                   style={{
-                    background: isSelected
+                    background: isMultiSelected
                       ? theme.accent.primary + '30'
+                      : isSelected
+                      ? theme.accent.primary + '20'
                       : theme.table.background,
                     cursor: 'pointer',
                     borderBottom: `1px solid ${theme.table.border}`,
@@ -1900,6 +2139,7 @@ export default function ColumnMapper({
             })}
           </tbody>
         </table>
+        </div>
       )}
     </div>
   );
@@ -3000,6 +3240,36 @@ export default function ColumnMapper({
             {/* Spacer */}
             <div style={{ flex: 1 }} />
 
+            {/* Generate SQL button - visible on linkage tab when mappings exist */}
+            {currentMappings.length > 0 && activeTab === 'linkage' && (
+              <button
+                onClick={() => setShowSqlGenerator(true)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '8px 12px',
+                  background: theme.accent.primary,
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  transition: 'all 0.15s ease',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.opacity = '0.9';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.opacity = '1';
+                }}
+              >
+                <Code size={14} />
+                Generate SQL
+              </button>
+            )}
+
             {/* Delete selected mapping button */}
             {selectedMappingId && activeTab === 'canvas' && (
               <button
@@ -3600,6 +3870,495 @@ export default function ColumnMapper({
           {activeTab === 'linkage' && renderLinkageTable()}
           {activeTab === 'summary' && renderSummaryTable()}
           {activeTab === 'rules' && renderRulesTab()}
+        </div>
+      )}
+
+      {/* Context Menu for Linkage Table */}
+      {contextMenu && (
+        <div
+          style={{
+            position: 'fixed',
+            top: contextMenu.y,
+            left: contextMenu.x,
+            background: theme.table.background,
+            border: `1px solid ${theme.table.border}`,
+            borderRadius: '6px',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+            zIndex: 2000,
+            minWidth: '220px',
+            overflow: 'hidden',
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div style={{ padding: '4px 0' }}>
+            {/* Show selection count if multiple selected */}
+            {selectedMappingIds.size > 1 && (
+              <div style={{
+                padding: '6px 12px',
+                fontSize: '11px',
+                color: theme.text.secondary,
+                borderBottom: `1px solid ${theme.table.border}`,
+                fontWeight: 600,
+              }}>
+                {selectedMappingIds.size} columns selected
+              </div>
+            )}
+
+            {/* Generate SQL - Align Target to Source */}
+            <div
+              onClick={() => {
+                const sql = selectedMappingIds.size > 1
+                  ? handleGenerateMultipleColumnsSql(selectedMappingIds, 'toSource')
+                  : handleGenerateSingleColumnSql(contextMenu.mapping, 'toSource');
+                setSqlPreview({ sql, direction: 'toSource' });
+                setContextMenu(null);
+              }}
+              style={{
+                padding: '8px 12px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                fontSize: '13px',
+                color: theme.text.primary,
+                background: theme.table.background,
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = isDarkTheme ? '#374151' : '#f3f4f6';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = theme.table.background;
+              }}
+            >
+              <Code size={14} />
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <span style={{ fontWeight: 500 }}>Align Target to Source</span>
+                <span style={{ fontSize: '11px', color: theme.text.secondary }}>
+                  Modify {targetScript?.name}
+                </span>
+              </div>
+            </div>
+
+            {/* Generate SQL - Align Source to Target */}
+            <div
+              onClick={() => {
+                const sql = selectedMappingIds.size > 1
+                  ? handleGenerateMultipleColumnsSql(selectedMappingIds, 'toTarget')
+                  : handleGenerateSingleColumnSql(contextMenu.mapping, 'toTarget');
+                setSqlPreview({ sql, direction: 'toTarget' });
+                setContextMenu(null);
+              }}
+              style={{
+                padding: '8px 12px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                fontSize: '13px',
+                color: theme.text.primary,
+                background: theme.table.background,
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = isDarkTheme ? '#374151' : '#f3f4f6';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = theme.table.background;
+              }}
+            >
+              <Code size={14} />
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <span style={{ fontWeight: 500 }}>Align Source to Target</span>
+                <span style={{ fontSize: '11px', color: theme.text.secondary }}>
+                  Modify {sourceScript?.name}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SQL Preview Modal */}
+      {sqlPreview && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 2000,
+          }}
+          onClick={() => setSqlPreview(null)}
+        >
+          <div
+            style={{
+              background: theme.table.background,
+              borderRadius: '12px',
+              width: '90%',
+              maxWidth: '1000px',
+              maxHeight: '90vh',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                padding: '16px 20px',
+                borderBottom: `1px solid ${theme.table.border}`,
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}
+            >
+              <div>
+                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 600, color: theme.text.primary }}>
+                  SQL Alignment Preview
+                </h3>
+                <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: theme.text.secondary }}>
+                  {sqlPreview.direction === 'toSource'
+                    ? `Align Target to Source (Modify: ${targetScript?.name})`
+                    : `Align Source to Target (Modify: ${sourceScript?.name})`
+                  }
+                </p>
+              </div>
+              <button
+                onClick={() => setSqlPreview(null)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: '4px',
+                  color: theme.text.secondary,
+                }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* SQL Content - Editable Textarea */}
+            <div style={{
+              flex: 1,
+              overflow: 'hidden',
+              padding: '16px',
+              background: isDarkTheme ? '#1a1a1a' : '#f5f5f5',
+              display: 'flex',
+              flexDirection: 'column',
+            }}>
+              <textarea
+                id="sql-preview-textarea"
+                defaultValue={sqlPreview.sql}
+                spellCheck={false}
+                style={{
+                  flex: 1,
+                  margin: 0,
+                  padding: '12px',
+                  fontFamily: 'Monaco, Consolas, "Courier New", monospace',
+                  fontSize: '13px',
+                  lineHeight: '1.6',
+                  color: theme.text.primary,
+                  background: isDarkTheme ? '#1e1e1e' : '#ffffff',
+                  border: `1px solid ${theme.table.border}`,
+                  borderRadius: '6px',
+                  resize: 'none',
+                  outline: 'none',
+                  whiteSpace: 'pre',
+                  overflowWrap: 'normal',
+                  overflowX: 'auto',
+                }}
+                onFocus={(e) => {
+                  e.target.style.borderColor = theme.accent.primary;
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = theme.table.border;
+                }}
+              />
+            </div>
+
+            {/* Footer with Copy Button */}
+            <div
+              style={{
+                padding: '12px 20px',
+                borderTop: `1px solid ${theme.table.border}`,
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: '12px',
+              }}
+            >
+              <button
+                onClick={() => setSqlPreview(null)}
+                style={{
+                  padding: '8px 16px',
+                  background: theme.table.background,
+                  color: theme.text.primary,
+                  border: `1px solid ${theme.table.border}`,
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  fontWeight: 500,
+                }}
+              >
+                Close
+              </button>
+              <button
+                onClick={() => {
+                  // Get current value from textarea (may have been edited)
+                  const textarea = document.getElementById('sql-preview-textarea') as HTMLTextAreaElement;
+                  const sqlText = textarea?.value || sqlPreview.sql;
+                  navigator.clipboard.writeText(sqlText);
+                  // Show brief feedback
+                  const btn = document.activeElement as HTMLButtonElement;
+                  const originalText = btn.textContent;
+                  btn.textContent = 'Copied!';
+                  setTimeout(() => {
+                    btn.textContent = originalText;
+                  }, 1500);
+                }}
+                style={{
+                  padding: '8px 16px',
+                  background: theme.accent.primary,
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
+              >
+                <Copy size={16} />
+                Copy to Clipboard
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SQL Generator Modal */}
+      {showSqlGenerator && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+          }}
+          onClick={() => setShowSqlGenerator(false)}
+        >
+          <div
+            style={{
+              background: theme.table.background,
+              borderRadius: '12px',
+              width: '90%',
+              maxWidth: '900px',
+              maxHeight: '90vh',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                padding: '20px 24px',
+                borderBottom: `1px solid ${theme.table.border}`,
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}
+            >
+              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 600, color: theme.text.primary }}>
+                Generate SQL Alignment Script
+              </h3>
+              <button
+                onClick={() => setShowSqlGenerator(false)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: '4px',
+                  color: theme.text.secondary,
+                }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div style={{ padding: '24px', flex: 1, overflow: 'auto' }}>
+              {/* Options */}
+              <div style={{ marginBottom: '24px' }}>
+                <h4 style={{ margin: '0 0 16px 0', fontSize: '14px', fontWeight: 600, color: theme.text.primary }}>
+                  Alignment Options
+                </h4>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  {/* Direction */}
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', fontWeight: 500, color: theme.text.primary }}>
+                      Align Direction
+                    </label>
+                    <div style={{ display: 'flex', gap: '12px' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                        <input
+                          type="radio"
+                          checked={sqlAlignDirection === 'toSource'}
+                          onChange={() => setSqlAlignDirection('toSource')}
+                          style={{ cursor: 'pointer' }}
+                        />
+                        <span style={{ fontSize: '13px', color: theme.text.primary }}>
+                          Align Target to Source (Modify: {targetScript?.name})
+                        </span>
+                      </label>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                        <input
+                          type="radio"
+                          checked={sqlAlignDirection === 'toTarget'}
+                          onChange={() => setSqlAlignDirection('toTarget')}
+                          style={{ cursor: 'pointer' }}
+                        />
+                        <span style={{ fontSize: '13px', color: theme.text.primary }}>
+                          Align Source to Target (Modify: {sourceScript?.name})
+                        </span>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Include options */}
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', fontWeight: 500, color: theme.text.primary }}>
+                      Include Changes
+                    </label>
+                    <div style={{ display: 'flex', gap: '16px' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                        <input
+                          type="checkbox"
+                          checked={sqlIncludeNullable}
+                          onChange={(e) => setSqlIncludeNullable(e.target.checked)}
+                          style={{ cursor: 'pointer' }}
+                        />
+                        <span style={{ fontSize: '13px', color: theme.text.primary }}>Nullable</span>
+                      </label>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                        <input
+                          type="checkbox"
+                          checked={sqlIncludeDatatype}
+                          onChange={(e) => setSqlIncludeDatatype(e.target.checked)}
+                          style={{ cursor: 'pointer' }}
+                        />
+                        <span style={{ fontSize: '13px', color: theme.text.primary }}>Data Type (with auto-mapping)</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Generated SQL */}
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 600, color: theme.text.primary }}>
+                    Generated SQL
+                  </h4>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                      onClick={handleGenerateSql}
+                      style={{
+                        padding: '6px 12px',
+                        background: theme.accent.primary,
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontSize: '12px',
+                        fontWeight: 500,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                      }}
+                    >
+                      <Code size={14} />
+                      Generate
+                    </button>
+                    {generatedSql && (
+                      <>
+                        <button
+                          onClick={handleCopySql}
+                          style={{
+                            padding: '6px 12px',
+                            background: theme.table.background,
+                            color: theme.text.primary,
+                            border: `1px solid ${theme.table.border}`,
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            fontSize: '12px',
+                            fontWeight: 500,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                          }}
+                        >
+                          <Copy size={14} />
+                          Copy
+                        </button>
+                        <button
+                          onClick={handleDownloadSql}
+                          style={{
+                            padding: '6px 12px',
+                            background: theme.table.background,
+                            color: theme.text.primary,
+                            border: `1px solid ${theme.table.border}`,
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            fontSize: '12px',
+                            fontWeight: 500,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                          }}
+                        >
+                          <Download size={14} />
+                          Download
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+                <textarea
+                  value={generatedSql}
+                  readOnly
+                  placeholder="Click 'Generate' to create SQL script..."
+                  style={{
+                    width: '100%',
+                    height: '400px',
+                    padding: '12px',
+                    background: isDarkTheme ? '#1a1a1a' : '#f5f5f5',
+                    color: theme.text.primary,
+                    border: `1px solid ${theme.table.border}`,
+                    borderRadius: '6px',
+                    fontFamily: 'Monaco, Consolas, "Courier New", monospace',
+                    fontSize: '12px',
+                    lineHeight: '1.5',
+                    resize: 'none',
+                  }}
+                />
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

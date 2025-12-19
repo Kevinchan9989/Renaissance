@@ -7,6 +7,9 @@ import { Table, Column, TableDiff, ColumnDiff, DiffStatus } from '../types';
 function normalizeTypeForCompare(t: string): string {
   let type = t.trim().toUpperCase().replace(/\s+/g, '');
 
+  // Remove BYTE/CHAR specifications from Oracle types (e.g., VARCHAR2(50 BYTE) -> VARCHAR2(50))
+  type = type.replace(/\((\d+)\s*(BYTE|CHAR)\)/g, '($1)');
+
   // PostgreSQL normalizations
   if (type.startsWith('BPCHAR')) type = type.replace('BPCHAR', 'CHAR');
   if (type.startsWith('INT8')) type = 'BIGINT';
@@ -30,14 +33,33 @@ function checkTypes(t1: string, t2: string): TypeCheckResult {
 
   if (n1 === n2) return { match: true, soft: false };
 
-  // VARCHAR / VARCHAR2 compatibility
+  // Extract base types (without size/precision)
+  const getBaseType = (type: string) => type.replace(/\s*\([^)]*\)\s*/, '').trim();
+  const base1 = getBaseType(n1);
+  const base2 = getBaseType(n2);
+
+  // VARCHAR / VARCHAR2 compatibility (including size differences)
   if ((n1.startsWith('VARCHAR') && n2.startsWith('VARCHAR')) ||
-      (n1.startsWith('VARCHAR2') && n2.startsWith('VARCHAR2'))) {
-    // Check if only difference is VARCHAR vs VARCHAR2
-    const base1 = n1.replace(/\d+$/, '').replace(/\(.*\)/, '');
-    const base2 = n2.replace(/\d+$/, '').replace(/\(.*\)/, '');
+      (n1.startsWith('VARCHAR2') && n2.startsWith('VARCHAR2')) ||
+      (n1.startsWith('VARCHAR') && n2.startsWith('VARCHAR2')) ||
+      (n1.startsWith('VARCHAR2') && n2.startsWith('VARCHAR'))) {
     if (base1.replace('2', '') === base2.replace('2', '')) {
+      // Check if sizes are different
+      const size1 = n1.match(/\((\d+)\)/)?.[1];
+      const size2 = n2.match(/\((\d+)\)/)?.[1];
+      if (size1 !== size2) {
+        return { match: true, soft: true, reason: 'Size difference' };
+      }
       return { match: true, soft: true, reason: 'VARCHAR ≈ VARCHAR2' };
+    }
+  }
+
+  // CHAR compatibility (including size differences)
+  if (n1.startsWith('CHAR') && n2.startsWith('CHAR') && !n1.includes('VAR') && !n2.includes('VAR')) {
+    const size1 = n1.match(/\((\d+)\)/)?.[1];
+    const size2 = n2.match(/\((\d+)\)/)?.[1];
+    if (size1 !== size2) {
+      return { match: true, soft: true, reason: 'Size difference' };
     }
   }
 
@@ -48,12 +70,23 @@ function checkTypes(t1: string, t2: string): TypeCheckResult {
     if (p1[0] === p2[0] && p1[1] === p2[1]) {
       return { match: true, soft: true, reason: 'Scale ignored (0)' };
     }
+    // Allow precision/scale differences as soft match
+    return { match: true, soft: true, reason: 'Precision/scale difference' };
   }
 
   // NUMBER (Oracle) vs NUMERIC (Postgres)
   if ((n1.startsWith('NUMBER') && n2.startsWith('NUMERIC')) ||
       (n1.startsWith('NUMERIC') && n2.startsWith('NUMBER'))) {
     return { match: true, soft: true, reason: 'NUMBER ≈ NUMERIC' };
+  }
+
+  // NUMBER with different precision/scale
+  if (n1.startsWith('NUMBER') && n2.startsWith('NUMBER')) {
+    const p1 = getNumericParams(n1);
+    const p2 = getNumericParams(n2);
+    if (p1[0] !== p2[0] || p1[1] !== p2[1]) {
+      return { match: true, soft: true, reason: 'Precision/scale difference' };
+    }
   }
 
   return { match: false, soft: false };

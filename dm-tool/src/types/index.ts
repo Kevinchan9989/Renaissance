@@ -329,3 +329,19 @@ export interface DragState {
   currentX: number;
   currentY: number;
 }
+
+// ============================================
+// SQL Alignment Types
+// ============================================
+
+export interface DatatypeMapping {
+  sourcePattern: string; // Regex pattern for source type (e.g., "VARCHAR2\(.*\)")
+  targetType: string;    // Target type to map to (e.g., "VARCHAR")
+}
+
+export interface SqlAlignmentConfig {
+  direction: 'toSource' | 'toTarget';
+  includeNullable: boolean;
+  includeDatatype: boolean;
+  datatypeMappings: DatatypeMapping[];
+}

@@ -8,6 +8,7 @@ import {
 } from '../utils/storage';
 import CodeEditor from './CodeEditor';
 import { VersionBadge, VersionHistoryPopup } from './versioning';
+import SearchOverlay from './SearchOverlay';
 import {
   Plus,
   Trash2,
@@ -56,6 +57,34 @@ export default function ScriptManager({
 
   // Versioning state
   const [showVersionHistory, setShowVersionHistory] = useState(false);
+
+  // Drag and drop state
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+
+  // Search state
+  const [searchVisible, setSearchVisible] = useState(false);
+  const [searchText, setSearchText] = useState('');
+  const [caseSensitive, setCaseSensitive] = useState(false);
+  const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
+  const [searchMatches, setSearchMatches] = useState<Array<{ start: number; end: number }>>([]);
+
+  // Load script order from localStorage
+  const [scriptOrder, setScriptOrder] = useState<string[]>(() => {
+    const saved = localStorage.getItem('dm_tool_script_order');
+    return saved ? JSON.parse(saved) : scripts.map(s => s.id);
+  });
+
+  // Sort scripts by custom order
+  const sortedScripts = [...scripts].sort((a, b) => {
+    const indexA = scriptOrder.indexOf(a.id);
+    const indexB = scriptOrder.indexOf(b.id);
+    // If not in order list, put at end
+    if (indexA === -1 && indexB === -1) return 0;
+    if (indexA === -1) return 1;
+    if (indexB === -1) return -1;
+    return indexA - indexB;
+  });
 
   const selectedScript = scripts.find(s => s.id === selectedScriptId);
 
@@ -198,6 +227,70 @@ export default function ScriptManager({
     });
   };
 
+  // Handle drag start
+  const handleDragStart = (index: number) => {
+    setDraggedIndex(index);
+  };
+
+  // Handle drag over
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    if (draggedIndex === null || draggedIndex === index) return;
+    setDragOverIndex(index);
+  };
+
+  // Handle drop
+  const handleDrop = (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault();
+    if (draggedIndex === null || draggedIndex === dropIndex) {
+      setDraggedIndex(null);
+      setDragOverIndex(null);
+      return;
+    }
+
+    // Reorder scripts
+    const newOrder = [...scriptOrder];
+    const draggedId = sortedScripts[draggedIndex].id;
+    const dropId = sortedScripts[dropIndex].id;
+
+    // Remove dragged item
+    const draggedOrderIndex = newOrder.indexOf(draggedId);
+    newOrder.splice(draggedOrderIndex, 1);
+
+    // Insert at new position
+    const dropOrderIndex = newOrder.indexOf(dropId);
+    newOrder.splice(dropOrderIndex, 0, draggedId);
+
+    setScriptOrder(newOrder);
+    localStorage.setItem('dm_tool_script_order', JSON.stringify(newOrder));
+
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  };
+
+  // Handle drag end
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  };
+
+  // Update order when scripts change (new scripts added)
+  useEffect(() => {
+    const newScriptIds = scripts.map(s => s.id);
+    const currentOrder = scriptOrder.filter(id => newScriptIds.includes(id));
+    const addedScripts = newScriptIds.filter(id => !scriptOrder.includes(id));
+
+    if (addedScripts.length > 0) {
+      const updatedOrder = [...currentOrder, ...addedScripts];
+      setScriptOrder(updatedOrder);
+      localStorage.setItem('dm_tool_script_order', JSON.stringify(updatedOrder));
+    } else if (currentOrder.length !== scriptOrder.length) {
+      // Some scripts were deleted
+      setScriptOrder(currentOrder);
+      localStorage.setItem('dm_tool_script_order', JSON.stringify(currentOrder));
+    }
+  }, [scripts]);
+
   // Handle version history panel script update
   const handleVersionHistoryUpdate = (updatedScript: Script) => {
     onUpdateScript(updatedScript.id, {
@@ -207,6 +300,73 @@ export default function ScriptManager({
       data: updatedScript.data
     });
   };
+
+  // Search functionality
+  useEffect(() => {
+    if (!searchText || !selectedScript) {
+      setSearchMatches([]);
+      setCurrentMatchIndex(0);
+      return;
+    }
+
+    const content = isEditing ? editContent : selectedScript.rawContent;
+    const matches: Array<{ start: number; end: number }> = [];
+
+    const flags = caseSensitive ? 'g' : 'gi';
+    const escapedSearch = searchText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(escapedSearch, flags);
+
+    let match;
+    while ((match = regex.exec(content)) !== null) {
+      matches.push({
+        start: match.index,
+        end: match.index + match[0].length
+      });
+    }
+
+    setSearchMatches(matches);
+    setCurrentMatchIndex(0);
+  }, [searchText, caseSensitive, selectedScript, isEditing, editContent]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl+F or Cmd+F to open search
+      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        e.preventDefault();
+        setSearchVisible(true);
+      }
+      // Escape to close search
+      if (e.key === 'Escape' && searchVisible) {
+        e.preventDefault();
+        setSearchVisible(false);
+        setSearchText('');
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [searchVisible]);
+
+  // Navigate to next match
+  const handleNextMatch = () => {
+    if (searchMatches.length === 0) return;
+    setCurrentMatchIndex((prev) => (prev + 1) % searchMatches.length);
+  };
+
+  // Navigate to previous match
+  const handlePrevMatch = () => {
+    if (searchMatches.length === 0) return;
+    setCurrentMatchIndex((prev) => (prev - 1 + searchMatches.length) % searchMatches.length);
+  };
+
+  // Reset search when changing scripts
+  useEffect(() => {
+    setSearchVisible(false);
+    setSearchText('');
+    setSearchMatches([]);
+    setCurrentMatchIndex(0);
+  }, [selectedScriptId]);
 
   return (
     <div className="script-manager">
@@ -236,16 +396,23 @@ export default function ScriptManager({
               </button>
             </div>
           ) : (
-            scripts.map(script => {
+            sortedScripts.map((script, index) => {
               const typeBadge = getTypeBadgeColor(script.type);
               const isSelected = selectedScriptId === script.id;
               const currentVersion = getCurrentVersion(script);
+              const isDragging = draggedIndex === index;
+              const isDragOver = dragOverIndex === index;
 
               return (
                 <div
                   key={script.id}
-                  className={`script-manager-item ${isSelected ? 'active' : ''}`}
+                  className={`script-manager-item ${isSelected ? 'active' : ''} ${isDragging ? 'dragging' : ''} ${isDragOver ? 'drag-over' : ''}`}
                   onClick={() => handleSelectScript(script.id)}
+                  draggable
+                  onDragStart={() => handleDragStart(index)}
+                  onDragOver={(e) => handleDragOver(e, index)}
+                  onDrop={(e) => handleDrop(e, index)}
+                  onDragEnd={handleDragEnd}
                 >
                   <div className="script-manager-item-content">
                     <div className="script-manager-item-header">
@@ -452,6 +619,9 @@ export default function ScriptManager({
                   isDarkTheme={isDarkTheme}
                   darkThemeVariant={darkThemeVariant}
                   minHeight="100%"
+                  searchText={searchText}
+                  searchMatches={searchMatches}
+                  currentMatchIndex={currentMatchIndex}
                 />
               ) : (
                 <CodeEditor
@@ -462,6 +632,27 @@ export default function ScriptManager({
                   darkThemeVariant={darkThemeVariant}
                   readOnly={true}
                   minHeight="100%"
+                  searchText={searchText}
+                  searchMatches={searchMatches}
+                  currentMatchIndex={currentMatchIndex}
+                />
+              )}
+
+              {/* Search Overlay */}
+              {searchVisible && (
+                <SearchOverlay
+                  searchText={searchText}
+                  onSearchChange={setSearchText}
+                  currentMatch={currentMatchIndex}
+                  totalMatches={searchMatches.length}
+                  onNextMatch={handleNextMatch}
+                  onPrevMatch={handlePrevMatch}
+                  onClose={() => {
+                    setSearchVisible(false);
+                    setSearchText('');
+                  }}
+                  caseSensitive={caseSensitive}
+                  onToggleCaseSensitive={() => setCaseSensitive(!caseSensitive)}
                 />
               )}
             </div>

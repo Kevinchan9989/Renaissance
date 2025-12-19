@@ -27,13 +27,20 @@ function createWindow() {
 
   if (isDev) {
     // Development: load from Vite dev server
-    mainWindow.loadURL('http://localhost:3000');
+    mainWindow.loadURL('http://localhost:3000').catch(err => {
+      console.error('Failed to load URL:', err);
+    });
     // Open DevTools in development
     // mainWindow.webContents.openDevTools();
   } else {
     // Production: load from built files
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
   }
+
+  // Log loading errors
+  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+    console.error('Failed to load:', errorCode, errorDescription);
+  });
 
   // Show window when ready
   mainWindow.once('ready-to-show', () => {

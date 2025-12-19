@@ -234,52 +234,78 @@ export default function Sidebar({
                       const tableNameMatches = table.tableName.toLowerCase().includes(searchTerm.toLowerCase());
 
                       return (
-                        <li
-                          key={table.id}
-                          className={`table-item ${selectedTableId === table.id ? 'active' : ''}`}
-                          onClick={() => onSelectTable(table.id)}
-                          style={{ flexDirection: 'column', alignItems: 'flex-start' }}
-                        >
-                          <span style={{ display: 'block' }}>
-                            {tableNameMatches ? highlightMatch(table.tableName, searchTerm) : table.tableName}
-                          </span>
-                          {/* Show matching columns preview when searching by column name */}
+                        <li key={table.id} style={{ listStyle: 'none' }}>
+                          {/* Table Name Row */}
+                          <div
+                            className={`table-item ${selectedTableId === table.id ? 'active' : ''}`}
+                            onClick={() => onSelectTable(table.id)}
+                            style={{ flexDirection: 'row', alignItems: 'center' }}
+                          >
+                            <span style={{ flex: 1 }}>
+                              {tableNameMatches ? highlightMatch(table.tableName, searchTerm) : table.tableName}
+                            </span>
+                            {matchingColumns.length > 0 && !tableNameMatches && (
+                              <span className="table-column-count" style={{
+                                fontSize: '10px',
+                                color: '#9ca3af',
+                                backgroundColor: '#f3f4f6',
+                                padding: '2px 6px',
+                                borderRadius: '10px',
+                                marginLeft: '6px'
+                              }}>
+                                {matchingColumns.length}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Nested Column List (when columns match) */}
                           {matchingColumns.length > 0 && !tableNameMatches && (
-                            <div style={{
-                              display: 'flex',
-                              flexWrap: 'wrap',
-                              gap: '4px',
-                              marginTop: '4px',
-                              paddingLeft: '4px'
+                            <ul className="table-column-list" style={{
+                              listStyle: 'none',
+                              margin: '4px 0 8px 0',
+                              padding: '0 0 0 16px',
+                              borderLeft: '2px solid #e5e7eb'
                             }}>
-                              {matchingColumns.slice(0, 3).map(col => (
-                                <span
+                              {matchingColumns.map(col => (
+                                <li
                                   key={col.name}
+                                  className="table-column-item"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onSelectTable(table.id);
+                                  }}
                                   style={{
-                                    display: 'inline-flex',
+                                    display: 'flex',
                                     alignItems: 'center',
-                                    gap: '3px',
-                                    fontSize: '10px',
+                                    gap: '6px',
+                                    padding: '4px 8px',
+                                    fontSize: '11px',
                                     color: '#6b7280',
-                                    backgroundColor: '#f3f4f6',
-                                    padding: '2px 6px',
-                                    borderRadius: '3px'
+                                    cursor: 'pointer',
+                                    borderRadius: '3px',
+                                    transition: 'background-color 0.15s'
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    e.currentTarget.style.backgroundColor = '#f9fafb';
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.currentTarget.style.backgroundColor = 'transparent';
                                   }}
                                 >
-                                  <Columns size={9} style={{ opacity: 0.6 }} />
-                                  {highlightMatch(col.name, searchTerm)}
-                                </span>
+                                  <Columns size={10} style={{ opacity: 0.5, flexShrink: 0 }} />
+                                  <span style={{ flex: 1 }}>
+                                    {highlightMatch(col.name, searchTerm)}
+                                  </span>
+                                  <span style={{
+                                    fontSize: '10px',
+                                    color: '#9ca3af',
+                                    fontFamily: 'monospace'
+                                  }}>
+                                    {col.type}
+                                  </span>
+                                </li>
                               ))}
-                              {matchingColumns.length > 3 && (
-                                <span style={{
-                                  fontSize: '10px',
-                                  color: '#9ca3af',
-                                  padding: '2px 4px'
-                                }}>
-                                  +{matchingColumns.length - 3} more
-                                </span>
-                              )}
-                            </div>
+                            </ul>
                           )}
                         </li>
                       );

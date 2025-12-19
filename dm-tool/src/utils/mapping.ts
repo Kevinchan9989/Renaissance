@@ -22,6 +22,9 @@ import {
 } from '../constants/typeMatrix';
 import { generateId } from './storage';
 
+// Re-export type matrix functions for convenience
+export { checkTypeCompatibility, getRuleSetsForDatabases, extractTypeParams, normalizeType, getBaseType };
+
 // ============================================
 // Validation Functions
 // ============================================
