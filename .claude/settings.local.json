@@ -1,0 +1,36 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(npm run dev:*)",
+      "Bash(node test_oracle_parse.js:*)",
+      "Bash(start \"http://localhost:3004/test-oracle-parser.html\")",
+      "Bash(node:*)",
+      "Bash(start \"http://localhost:3004\")",
+      "Bash(git checkout:*)",
+      "Bash(curl:*)",
+      "Bash(npm run electron:dev:*)",
+      "Bash(cat:*)",
+      "Bash(tasklist:*)",
+      "Bash(findstr:*)",
+      "Bash(netstat:*)",
+      "Bash(taskkill:*)",
+      "Bash(cmd /c \"taskkill /F /IM electron.exe\")",
+      "Bash(cmd /c \"taskkill /F /PID 4952 /PID 24372\")",
+      "Bash(cmd /c \"taskkill /F /IM node.exe /T 2>nul & taskkill /F /IM electron.exe /T 2>nul & echo Processes killed\")",
+      "Bash(powershell \"Get-Process node,electron -ErrorAction SilentlyContinue | Stop-Process -Force\")",
+      "Bash(del preload.cjs)",
+      "Bash(rm:*)",
+      "Bash(npm run:*)",
+      "Bash(del TransformationRuleModal.tsx TransformationCanvas.tsx TransformationRulesEditor.tsx)",
+      "Bash(timeout:*)",
+      "Bash(powershell \"Start-Sleep -Seconds 5\")",
+      "Bash(start \"http://localhost:3000\")",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
