@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Download, Upload, Trash2, FileDown, X, Copy, Check } from 'lucide-react';
+import { Download, Upload, Trash2, FileDown, X, Copy, Check, Sun, Moon, Palette } from 'lucide-react';
 import { exportWorkspace, importWorkspace, downloadJson, WorkspaceData } from '../utils/storage';
 import { getLogs, clearLogs, subscribeToLogs, formatTimestamp, downloadLogs, exportLogsAsText } from '../utils/debugLogger';
 
@@ -8,12 +8,14 @@ interface SettingsModalProps {
   onClose: () => void;
   theme: 'light' | 'dark';
   darkThemeVariant: 'slate' | 'vscode-gray';
+  onToggleTheme: () => void;
+  onToggleDarkThemeVariant: () => void;
 }
 
-type TabType = 'workspace' | 'logs' | 'erd';
+type TabType = 'appearance' | 'workspace' | 'logs' | 'erd';
 
-export default function SettingsModal({ isOpen, onClose, theme, darkThemeVariant }: SettingsModalProps) {
-  const [activeTab, setActiveTab] = useState<TabType>('workspace');
+export default function SettingsModal({ isOpen, onClose, theme, darkThemeVariant, onToggleTheme, onToggleDarkThemeVariant }: SettingsModalProps) {
+  const [activeTab, setActiveTab] = useState<TabType>('appearance');
   const [logs, setLogs] = useState(getLogs());
   const [autoScroll, setAutoScroll] = useState(true);
   const [copied, setCopied] = useState(false);
@@ -132,9 +134,8 @@ export default function SettingsModal({ isOpen, onClose, theme, darkThemeVariant
         style={{
           backgroundColor: bgColor,
           borderRadius: '12px',
-          maxWidth: '800px',
-          width: '90%',
-          maxHeight: '85vh',
+          width: '900px',
+          height: '700px',
           boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3)',
           display: 'flex',
           flexDirection: 'column',
@@ -174,70 +175,290 @@ export default function SettingsModal({ isOpen, onClose, theme, darkThemeVariant
           </button>
         </div>
 
-        {/* Tabs */}
-        <div style={{
-          display: 'flex',
-          gap: '4px',
-          padding: '0 32px',
-          borderBottom: `1px solid ${borderColor}`,
-          backgroundColor: isDark ? (isVscode ? '#252526' : '#0f172a') : '#f9fafb',
-        }}>
-          <button
-            onClick={() => setActiveTab('workspace')}
-            style={{
-              padding: '12px 20px',
-              background: activeTab === 'workspace' ? bgColor : 'transparent',
-              border: 'none',
-              borderBottom: activeTab === 'workspace' ? `2px solid #3b82f6` : '2px solid transparent',
-              color: activeTab === 'workspace' ? textColor : textSecondary,
-              cursor: 'pointer',
-              fontSize: '14px',
-              fontWeight: 500,
-              transition: 'all 0.2s',
-            }}
-          >
-            Workspace
-          </button>
-          <button
-            onClick={() => setActiveTab('erd')}
-            style={{
-              padding: '12px 20px',
-              background: activeTab === 'erd' ? bgColor : 'transparent',
-              border: 'none',
-              borderBottom: activeTab === 'erd' ? `2px solid #3b82f6` : '2px solid transparent',
-              color: activeTab === 'erd' ? textColor : textSecondary,
-              cursor: 'pointer',
-              fontSize: '14px',
-              fontWeight: 500,
-              transition: 'all 0.2s',
-            }}
-          >
-            ERD
-          </button>
-          <button
-            onClick={() => setActiveTab('logs')}
-            style={{
-              padding: '12px 20px',
-              background: activeTab === 'logs' ? bgColor : 'transparent',
-              border: 'none',
-              borderBottom: activeTab === 'logs' ? `2px solid #3b82f6` : '2px solid transparent',
-              color: activeTab === 'logs' ? textColor : textSecondary,
-              cursor: 'pointer',
-              fontSize: '14px',
-              fontWeight: 500,
-              transition: 'all 0.2s',
-            }}
-          >
-            Debug Logs ({logs.length})
-          </button>
-        </div>
-
-        {/* Content */}
+        {/* Main Content with Sidebar */}
         <div style={{
           flex: 1,
-          padding: '32px',
-          overflowY: 'auto',
+          display: 'flex',
+          overflow: 'hidden',
         }}>
+          {/* Left Sidebar Navigation */}
+          <div style={{
+            width: '220px',
+            borderRight: `1px solid ${borderColor}`,
+            backgroundColor: isDark ? (isVscode ? '#252526' : '#0f172a') : '#f9fafb',
+            padding: '16px 0',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '2px',
+          }}>
+            <button
+              onClick={() => setActiveTab('appearance')}
+              style={{
+                padding: '12px 24px',
+                background: activeTab === 'appearance' ? (isDark ? (isVscode ? '#37373d' : '#1e293b') : '#e5e7eb') : 'transparent',
+                border: 'none',
+                borderLeft: activeTab === 'appearance' ? `3px solid #3b82f6` : '3px solid transparent',
+                color: activeTab === 'appearance' ? textColor : textSecondary,
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: activeTab === 'appearance' ? 600 : 500,
+                textAlign: 'left',
+                transition: 'all 0.2s',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+              }}
+              onMouseEnter={(e) => {
+                if (activeTab !== 'appearance') {
+                  e.currentTarget.style.backgroundColor = hoverColor;
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (activeTab !== 'appearance') {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }
+              }}
+            >
+              <Palette size={16} />
+              Appearance
+            </button>
+            <button
+              onClick={() => setActiveTab('workspace')}
+              style={{
+                padding: '12px 24px',
+                background: activeTab === 'workspace' ? (isDark ? (isVscode ? '#37373d' : '#1e293b') : '#e5e7eb') : 'transparent',
+                border: 'none',
+                borderLeft: activeTab === 'workspace' ? `3px solid #3b82f6` : '3px solid transparent',
+                color: activeTab === 'workspace' ? textColor : textSecondary,
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: activeTab === 'workspace' ? 600 : 500,
+                textAlign: 'left',
+                transition: 'all 0.2s',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+              }}
+              onMouseEnter={(e) => {
+                if (activeTab !== 'workspace') {
+                  e.currentTarget.style.backgroundColor = hoverColor;
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (activeTab !== 'workspace') {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }
+              }}
+            >
+              <Download size={16} />
+              Workspace
+            </button>
+            <button
+              onClick={() => setActiveTab('erd')}
+              style={{
+                padding: '12px 24px',
+                background: activeTab === 'erd' ? (isDark ? (isVscode ? '#37373d' : '#1e293b') : '#e5e7eb') : 'transparent',
+                border: 'none',
+                borderLeft: activeTab === 'erd' ? `3px solid #3b82f6` : '3px solid transparent',
+                color: activeTab === 'erd' ? textColor : textSecondary,
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: activeTab === 'erd' ? 600 : 500,
+                textAlign: 'left',
+                transition: 'all 0.2s',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+              }}
+              onMouseEnter={(e) => {
+                if (activeTab !== 'erd') {
+                  e.currentTarget.style.backgroundColor = hoverColor;
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (activeTab !== 'erd') {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }
+              }}
+            >
+              ERD
+            </button>
+            <button
+              onClick={() => setActiveTab('logs')}
+              style={{
+                padding: '12px 24px',
+                background: activeTab === 'logs' ? (isDark ? (isVscode ? '#37373d' : '#1e293b') : '#e5e7eb') : 'transparent',
+                border: 'none',
+                borderLeft: activeTab === 'logs' ? `3px solid #3b82f6` : '3px solid transparent',
+                color: activeTab === 'logs' ? textColor : textSecondary,
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: activeTab === 'logs' ? 600 : 500,
+                textAlign: 'left',
+                transition: 'all 0.2s',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '10px',
+              }}
+              onMouseEnter={(e) => {
+                if (activeTab !== 'logs') {
+                  e.currentTarget.style.backgroundColor = hoverColor;
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (activeTab !== 'logs') {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }
+              }}
+            >
+              <span style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                Debug Logs
+              </span>
+              <span style={{
+                backgroundColor: isDark ? '#3b82f6' : '#2563eb',
+                color: '#ffffff',
+                fontSize: '11px',
+                padding: '2px 6px',
+                borderRadius: '10px',
+                fontWeight: 600,
+              }}>
+                {logs.length}
+              </span>
+            </button>
+          </div>
+
+          {/* Content Area */}
+          <div style={{
+            flex: 1,
+            padding: '32px',
+            overflowY: 'auto',
+          }}>
+          {activeTab === 'appearance' && (
+            <div>
+              <h3 style={{
+                margin: '0 0 8px 0',
+                color: textColor,
+                fontSize: '18px',
+                fontWeight: 600,
+              }}>
+                Theme
+              </h3>
+              <p style={{
+                margin: '0 0 24px 0',
+                color: textSecondary,
+                fontSize: '14px',
+                lineHeight: '1.6',
+              }}>
+                Customize the appearance of the application.
+              </p>
+
+              {/* Light/Dark Mode Toggle */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '16px',
+                borderRadius: '8px',
+                backgroundColor: isDark ? (isVscode ? '#252526' : '#1e293b') : '#f9fafb',
+                border: `1px solid ${borderColor}`,
+                marginBottom: '16px',
+              }}>
+                <div>
+                  <div style={{ color: textColor, fontSize: '14px', fontWeight: 500, marginBottom: '4px' }}>
+                    Theme Mode
+                  </div>
+                  <div style={{ color: textSecondary, fontSize: '13px' }}>
+                    Switch between light and dark mode
+                  </div>
+                </div>
+                <button
+                  onClick={onToggleTheme}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '10px 16px',
+                    backgroundColor: isDark ? '#3b82f6' : '#2563eb',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: 500,
+                    transition: 'background-color 0.2s',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = isDark ? '#2563eb' : '#1d4ed8';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = isDark ? '#3b82f6' : '#2563eb';
+                  }}
+                >
+                  {theme === 'light' ? (
+                    <>
+                      <Moon size={16} />
+                      Dark Mode
+                    </>
+                  ) : (
+                    <>
+                      <Sun size={16} />
+                      Light Mode
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Dark Theme Variant (only shown in dark mode) */}
+              {theme === 'dark' && (
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '16px',
+                  borderRadius: '8px',
+                  backgroundColor: isDark ? (isVscode ? '#252526' : '#1e293b') : '#f9fafb',
+                  border: `1px solid ${borderColor}`,
+                }}>
+                  <div>
+                    <div style={{ color: textColor, fontSize: '14px', fontWeight: 500, marginBottom: '4px' }}>
+                      Dark Theme Variant
+                    </div>
+                    <div style={{ color: textSecondary, fontSize: '13px' }}>
+                      Current: {darkThemeVariant === 'slate' ? 'Slate Gray' : 'VS Code Gray'}
+                    </div>
+                  </div>
+                  <button
+                    onClick={onToggleDarkThemeVariant}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '10px 16px',
+                      backgroundColor: darkThemeVariant === 'vscode-gray' ? '#569cd6' : '#64748b',
+                      color: '#ffffff',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      fontWeight: 500,
+                      transition: 'background-color 0.2s',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = darkThemeVariant === 'vscode-gray' ? '#4a8bc2' : '#52677a';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = darkThemeVariant === 'vscode-gray' ? '#569cd6' : '#64748b';
+                    }}
+                  >
+                    <Palette size={16} />
+                    {darkThemeVariant === 'slate' ? 'VS Code Gray' : 'Slate Gray'}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
           {activeTab === 'erd' && (
             <div>
               <p style={{
@@ -456,7 +677,7 @@ export default function SettingsModal({ isOpen, onClose, theme, darkThemeVariant
                 fontSize: '12px',
                 lineHeight: '1.5',
                 overflowY: 'auto',
-                maxHeight: '400px',
+                minHeight: 0,
               }}>
                 {logs.length === 0 ? (
                   <div style={{ color: textSecondary, textAlign: 'center', padding: '32px' }}>
@@ -483,6 +704,7 @@ export default function SettingsModal({ isOpen, onClose, theme, darkThemeVariant
               </div>
             </div>
           )}
+          </div>
         </div>
       </div>
     </div>

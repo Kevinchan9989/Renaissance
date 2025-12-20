@@ -379,6 +379,157 @@ export function deleteTypeRuleSet(ruleSetId: string): void {
 }
 
 // ============================================
+// Migration: Convert inline typeRules to global TypeRuleSet
+// ============================================
+
+export function migrateProjectTypeRules(): void {
+  const projects = loadMappingProjects();
+  const ruleSets = loadTypeRuleSets();
+  let needsSave = false;
+
+  // Find or create a single shared default TypeRuleSet
+  let defaultRuleSet = ruleSets.find(rs => rs.name === 'Default Type Rules');
+
+  if (!defaultRuleSet) {
+    defaultRuleSet = {
+      id: generateId(),
+      name: 'Default Type Rules',
+      description: 'Shared type compatibility rules across all schemas',
+      sourceDb: 'any',
+      targetDb: 'any',
+      rules: [],
+      isBuiltIn: false,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+    ruleSets.push(defaultRuleSet);
+    needsSave = true;
+  }
+
+  // Migrate all projects to use the shared default TypeRuleSet
+  projects.forEach(project => {
+    // Skip if already using a TypeRuleSet
+    if (project.typeRuleSetId) {
+      return;
+    }
+
+    // Merge any inline rules into the shared default TypeRuleSet
+    if (project.typeRules && project.typeRules.length > 0) {
+      // Add rules that don't already exist in the default set
+      project.typeRules.forEach(rule => {
+        const exists = defaultRuleSet!.rules.some(r =>
+          r.sourcePattern === rule.sourcePattern &&
+          r.targetPattern === rule.targetPattern
+        );
+        if (!exists) {
+          defaultRuleSet!.rules.push(rule);
+        }
+      });
+      defaultRuleSet!.updatedAt = Date.now();
+      delete project.typeRules;
+    }
+
+    // Assign all projects to the shared default TypeRuleSet
+    project.typeRuleSetId = defaultRuleSet!.id;
+    needsSave = true;
+  });
+
+  if (needsSave) {
+    saveTypeRuleSets(ruleSets);
+    saveMappingProjects(projects);
+    console.log('Migrated all projects to shared Default Type Rules');
+  }
+}
+
+// Consolidate all TypeRuleSets into one shared default
+export function consolidateTypeRuleSets(): void {
+  try {
+    const projects = loadMappingProjects();
+    const ruleSets = loadTypeRuleSets();
+
+    // Skip if there's only 0 or 1 TypeRuleSet (nothing to consolidate)
+    if (ruleSets.length <= 1) {
+      console.log('No consolidation needed - already using single TypeRuleSet');
+      return;
+    }
+
+    // Find or create the shared default TypeRuleSet
+    let defaultRuleSet = ruleSets.find(rs => rs.name === 'Default Type Rules');
+
+    if (!defaultRuleSet) {
+      defaultRuleSet = {
+        id: generateId(),
+        name: 'Default Type Rules',
+        description: 'Shared type compatibility rules across all schemas',
+        sourceDb: 'any',
+        targetDb: 'any',
+        rules: [],
+        isBuiltIn: false,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+    }
+
+    // Merge all rules from other TypeRuleSets into the default
+    const otherRuleSets = ruleSets.filter(rs => rs.name !== 'Default Type Rules');
+    otherRuleSets.forEach(ruleSet => {
+      if (ruleSet.rules && Array.isArray(ruleSet.rules)) {
+        ruleSet.rules.forEach(rule => {
+          const exists = defaultRuleSet!.rules.some(r =>
+            r.sourcePattern === rule.sourcePattern &&
+            r.targetPattern === rule.targetPattern
+          );
+          if (!exists) {
+            defaultRuleSet!.rules.push(rule);
+          }
+        });
+      }
+    });
+
+    // Update all projects to use the shared default TypeRuleSet
+    projects.forEach(project => {
+      project.typeRuleSetId = defaultRuleSet!.id;
+    });
+
+    // Save only the default TypeRuleSet (remove all others)
+    saveTypeRuleSets([defaultRuleSet]);
+    saveMappingProjects(projects);
+
+    console.log(`Consolidated ${otherRuleSets.length} TypeRuleSets into shared Default Type Rules with ${defaultRuleSet!.rules.length} rules`);
+  } catch (error) {
+    console.error('Error consolidating TypeRuleSets:', error);
+    // Don't throw - allow app to continue even if consolidation fails
+  }
+}
+
+// Get or create a default type rule set for a project
+export function getOrCreateDefaultTypeRuleSet(): TypeRuleSet {
+  const ruleSets = loadTypeRuleSets();
+
+  // Look for existing default rule set
+  let defaultRuleSet = ruleSets.find(rs => rs.name === 'Default Type Rules');
+
+  if (!defaultRuleSet) {
+    // Create a new default rule set
+    defaultRuleSet = {
+      id: generateId(),
+      name: 'Default Type Rules',
+      description: 'Shared type compatibility rules across all schemas',
+      sourceDb: 'any',
+      targetDb: 'any',
+      rules: [],
+      isBuiltIn: false,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+
+    saveTypeRuleSet(defaultRuleSet);
+  }
+
+  return defaultRuleSet;
+}
+
+// ============================================
 // YAML Export/Import for Type Rules
 // ============================================
 

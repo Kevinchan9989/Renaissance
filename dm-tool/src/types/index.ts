@@ -254,7 +254,8 @@ export interface MappingProject {
   targetScriptId: string;
   mappings: ColumnMapping[];
   tableMappings: TableMapping[];
-  typeRules: TypeCompatibilityRule[];  // Custom rules for this project
+  typeRuleSetId?: string;  // Reference to global TypeRuleSet
+  typeRules?: TypeCompatibilityRule[];  // Deprecated: kept for backward compatibility
   createdAt: number;
   updatedAt: number;
 }

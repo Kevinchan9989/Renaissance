@@ -8,7 +8,7 @@ import SchemaCompare from './components/SchemaCompare';
 import ERDViewer from './components/ERDViewer';
 import ScriptManager from './components/ScriptManager';
 import ColumnMapper, { MappingStateForSidebar } from './components/ColumnMapper';
-import { Database, Sun, Moon, PanelLeftClose, PanelLeft, ChevronDown, GripVertical, Palette, Settings, Download, Upload } from 'lucide-react';
+import { Database, PanelLeftClose, PanelLeft, ChevronDown, GripVertical, Settings } from 'lucide-react';
 import { exportWorkspace, importWorkspace, downloadJson, WorkspaceData } from './utils/storage';
 import { isElectron } from './services/electronStorage';
 import { initDebugLogger } from './utils/debugLogger';
@@ -528,29 +528,10 @@ export default function App() {
             <button
               className="toolbar-icon-btn"
               onClick={() => setShowSettings(true)}
-              title="Settings (Export/Import Workspace)"
+              title="Settings"
             >
               <Settings size={18} />
             </button>
-            <button
-              className="toolbar-icon-btn"
-              onClick={toggleTheme}
-              title={theme === 'light' ? 'Dark Mode' : 'Light Mode'}
-            >
-              {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
-            </button>
-            {theme === 'dark' && (
-              <button
-                className="toolbar-icon-btn"
-                onClick={toggleDarkThemeVariant}
-                title={darkThemeVariant === 'slate' ? 'Switch to VS Code Gray' : 'Switch to Slate'}
-                style={{
-                  color: darkThemeVariant === 'vscode-gray' ? '#569cd6' : undefined
-                }}
-              >
-                <Palette size={18} />
-              </button>
-            )}
             <button
               className="toolbar-icon-btn"
               onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
@@ -573,6 +554,8 @@ export default function App() {
         onClose={() => setShowSettings(false)}
         theme={theme}
         darkThemeVariant={darkThemeVariant}
+        onToggleTheme={toggleTheme}
+        onToggleDarkThemeVariant={toggleDarkThemeVariant}
       />
     </div>
   );

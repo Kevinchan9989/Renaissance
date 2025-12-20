@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback, Fragment } from 'react';
 import { Stage, Layer, Rect, Text, Line, Group, Path } from 'react-konva';
 import Konva from 'konva';
 import {
@@ -7,6 +7,8 @@ import {
   Column,
   MappingProject,
   ColumnMapping,
+  TypeRuleSet,
+  TypeCompatibilityRule,
 } from '../../types';
 import {
   generateId,
@@ -16,6 +18,11 @@ import {
   saveMappingWorkspaceState,
   loadScripts,
   saveScripts,
+  loadTypeRuleSets,
+  saveTypeRuleSet,
+  migrateProjectTypeRules,
+  consolidateTypeRuleSets,
+  getOrCreateDefaultTypeRuleSet,
 } from '../../utils/storage';
 import {
   generateAlignmentSql,
@@ -204,6 +211,7 @@ export default function ColumnMapper({
   // Tab for canvas view (canvas vs linkage table)
   const [activeTab, setActiveTab] = useState<CanvasTab>('canvas');
   const [expandedTargetTables, setExpandedTargetTables] = useState<Set<string>>(new Set());
+  const [expandedLinkageTablePairs, setExpandedLinkageTablePairs] = useState<Set<string>>(new Set());
 
   // Load cached workspace state
   const cachedState = useMemo(() => loadMappingWorkspaceState(), []);
@@ -220,12 +228,21 @@ export default function ColumnMapper({
   const [sourceTableDropdownOpen, setSourceTableDropdownOpen] = useState(false);
   const [targetTableDropdownOpen, setTargetTableDropdownOpen] = useState(false);
 
+  // Type rule dropdown states - track which row has which dropdown open
+  const [typeRuleSourceDropdownOpen, setTypeRuleSourceDropdownOpen] = useState<string | null>(null);
+  const [typeRuleTargetDropdownOpen, setTypeRuleTargetDropdownOpen] = useState<string | null>(null);
+  const [typeRuleSourceSearch, setTypeRuleSourceSearch] = useState<Record<string, string>>({});
+  const [typeRuleTargetSearch, setTypeRuleTargetSearch] = useState<Record<string, string>>({});
+
   // Search terms for table dropdowns
   const [sourceTableSearch, setSourceTableSearch] = useState('');
   const [targetTableSearch, setTargetTableSearch] = useState('');
 
   // Project state (contains merged mappings from all related projects for display)
   const [project, setProject] = useState<MappingProject | null>(null);
+
+  // Global type rule set state
+  const [activeTypeRuleSet, setActiveTypeRuleSet] = useState<TypeRuleSet | null>(null);
 
   // Canvas state - start with 0 to avoid initial flash
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
@@ -300,6 +317,11 @@ export default function ColumnMapper({
         setTargetScriptDropdownOpen(false);
         setSourceTableDropdownOpen(false);
         setTargetTableDropdownOpen(false);
+      }
+      // Close type rule dropdowns if clicking outside
+      if (!target.closest('.type-rule-dropdown')) {
+        setTypeRuleSourceDropdownOpen(null);
+        setTypeRuleTargetDropdownOpen(null);
       }
     };
     document.addEventListener('click', handleClickOutside);
@@ -382,6 +404,56 @@ export default function ColumnMapper({
     };
   }, [activeTab, sourceTable, targetTable]);
 
+  // Run migration and consolidation once on component mount
+  useEffect(() => {
+    migrateProjectTypeRules();
+    consolidateTypeRuleSets();
+  }, []);
+
+  // Load type rule set when project changes
+  useEffect(() => {
+    if (!project) {
+      setActiveTypeRuleSet(null);
+      return;
+    }
+
+    // Load the type rule set referenced by the project
+    if (project.typeRuleSetId) {
+      const ruleSets = loadTypeRuleSets();
+      const ruleSet = ruleSets.find(rs => rs.id === project.typeRuleSetId);
+
+      // If TypeRuleSet not found, fallback to default (shouldn't happen after consolidation)
+      if (!ruleSet) {
+        const defaultRuleSet = getOrCreateDefaultTypeRuleSet();
+        setActiveTypeRuleSet(defaultRuleSet);
+
+        // Update project to reference the default rule set
+        const updatedProject = {
+          ...project,
+          typeRuleSetId: defaultRuleSet.id,
+          updatedAt: Date.now(),
+        };
+        setProject(updatedProject);
+        saveMappingProject(updatedProject);
+      } else {
+        setActiveTypeRuleSet(ruleSet);
+      }
+    } else {
+      // Get or create default type rule set
+      const defaultRuleSet = getOrCreateDefaultTypeRuleSet();
+      setActiveTypeRuleSet(defaultRuleSet);
+
+      // Update project to reference the default rule set
+      const updatedProject = {
+        ...project,
+        typeRuleSetId: defaultRuleSet.id,
+        updatedAt: Date.now(),
+      };
+      setProject(updatedProject);
+      saveMappingProject(updatedProject);
+    }
+  }, [project?.id, project?.typeRuleSetId]);
+
   // Load or create project when scripts change
   // Also merge mappings from all related projects for cross-schema visibility
   useEffect(() => {
@@ -415,6 +487,7 @@ export default function ColumnMapper({
 
       setProject(projectWithAllMappings);
     } else {
+      // Create new project - typeRuleSetId will be assigned by the useEffect
       setProject({
         id: generateId(),
         name: `${sourceScript?.name || 'Source'} → ${targetScript?.name || 'Target'}`,
@@ -422,7 +495,6 @@ export default function ColumnMapper({
         targetScriptId,
         mappings: [],
         tableMappings: [],
-        typeRules: [],
         createdAt: Date.now(),
         updatedAt: Date.now(),
       });
@@ -719,6 +791,18 @@ export default function ColumnMapper({
 
     return filteredMappings;
   }, [project, sourceTableName, targetTableName, sourceScript, targetScript]);
+
+  // Auto-expand all table pairs in linkage view when mappings change
+  useEffect(() => {
+    if (currentMappings.length > 0 && activeTab === 'linkage') {
+      const tablePairs = new Set<string>();
+      currentMappings.forEach(mapping => {
+        const pairKey = `${mapping.sourceTable}→${mapping.targetTable}`;
+        tablePairs.add(pairKey);
+      });
+      setExpandedLinkageTablePairs(tablePairs);
+    }
+  }, [currentMappings.length, activeTab]);
 
   // For canvas, only show mappings where BOTH tables are visible
   // (source and target must match the currently selected tables)
@@ -1663,14 +1747,17 @@ export default function ColumnMapper({
                     if (mappingInfo?.mappingId) {
                       setSelectedMappingId(mappingInfo.mappingId);
                     } else {
-                      // Get click position relative to container for popup positioning
+                      // Get click position in screen coordinates for popup positioning
                       const stage = stageRef.current;
                       let clickX = 200, clickY = 200;
                       if (stage) {
                         const pos = stage.getPointerPosition();
+                        const container = stage.container();
+                        const rect = container.getBoundingClientRect();
                         if (pos) {
-                          clickX = pos.x;
-                          clickY = pos.y;
+                          // Convert canvas coordinates to screen coordinates
+                          clickX = pos.x + rect.left;
+                          clickY = pos.y + rect.top;
                         }
                       }
                       handleColumnClick(side, table.tableName, col.name, clickX, clickY);
@@ -1706,9 +1793,12 @@ export default function ColumnMapper({
                     let clickX = 200, clickY = 200;
                     if (stage) {
                       const pos = stage.getPointerPosition();
+                      const container = stage.container();
+                      const rect = container.getBoundingClientRect();
                       if (pos) {
-                        clickX = pos.x;
-                        clickY = pos.y;
+                        // Convert canvas coordinates to screen coordinates
+                        clickX = pos.x + rect.left;
+                        clickY = pos.y + rect.top;
                       }
                     }
                     setAllMappedTablesPopup({
@@ -1886,32 +1976,79 @@ export default function ColumnMapper({
     );
   }, [dragState, sourceNode, targetNode, getColumnY]);
 
+  // Helper function to check if a type mapping is allowed by a type rule
+  const isTypeMatchedByRule = (sourceType: string, targetType: string, rules: TypeCompatibilityRule[]): boolean => {
+    if (!rules || rules.length === 0) return false;
+
+    // Extract base types (without precision/scale) for comparison
+    const sourceBase = getBaseDatatype(sourceType);
+    const targetBase = getBaseDatatype(targetType);
+
+    // Check if there's an enabled rule that matches this base type pair
+    return rules.some(rule => {
+      if (!rule.enabled) return false;
+
+      // Compare base types only (case-insensitive)
+      const ruleSourceBase = rule.sourcePattern.trim().toUpperCase();
+      const ruleTargetBase = rule.targetPattern.trim().toUpperCase();
+
+      return ruleSourceBase === sourceBase && ruleTargetBase === targetBase;
+    });
+  };
+
   // Render linkage table
-  const renderLinkageTable = () => (
-    <div style={{
-      flex: 1,
-      display: 'flex',
-      flexDirection: 'column',
-      background: theme.canvas.background,
-      overflow: 'hidden',
-    }}>
-      {currentMappings.length === 0 ? (
+  const renderLinkageTable = () => {
+    if (!currentMappings || currentMappings.length === 0) {
+      return (
         <div style={{
+          flex: 1,
           display: 'flex',
           flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          height: '100%',
-          color: theme.text.secondary,
-          padding: '16px',
+          background: theme.canvas.background,
+          overflow: 'hidden',
         }}>
-          <ArrowRightLeft size={48} style={{ marginBottom: '16px', opacity: 0.3 }} />
-          <div style={{ fontSize: '16px', marginBottom: '8px' }}>No mappings yet</div>
-          <div style={{ fontSize: '13px', opacity: 0.7 }}>
-            Click columns in the canvas to create mappings
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: '100%',
+            color: theme.text.secondary,
+            padding: '16px',
+          }}>
+            <ArrowRightLeft size={48} style={{ marginBottom: '16px', opacity: 0.3 }} />
+            <div style={{ fontSize: '16px', marginBottom: '8px' }}>No mappings yet</div>
+            <div style={{ fontSize: '13px', opacity: 0.7 }}>
+              Click columns in the canvas to create mappings
+            </div>
           </div>
         </div>
-      ) : (
+      );
+    }
+
+    // Group mappings by table pairs (source table -> target table)
+    const tablePairGroups = new Map<string, ColumnMapping[]>();
+
+    currentMappings.forEach(mapping => {
+      if (!mapping || !mapping.sourceTable || !mapping.targetTable) {
+        console.warn('Skipping invalid mapping:', mapping);
+        return;
+      }
+      const pairKey = `${mapping.sourceTable}→${mapping.targetTable}`;
+      if (!tablePairGroups.has(pairKey)) {
+        tablePairGroups.set(pairKey, []);
+      }
+      tablePairGroups.get(pairKey)!.push(mapping);
+    });
+
+    return (
+      <div style={{
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        background: theme.canvas.background,
+        overflow: 'hidden',
+      }}>
         <div style={{
           flex: 1,
           overflow: 'auto',
@@ -1923,13 +2060,13 @@ export default function ColumnMapper({
             tableLayout: 'fixed',
           }}>
           <colgroup>
-            <col style={{ width: '13%' }} />
-            <col style={{ width: '15%' }} />
-            <col style={{ width: '6%' }} />
+            <col style={{ width: '18%' }} />
+            <col style={{ width: '11%' }} />
+            <col style={{ width: '5%' }} />
             <col style={{ width: '40px' }} />
-            <col style={{ width: '13%' }} />
-            <col style={{ width: '15%' }} />
-            <col style={{ width: '6%' }} />
+            <col style={{ width: '18%' }} />
+            <col style={{ width: '11%' }} />
+            <col style={{ width: '5%' }} />
             <col style={{ width: '50px' }} />
             <col style={{ width: 'auto' }} />
             <col style={{ width: '50px' }} />
@@ -1939,6 +2076,7 @@ export default function ColumnMapper({
               background: theme.table.headerBackground,
               position: 'sticky',
               top: 0,
+              zIndex: 10,
             }}>
               <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600, color: '#3b82f6' }}>Source Column</th>
               <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600 }}>Type</th>
@@ -1953,7 +2091,50 @@ export default function ColumnMapper({
             </tr>
           </thead>
           <tbody>
-            {currentMappings.map((mapping, i) => {
+            {Array.from(tablePairGroups.entries()).map(([pairKey, mappings]) => {
+              const [sourceTable, targetTable] = pairKey.split('→');
+              const isExpanded = expandedLinkageTablePairs.has(pairKey);
+
+              return (
+                <Fragment key={pairKey}>
+                  {/* Table pair header row */}
+                  <tr
+                    onClick={() => {
+                      const newExpanded = new Set(expandedLinkageTablePairs);
+                      if (isExpanded) {
+                        newExpanded.delete(pairKey);
+                      } else {
+                        newExpanded.add(pairKey);
+                      }
+                      setExpandedLinkageTablePairs(newExpanded);
+                    }}
+                    style={{
+                      background: theme.table.headerBackground,
+                      cursor: 'pointer',
+                      borderTop: `2px solid ${theme.table.border}`,
+                      borderBottom: `1px solid ${theme.table.border}`,
+                    }}
+                  >
+                    <td colSpan={10} style={{ padding: '8px 12px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600 }}>
+                        {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                        <span style={{ color: '#3b82f6' }}>{sourceTable}</span>
+                        <span style={{ color: theme.text.secondary }}>→</span>
+                        <span style={{ color: '#22c55e' }}>{targetTable}</span>
+                        <span style={{
+                          marginLeft: 'auto',
+                          fontSize: '12px',
+                          color: theme.text.secondary,
+                          fontWeight: 400,
+                        }}>
+                          {mappings.length} {mappings.length === 1 ? 'mapping' : 'mappings'}
+                        </span>
+                      </div>
+                    </td>
+                  </tr>
+
+                  {/* Column mapping rows (only shown when expanded) */}
+                  {isExpanded && mappings.map((mapping, i) => {
               const colorIndex = getMappingColorIndex(mapping);
               const lineColor = LINE_COLORS[colorIndex];
               const isSelected = selectedMappingId === mapping.id;
@@ -1995,6 +2176,20 @@ export default function ColumnMapper({
 
               const isMultiSelected = selectedMappingIds.has(mapping.id);
 
+              // Detect mismatches for highlighting
+              // Check if types don't match, but ALSO check if there's a type rule that allows this mapping
+              const typesAreDifferent = displaySourceType && displayTargetType &&
+                displaySourceType.trim().toLowerCase() !== displayTargetType.trim().toLowerCase();
+
+              const isAllowedByTypeRule = displaySourceType && displayTargetType && activeTypeRuleSet?.rules
+                ? isTypeMatchedByRule(displaySourceType, displayTargetType, activeTypeRuleSet.rules)
+                : false;
+
+              // Only flag as mismatch if types are different AND not allowed by a rule
+              const hasTypeMismatch = typesAreDifferent && !isAllowedByTypeRule;
+
+              const hasNullableMismatch = sourceNullable && targetNullable && sourceNullable !== targetNullable;
+
               return (
                 <tr
                   key={mapping.id}
@@ -2031,10 +2226,25 @@ export default function ColumnMapper({
                       </div>
                     </div>
                   </td>
-                  <td style={{ padding: '10px 12px', color: theme.text.secondary, fontFamily: 'monospace', fontSize: '12px' }}>
+                  <td style={{
+                    padding: '10px 8px',
+                    color: hasTypeMismatch ? '#f59e0b' : theme.text.secondary,
+                    fontFamily: 'monospace',
+                    fontSize: '11px',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    fontWeight: hasTypeMismatch ? 600 : 400,
+                  }} title={hasTypeMismatch ? `Type mismatch: ${displaySourceType} ≠ ${displayTargetType}` : displaySourceType}>
                     {displaySourceType}
                   </td>
-                  <td style={{ padding: '10px 12px', textAlign: 'center', color: theme.text.secondary, fontSize: '12px' }}>
+                  <td style={{
+                    padding: '10px 6px',
+                    textAlign: 'center',
+                    color: hasNullableMismatch ? '#f59e0b' : theme.text.secondary,
+                    fontSize: '11px',
+                    fontWeight: hasNullableMismatch ? 600 : 400,
+                  }} title={hasNullableMismatch ? `Nullable mismatch: ${sourceNullable} ≠ ${targetNullable}` : sourceNullable}>
                     {sourceNullable}
                   </td>
                   <td style={{ padding: '10px 12px', textAlign: 'center', color: theme.text.secondary }}>
@@ -2052,10 +2262,25 @@ export default function ColumnMapper({
                       )}
                     </div>
                   </td>
-                  <td style={{ padding: '10px 12px', color: theme.text.secondary, fontFamily: 'monospace', fontSize: '12px' }}>
+                  <td style={{
+                    padding: '10px 8px',
+                    color: hasTypeMismatch ? '#f59e0b' : theme.text.secondary,
+                    fontFamily: 'monospace',
+                    fontSize: '11px',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    fontWeight: hasTypeMismatch ? 600 : 400,
+                  }} title={hasTypeMismatch ? `Type mismatch: ${displaySourceType} ≠ ${displayTargetType}` : displayTargetType}>
                     {displayTargetType}
                   </td>
-                  <td style={{ padding: '10px 12px', textAlign: 'center', color: theme.text.secondary, fontSize: '12px' }}>
+                  <td style={{
+                    padding: '10px 6px',
+                    textAlign: 'center',
+                    color: hasNullableMismatch ? '#f59e0b' : theme.text.secondary,
+                    fontSize: '11px',
+                    fontWeight: hasNullableMismatch ? 600 : 400,
+                  }} title={hasNullableMismatch ? `Nullable mismatch: ${sourceNullable} ≠ ${targetNullable}` : targetNullable}>
                     {targetNullable}
                   </td>
                   <td style={{ padding: '10px 12px', textAlign: 'center' }}>
@@ -2152,14 +2377,17 @@ export default function ColumnMapper({
                     </button>
                   </td>
                 </tr>
+                );
+                  })}
+                </Fragment>
               );
             })}
           </tbody>
         </table>
         </div>
-      )}
-    </div>
-  );
+      </div>
+    );
+  };
 
   // Render all mappings summary table - grouped by target table, then by source table
   const renderSummaryTable = () => {
@@ -2708,11 +2936,60 @@ export default function ColumnMapper({
     );
   };
 
+  // Helper function to extract base datatype (without precision/scale)
+  const getBaseDatatype = (typeStr: string): string => {
+    // Remove everything after the first opening parenthesis to get base type
+    // e.g., "VARCHAR2(100)" -> "VARCHAR2", "NUMBER(10,2)" -> "NUMBER"
+    const normalized = typeStr.trim().toUpperCase();
+    const parenIndex = normalized.indexOf('(');
+    return parenIndex > 0 ? normalized.substring(0, parenIndex) : normalized;
+  };
+
+  // Helper function to extract all unique BASE datatypes from schemas
+  const extractUniqueDatatypes = (sourceScr: Script | null, targetScr: Script | null): { sourceTypes: string[]; targetTypes: string[] } => {
+    const sourceTypes = new Set<string>();
+    const targetTypes = new Set<string>();
+
+    // Extract from source script
+    if (sourceScr) {
+      const tables = [...(sourceScr.data.sources || []), ...(sourceScr.data.targets || [])];
+      tables.forEach(table => {
+        table.columns.forEach(col => {
+          if (col.type && col.type.trim()) {
+            const baseType = getBaseDatatype(col.type);
+            sourceTypes.add(baseType);
+          }
+        });
+      });
+    }
+
+    // Extract from target script
+    if (targetScr) {
+      const tables = [...(targetScr.data.sources || []), ...(targetScr.data.targets || [])];
+      tables.forEach(table => {
+        table.columns.forEach(col => {
+          if (col.type && col.type.trim()) {
+            const baseType = getBaseDatatype(col.type);
+            targetTypes.add(baseType);
+          }
+        });
+      });
+    }
+
+    return {
+      sourceTypes: Array.from(sourceTypes).sort(),
+      targetTypes: Array.from(targetTypes).sort(),
+    };
+  };
+
   // Render Type Rules tab
   const renderRulesTab = () => {
-    if (!project) return null;
+    if (!project || !activeTypeRuleSet) return null;
 
-    const projectRules = project.typeRules || [];
+    const projectRules = activeTypeRuleSet.rules || [];
+
+    // Extract unique datatypes from both source and target scripts
+    const { sourceTypes, targetTypes } = extractUniqueDatatypes(sourceScript, targetScript);
 
     return (
       <div style={{
@@ -2730,23 +3007,23 @@ export default function ColumnMapper({
           </div>
           <button
             onClick={() => {
-              // Add new empty rule
+              // Add new empty rule to global type rule set
               const newRule = {
                 id: generateId(),
-                name: 'New Rule',
+                name: '',  // Name is auto-generated from source/target types
                 sourcePattern: '',
                 targetPattern: '',
                 compatibility: 'compatible' as const,
                 priority: projectRules.length,
                 enabled: true,
               };
-              const updatedProject = {
-                ...project,
-                typeRules: [...projectRules, newRule],
+              const updatedRuleSet = {
+                ...activeTypeRuleSet,
+                rules: [...projectRules, newRule],
                 updatedAt: Date.now(),
               };
-              saveMappingProject(updatedProject);
-              onProjectChange?.(updatedProject);
+              setActiveTypeRuleSet(updatedRuleSet);
+              saveTypeRuleSet(updatedRuleSet);
             }}
             style={{
               padding: '8px 16px',
@@ -2794,11 +3071,10 @@ export default function ColumnMapper({
                 position: 'sticky',
                 top: 0,
               }}>
-                <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600, width: '20%' }}>Name</th>
-                <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600, width: '20%', color: '#3b82f6' }}>Source Type Pattern</th>
-                <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600, width: '20%', color: '#22c55e' }}>Target Type Pattern</th>
-                <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600, width: '15%' }}>Compatibility</th>
-                <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600, width: '15%' }}>Conversion SQL</th>
+                <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600, width: '25%', color: '#3b82f6' }}>Source Type</th>
+                <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600, width: '25%', color: '#22c55e' }}>Target Type</th>
+                <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600, width: '20%' }}>Compatibility</th>
+                <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600, width: '20%' }}>Conversion SQL</th>
                 <th style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 600, width: '60px' }}>Enabled</th>
                 <th style={{ padding: '10px 12px', textAlign: 'center', width: '50px' }}></th>
               </tr>
@@ -2812,87 +3088,269 @@ export default function ColumnMapper({
                     borderBottom: `1px solid ${theme.table.border}`,
                   }}
                 >
-                  <td style={{ padding: '10px 12px' }}>
-                    <input
-                      type="text"
-                      value={rule.name || ''}
-                      onChange={(e) => {
-                        const updated = [...projectRules];
-                        updated[index] = { ...rule, name: e.target.value };
-                        const updatedProject = {
-                          ...project,
-                          typeRules: updated,
-                          updatedAt: Date.now(),
-                        };
-                        saveMappingProject(updatedProject);
-                        onProjectChange?.(updatedProject);
-                      }}
-                      style={{
-                        width: '100%',
-                        padding: '4px 8px',
-                        border: `1px solid ${theme.table.border}`,
-                        borderRadius: '4px',
-                        background: theme.canvas.background,
-                        color: theme.text.primary,
-                        fontSize: '12px',
-                      }}
-                    />
+                  <td style={{ padding: '10px 12px', position: 'relative' }}>
+                    {/* Source Type Dropdown with Search */}
+                    <div className="type-rule-dropdown" style={{ position: 'relative' }}>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (typeRuleSourceDropdownOpen === rule.id) {
+                            setTypeRuleSourceDropdownOpen(null);
+                          } else {
+                            setTypeRuleSourceDropdownOpen(rule.id);
+                            setTypeRuleTargetDropdownOpen(null);
+                          }
+                        }}
+                        style={{
+                          width: '100%',
+                          padding: '4px 8px',
+                          border: `1px solid ${theme.table.border}`,
+                          borderRadius: '4px',
+                          background: theme.canvas.background,
+                          color: theme.text.primary,
+                          fontSize: '12px',
+                          fontFamily: 'monospace',
+                          textAlign: 'left',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <span>{rule.sourcePattern || 'Select type...'}</span>
+                        <ChevronDown size={14} />
+                      </button>
+
+                      {typeRuleSourceDropdownOpen === rule.id && (
+                        <div
+                          className="type-rule-dropdown"
+                          onClick={(e) => e.stopPropagation()}
+                          style={{
+                            position: 'absolute',
+                            top: '100%',
+                            left: 0,
+                            zIndex: 1000,
+                            background: theme.canvas.background,
+                            border: `1px solid ${theme.table.border}`,
+                            borderRadius: '6px',
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                            width: '250px',
+                            maxHeight: '300px',
+                            overflow: 'hidden',
+                            marginTop: '4px',
+                          }}>
+                          <input
+                            type="text"
+                            placeholder="Search types..."
+                            value={typeRuleSourceSearch[rule.id] || ''}
+                            onChange={(e) => {
+                              setTypeRuleSourceSearch({
+                                ...typeRuleSourceSearch,
+                                [rule.id]: e.target.value,
+                              });
+                            }}
+                            style={{
+                              width: '100%',
+                              padding: '8px',
+                              border: 'none',
+                              borderBottom: `1px solid ${theme.table.border}`,
+                              background: theme.canvas.background,
+                              color: theme.text.primary,
+                              fontSize: '12px',
+                              outline: 'none',
+                            }}
+                            autoFocus
+                          />
+                          <div style={{ maxHeight: '250px', overflow: 'auto' }}>
+                            {sourceTypes.length === 0 ? (
+                              <div style={{ padding: '16px', textAlign: 'center', color: theme.text.secondary, fontSize: '12px' }}>
+                                No datatypes found in source schema
+                              </div>
+                            ) : sourceTypes
+                              .filter(type => {
+                                const search = (typeRuleSourceSearch[rule.id] || '').toLowerCase();
+                                return type.toLowerCase().includes(search);
+                              })
+                              .map(type => (
+                                <button
+                                  key={type}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const updated = [...projectRules];
+                                    updated[index] = { ...rule, sourcePattern: type };
+                                    const updatedRuleSet = {
+                                      ...activeTypeRuleSet,
+                                      rules: updated,
+                                      updatedAt: Date.now(),
+                                    };
+                                    setActiveTypeRuleSet(updatedRuleSet);
+                                    saveTypeRuleSet(updatedRuleSet);
+                                    setTypeRuleSourceDropdownOpen(null);
+                                    setTypeRuleSourceSearch({ ...typeRuleSourceSearch, [rule.id]: '' });
+                                  }}
+                                  style={{
+                                    width: '100%',
+                                    padding: '8px 12px',
+                                    border: 'none',
+                                    background: rule.sourcePattern === type ? theme.accent.primary + '20' : 'transparent',
+                                    color: theme.text.primary,
+                                    fontSize: '12px',
+                                    fontFamily: 'monospace',
+                                    textAlign: 'left',
+                                    cursor: 'pointer',
+                                    transition: 'background 0.15s',
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    if (rule.sourcePattern !== type) {
+                                      e.currentTarget.style.background = theme.canvas.background;
+                                    }
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    if (rule.sourcePattern !== type) {
+                                      e.currentTarget.style.background = 'transparent';
+                                    }
+                                  }}
+                                >
+                                  {type}
+                                </button>
+                              ))
+                            }
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </td>
-                  <td style={{ padding: '10px 12px' }}>
-                    <input
-                      type="text"
-                      value={rule.sourcePattern || ''}
-                      onChange={(e) => {
-                        const updated = [...projectRules];
-                        updated[index] = { ...rule, sourcePattern: e.target.value };
-                        const updatedProject = {
-                          ...project,
-                          typeRules: updated,
-                          updatedAt: Date.now(),
-                        };
-                        saveMappingProject(updatedProject);
-                        onProjectChange?.(updatedProject);
-                      }}
-                      placeholder="e.g. VARCHAR2.*"
-                      style={{
-                        width: '100%',
-                        padding: '4px 8px',
-                        border: `1px solid ${theme.table.border}`,
-                        borderRadius: '4px',
-                        background: theme.canvas.background,
-                        color: theme.text.primary,
-                        fontSize: '12px',
-                        fontFamily: 'monospace',
-                      }}
-                    />
-                  </td>
-                  <td style={{ padding: '10px 12px' }}>
-                    <input
-                      type="text"
-                      value={rule.targetPattern || ''}
-                      onChange={(e) => {
-                        const updated = [...projectRules];
-                        updated[index] = { ...rule, targetPattern: e.target.value };
-                        const updatedProject = {
-                          ...project,
-                          typeRules: updated,
-                          updatedAt: Date.now(),
-                        };
-                        saveMappingProject(updatedProject);
-                        onProjectChange?.(updatedProject);
-                      }}
-                      placeholder="e.g. VARCHAR.*"
-                      style={{
-                        width: '100%',
-                        padding: '4px 8px',
-                        border: `1px solid ${theme.table.border}`,
-                        borderRadius: '4px',
-                        background: theme.canvas.background,
-                        color: theme.text.primary,
-                        fontSize: '12px',
-                        fontFamily: 'monospace',
-                      }}
-                    />
+                  <td style={{ padding: '10px 12px', position: 'relative' }}>
+                    {/* Target Type Dropdown with Search */}
+                    <div className="type-rule-dropdown" style={{ position: 'relative' }}>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (typeRuleTargetDropdownOpen === rule.id) {
+                            setTypeRuleTargetDropdownOpen(null);
+                          } else {
+                            setTypeRuleTargetDropdownOpen(rule.id);
+                            setTypeRuleSourceDropdownOpen(null);
+                          }
+                        }}
+                        style={{
+                          width: '100%',
+                          padding: '4px 8px',
+                          border: `1px solid ${theme.table.border}`,
+                          borderRadius: '4px',
+                          background: theme.canvas.background,
+                          color: theme.text.primary,
+                          fontSize: '12px',
+                          fontFamily: 'monospace',
+                          textAlign: 'left',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <span>{rule.targetPattern || 'Select type...'}</span>
+                        <ChevronDown size={14} />
+                      </button>
+
+                      {typeRuleTargetDropdownOpen === rule.id && (
+                        <div
+                          className="type-rule-dropdown"
+                          onClick={(e) => e.stopPropagation()}
+                          style={{
+                            position: 'absolute',
+                            top: '100%',
+                            left: 0,
+                            zIndex: 1000,
+                            background: theme.canvas.background,
+                            border: `1px solid ${theme.table.border}`,
+                            borderRadius: '6px',
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                            width: '250px',
+                            maxHeight: '300px',
+                            overflow: 'hidden',
+                            marginTop: '4px',
+                          }}>
+                          <input
+                            type="text"
+                            placeholder="Search types..."
+                            value={typeRuleTargetSearch[rule.id] || ''}
+                            onChange={(e) => {
+                              setTypeRuleTargetSearch({
+                                ...typeRuleTargetSearch,
+                                [rule.id]: e.target.value,
+                              });
+                            }}
+                            style={{
+                              width: '100%',
+                              padding: '8px',
+                              border: 'none',
+                              borderBottom: `1px solid ${theme.table.border}`,
+                              background: theme.canvas.background,
+                              color: theme.text.primary,
+                              fontSize: '12px',
+                              outline: 'none',
+                            }}
+                            autoFocus
+                          />
+                          <div style={{ maxHeight: '250px', overflow: 'auto' }}>
+                            {targetTypes.length === 0 ? (
+                              <div style={{ padding: '16px', textAlign: 'center', color: theme.text.secondary, fontSize: '12px' }}>
+                                No datatypes found in target schema
+                              </div>
+                            ) : targetTypes
+                              .filter(type => {
+                                const search = (typeRuleTargetSearch[rule.id] || '').toLowerCase();
+                                return type.toLowerCase().includes(search);
+                              })
+                              .map(type => (
+                                <button
+                                  key={type}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const updated = [...projectRules];
+                                    updated[index] = { ...rule, targetPattern: type };
+                                    const updatedRuleSet = {
+                                      ...activeTypeRuleSet,
+                                      rules: updated,
+                                      updatedAt: Date.now(),
+                                    };
+                                    setActiveTypeRuleSet(updatedRuleSet);
+                                    saveTypeRuleSet(updatedRuleSet);
+                                    setTypeRuleTargetDropdownOpen(null);
+                                    setTypeRuleTargetSearch({ ...typeRuleTargetSearch, [rule.id]: '' });
+                                  }}
+                                  style={{
+                                    width: '100%',
+                                    padding: '8px 12px',
+                                    border: 'none',
+                                    background: rule.targetPattern === type ? theme.accent.primary + '20' : 'transparent',
+                                    color: theme.text.primary,
+                                    fontSize: '12px',
+                                    fontFamily: 'monospace',
+                                    textAlign: 'left',
+                                    cursor: 'pointer',
+                                    transition: 'background 0.15s',
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    if (rule.targetPattern !== type) {
+                                      e.currentTarget.style.background = theme.canvas.background;
+                                    }
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    if (rule.targetPattern !== type) {
+                                      e.currentTarget.style.background = 'transparent';
+                                    }
+                                  }}
+                                >
+                                  {type}
+                                </button>
+                              ))
+                            }
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </td>
                   <td style={{ padding: '10px 12px' }}>
                     <select
@@ -2900,13 +3358,13 @@ export default function ColumnMapper({
                       onChange={(e) => {
                         const updated = [...projectRules];
                         updated[index] = { ...rule, compatibility: e.target.value as any };
-                        const updatedProject = {
-                          ...project,
-                          typeRules: updated,
+                        const updatedRuleSet = {
+                          ...activeTypeRuleSet,
+                          rules: updated,
                           updatedAt: Date.now(),
                         };
-                        saveMappingProject(updatedProject);
-                        onProjectChange?.(updatedProject);
+                        setActiveTypeRuleSet(updatedRuleSet);
+                        saveTypeRuleSet(updatedRuleSet);
                       }}
                       style={{
                         width: '100%',
@@ -2931,13 +3389,13 @@ export default function ColumnMapper({
                       onChange={(e) => {
                         const updated = [...projectRules];
                         updated[index] = { ...rule, conversionSql: e.target.value };
-                        const updatedProject = {
-                          ...project,
-                          typeRules: updated,
+                        const updatedRuleSet = {
+                          ...activeTypeRuleSet,
+                          rules: updated,
                           updatedAt: Date.now(),
                         };
-                        saveMappingProject(updatedProject);
-                        onProjectChange?.(updatedProject);
+                        setActiveTypeRuleSet(updatedRuleSet);
+                        saveTypeRuleSet(updatedRuleSet);
                       }}
                       placeholder="Optional"
                       style={{
@@ -2959,13 +3417,13 @@ export default function ColumnMapper({
                       onChange={(e) => {
                         const updated = [...projectRules];
                         updated[index] = { ...rule, enabled: e.target.checked };
-                        const updatedProject = {
-                          ...project,
-                          typeRules: updated,
+                        const updatedRuleSet = {
+                          ...activeTypeRuleSet,
+                          rules: updated,
                           updatedAt: Date.now(),
                         };
-                        saveMappingProject(updatedProject);
-                        onProjectChange?.(updatedProject);
+                        setActiveTypeRuleSet(updatedRuleSet);
+                        saveTypeRuleSet(updatedRuleSet);
                       }}
                       style={{
                         width: '16px',
@@ -2978,13 +3436,13 @@ export default function ColumnMapper({
                     <button
                       onClick={() => {
                         const updated = projectRules.filter((_, i) => i !== index);
-                        const updatedProject = {
-                          ...project,
-                          typeRules: updated,
+                        const updatedRuleSet = {
+                          ...activeTypeRuleSet,
+                          rules: updated,
                           updatedAt: Date.now(),
                         };
-                        saveMappingProject(updatedProject);
-                        onProjectChange?.(updatedProject);
+                        setActiveTypeRuleSet(updatedRuleSet);
+                        saveTypeRuleSet(updatedRuleSet);
                       }}
                       style={{
                         padding: '4px',
@@ -3259,14 +3717,14 @@ export default function ColumnMapper({
             >
               <Settings2 size={14} />
               Type Rules
-              {project && project.typeRules && project.typeRules.length > 0 && (
+              {activeTypeRuleSet && activeTypeRuleSet.rules && activeTypeRuleSet.rules.length > 0 && (
                 <span style={{
                   padding: '2px 6px',
                   background: theme.table.border,
                   borderRadius: '10px',
                   fontSize: '11px',
                 }}>
-                  {project.typeRules.length}
+                  {activeTypeRuleSet.rules.length}
                 </span>
               )}
             </button>
@@ -3407,9 +3865,9 @@ export default function ColumnMapper({
               {mappedColumnPopup && (
                 <div
                   style={{
-                    position: 'absolute',
-                    left: Math.min(mappedColumnPopup.x, (containerRef.current?.clientWidth || 400) - 280),
-                    top: Math.min(mappedColumnPopup.y + 10, (containerRef.current?.clientHeight || 300) - 150),
+                    position: 'fixed',
+                    left: Math.min(mappedColumnPopup.x, window.innerWidth - 280),
+                    top: Math.min(mappedColumnPopup.y + 10, window.innerHeight - 170),
                     background: theme.table.background,
                     border: `1px solid ${theme.table.border}`,
                     borderRadius: '8px',
@@ -3523,9 +3981,9 @@ export default function ColumnMapper({
               {allMappedTablesPopup && (
                 <div
                   style={{
-                    position: 'absolute',
-                    left: Math.min(allMappedTablesPopup.x, (containerRef.current?.clientWidth || 400) - 300),
-                    top: Math.min(allMappedTablesPopup.y + 10, (containerRef.current?.clientHeight || 300) - 400),
+                    position: 'fixed',
+                    left: Math.min(allMappedTablesPopup.x, window.innerWidth - 320),
+                    top: Math.min(allMappedTablesPopup.y + 10, window.innerHeight - 420),
                     background: theme.table.background,
                     border: `1px solid ${theme.table.border}`,
                     borderRadius: '8px',
@@ -3676,9 +4134,9 @@ export default function ColumnMapper({
                 return (
                 <div
                   style={{
-                    position: 'absolute',
-                    left: Math.min(columnSearchPopup.x, (containerRef.current?.clientWidth || 400) - 300),
-                    top: Math.min(columnSearchPopup.y + 10, (containerRef.current?.clientHeight || 300) - 350),
+                    position: 'fixed',
+                    left: Math.min(columnSearchPopup.x, window.innerWidth - 320),
+                    top: Math.min(columnSearchPopup.y + 10, window.innerHeight - 370),
                     background: theme.table.background,
                     border: `1px solid ${theme.table.border}`,
                     borderRadius: '8px',
