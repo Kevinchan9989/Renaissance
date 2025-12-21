@@ -571,7 +571,7 @@ export function getMappingStats(project: MappingProject): {
     compatibleMatches: mappings.filter(m => m.typeCompatibility === 'compatible').length,
     needsConversion: mappings.filter(m => m.typeCompatibility === 'needs_conversion').length,
     incompatible: mappings.filter(m => m.typeCompatibility === 'incompatible').length,
-    withWarnings: mappings.filter(m => m.validation.warnings.length > 0).length,
-    withErrors: mappings.filter(m => m.validation.errors.length > 0).length,
+    withWarnings: mappings.filter(m => (m.validation?.warnings?.length ?? 0) > 0).length,
+    withErrors: mappings.filter(m => (m.validation?.errors?.length ?? 0) > 0).length,
   };
 }

@@ -181,7 +181,8 @@ export default function ColumnMapper({
   // Always load from localStorage to ensure we have the latest changes
   const [scripts, setScripts] = useState<Script[]>(() => {
     const savedScripts = loadScripts();
-    return savedScripts.length > 0 ? savedScripts : propScripts;
+    // Ensure we always return an array, even if propScripts is undefined
+    return savedScripts.length > 0 ? savedScripts : (Array.isArray(propScripts) ? propScripts : []);
   });
 
   // Reload scripts from localStorage whenever component mounts or becomes visible
@@ -330,27 +331,27 @@ export default function ColumnMapper({
 
   // Get scripts
   const sourceScript = useMemo(() =>
-    scripts.find(s => s.id === sourceScriptId) || null
+    scripts?.find(s => s.id === sourceScriptId) || null
   , [scripts, sourceScriptId]);
 
   const targetScript = useMemo(() =>
-    scripts.find(s => s.id === targetScriptId) || null
+    scripts?.find(s => s.id === targetScriptId) || null
   , [scripts, targetScriptId]);
 
   // Get selected tables
   const sourceTable = useMemo(() =>
-    sourceScript?.data.targets.find(t => t.tableName === sourceTableName) || null
+    sourceScript?.data?.targets?.find(t => t.tableName === sourceTableName) || null
   , [sourceScript, sourceTableName]);
 
   const targetTable = useMemo(() =>
-    targetScript?.data.targets.find(t => t.tableName === targetTableName) || null
+    targetScript?.data?.targets?.find(t => t.tableName === targetTableName) || null
   , [targetScript, targetTableName]);
 
   // Sync local migration state when column data changes
   useEffect(() => {
     if (columnSearchPopup) {
       const table = columnSearchPopup.side === 'source' ? sourceTable : targetTable;
-      const freshColumn = table?.columns.find(c => c.name === columnSearchPopup.columnName);
+      const freshColumn = table?.columns?.find(c => c.name === columnSearchPopup.columnName);
       if (freshColumn) {
         setLocalMigrationNeeded(freshColumn.migrationNeeded !== false);
         setLocalNonMigrationComment(freshColumn.nonMigrationComment || '');
@@ -419,7 +420,7 @@ export default function ColumnMapper({
 
     // Load the type rule set referenced by the project
     if (project.typeRuleSetId) {
-      const ruleSets = loadTypeRuleSets();
+      const ruleSets = loadTypeRuleSets() || [];
       const ruleSet = ruleSets.find(rs => rs.id === project.typeRuleSetId);
 
       // If TypeRuleSet not found, fallback to default (shouldn't happen after consolidation)
@@ -462,7 +463,7 @@ export default function ColumnMapper({
       return;
     }
 
-    const projects = loadMappingProjects();
+    const projects = loadMappingProjects() || [];
     const existing = projects.find(
       p => p.sourceScriptId === sourceScriptId && p.targetScriptId === targetScriptId
     );
@@ -505,7 +506,7 @@ export default function ColumnMapper({
   const saveToCorrectProject = useCallback((mapping: ColumnMapping, action: 'add' | 'update' | 'delete') => {
     if (!sourceScriptId || !targetScriptId) return;
 
-    const projects = loadMappingProjects();
+    const projects = loadMappingProjects() || [];
 
     // For delete/update, find project by mapping ID (more robust than script ID matching)
     // For add, use script ID matching as before
@@ -513,7 +514,7 @@ export default function ColumnMapper({
 
     if (action === 'delete' || action === 'update') {
       // Find project that contains this mapping ID
-      ownerProject = projects.find(p => p.mappings.some(m => m.id === mapping.id));
+      ownerProject = projects.find(p => p.mappings?.some(m => m.id === mapping.id));
     } else {
       // For 'add', find by script IDs
       ownerProject = projects.find(
@@ -704,7 +705,7 @@ export default function ColumnMapper({
   // This allows viewing cross-schema mappings in linkage table
   // Also re-validates mappings when scripts change
   const currentMappings = useMemo(() => {
-    if (!project) return [];
+    if (!project || !project.mappings) return [];
 
     let filteredMappings: ColumnMapping[] = [];
 
@@ -730,12 +731,12 @@ export default function ColumnMapper({
 
       filteredMappings = filteredMappings.map(mapping => {
         // Find the current column definitions from the scripts
-        const sourceTable = sourceScript.data.targets.find(t => t.tableName === mapping.sourceTable);
-        const targetTable = targetScript.data.targets.find(t => t.tableName === mapping.targetTable);
+        const sourceTable = sourceScript?.data?.targets?.find(t => t.tableName === mapping.sourceTable);
+        const targetTable = targetScript?.data?.targets?.find(t => t.tableName === mapping.targetTable);
 
         if (sourceTable && targetTable) {
-          const sourceCol = sourceTable.columns.find(c => c.name === mapping.sourceColumn);
-          const targetCol = targetTable.columns.find(c => c.name === mapping.targetColumn);
+          const sourceCol = sourceTable.columns?.find(c => c.name === mapping.sourceColumn);
+          const targetCol = targetTable.columns?.find(c => c.name === mapping.targetColumn);
 
           if (sourceCol && targetCol) {
             // Re-validate with current column data
@@ -807,7 +808,7 @@ export default function ColumnMapper({
   // For canvas, only show mappings where BOTH tables are visible
   // (source and target must match the currently selected tables)
   const visibleMappings = useMemo(() => {
-    if (!project || !sourceTableName || !targetTableName) return [];
+    if (!project || !project.mappings || !sourceTableName || !targetTableName) return [];
     return project.mappings.filter(
       m => m.sourceTable === sourceTableName && m.targetTable === targetTableName
     );
@@ -847,14 +848,14 @@ export default function ColumnMapper({
     tgtTableName: string,
     tgtColumnName: string
   ) => {
-    if (!project || !sourceScript || !targetScript) return;
+    if (!project || !project.mappings || !sourceScript || !targetScript) return;
 
-    const srcTable = sourceScript.data.targets.find(t => t.tableName === srcTableName);
-    const tgtTable = targetScript.data.targets.find(t => t.tableName === tgtTableName);
+    const srcTable = sourceScript?.data?.targets?.find(t => t.tableName === srcTableName);
+    const tgtTable = targetScript?.data?.targets?.find(t => t.tableName === tgtTableName);
     if (!srcTable || !tgtTable) return;
 
-    const srcColumn = srcTable.columns.find(c => c.name === srcColumnName);
-    const tgtColumn = tgtTable.columns.find(c => c.name === tgtColumnName);
+    const srcColumn = srcTable?.columns?.find(c => c.name === srcColumnName);
+    const tgtColumn = tgtTable?.columns?.find(c => c.name === tgtColumnName);
     if (!srcColumn || !tgtColumn) return;
 
     // Check for existing mapping
@@ -960,7 +961,7 @@ export default function ColumnMapper({
     tableName: string,
     columnName: string
   ): ColumnMapping | null => {
-    if (!project) return null;
+    if (!project || !project.mappings) return null;
 
     return project.mappings.find(m => {
       if (side === 'source') {
@@ -1001,7 +1002,7 @@ export default function ColumnMapper({
 
     // Get the column object
     const table = side === 'source' ? sourceTable : targetTable;
-    const column = table?.columns.find(c => c.name === columnName);
+    const column = table?.columns?.find(c => c.name === columnName);
     if (!column) return;
 
     // Check if this column is already mapped
@@ -1197,7 +1198,7 @@ export default function ColumnMapper({
 
   // Handle mapping deletion
   const handleDeleteMapping = useCallback((mappingId: string) => {
-    if (!project) return;
+    if (!project || !project.mappings) return;
 
     const mappingToDelete = project.mappings.find(m => m.id === mappingId);
     if (!mappingToDelete) return;
@@ -1238,7 +1239,7 @@ export default function ColumnMapper({
 
   // Update mapping remarks
   const handleUpdateRemarks = useCallback((mappingId: string, remarks: string) => {
-    if (!project) return;
+    if (!project || !project.mappings) return;
 
     const mapping = project.mappings.find(m => m.id === mappingId);
     if (!mapping) return;
@@ -1262,10 +1263,10 @@ export default function ColumnMapper({
     let updated = false;
 
     // Get source and target columns to check migration status
-    const sourceTable = sourceScript.data.targets.find(t => t.tableName === mapping.sourceTable);
-    const targetTable = targetScript.data.targets.find(t => t.tableName === mapping.targetTable);
-    const sourceColumn = sourceTable?.columns.find(c => c.name === mapping.sourceColumn);
-    const targetColumn = targetTable?.columns.find(c => c.name === mapping.targetColumn);
+    const sourceTable = sourceScript?.data?.targets?.find(t => t.tableName === mapping.sourceTable);
+    const targetTable = targetScript?.data?.targets?.find(t => t.tableName === mapping.targetTable);
+    const sourceColumn = sourceTable?.columns?.find(c => c.name === mapping.sourceColumn);
+    const targetColumn = targetTable?.columns?.find(c => c.name === mapping.targetColumn);
 
     const updatedScripts = allScripts.map((script: Script) => {
       // Update source column
@@ -1567,7 +1568,7 @@ export default function ColumnMapper({
     // Updating it here can cause race conditions and override user input
 
     // Sync to data dictionary if there's an existing mapping for this column
-    if (project) {
+    if (project && project.mappings) {
       const existingMapping = project.mappings.find(m =>
         (side === 'source' && m.sourceTable === tableName && m.sourceColumn === columnName) ||
         (side === 'target' && m.targetTable === tableName && m.targetColumn === columnName)
@@ -2142,17 +2143,17 @@ export default function ColumnMapper({
               // For cross-schema mappings, we need to get the actual tables from the mapping
               const mappingSourceTable = mapping.sourceTable === sourceTableName
                 ? sourceTable
-                : sourceScript?.data.targets.find(t => t.tableName === mapping.sourceTable);
+                : sourceScript?.data?.targets?.find(t => t.tableName === mapping.sourceTable);
 
               // For target table, search in current target script first, then search all scripts
               let mappingTargetTable = mapping.targetTable === targetTableName
                 ? targetTable
-                : targetScript?.data.targets.find(t => t.tableName === mapping.targetTable);
+                : targetScript?.data?.targets?.find(t => t.tableName === mapping.targetTable);
 
               // If not found in target script, search all scripts (for ISS schema tables etc)
-              if (!mappingTargetTable) {
+              if (!mappingTargetTable && scripts) {
                 for (const script of scripts) {
-                  const found = script.data.targets.find(t => t.tableName === mapping.targetTable);
+                  const found = script?.data?.targets?.find(t => t.tableName === mapping.targetTable);
                   if (found) {
                     mappingTargetTable = found;
                     break;
@@ -2161,8 +2162,8 @@ export default function ColumnMapper({
               }
 
               // Get nullable values from source and target columns
-              const sourceCol = mappingSourceTable?.columns.find(c => c.name === mapping.sourceColumn);
-              const targetCol = mappingTargetTable?.columns.find(c => c.name === mapping.targetColumn);
+              const sourceCol = mappingSourceTable?.columns?.find(c => c.name === mapping.sourceColumn);
+              const targetCol = mappingTargetTable?.columns?.find(c => c.name === mapping.targetColumn);
               const sourceNullable = sourceCol?.nullable ? (sourceCol.nullable.toUpperCase() === 'YES' || sourceCol.nullable.toUpperCase() === 'Y' ? 'NULL' : 'NOT NULL') : '';
               const targetNullable = targetCol?.nullable ? (targetCol.nullable.toUpperCase() === 'YES' || targetCol.nullable.toUpperCase() === 'Y' ? 'NULL' : 'NOT NULL') : '';
 
@@ -2284,11 +2285,11 @@ export default function ColumnMapper({
                     {targetNullable}
                   </td>
                   <td style={{ padding: '10px 12px', textAlign: 'center' }}>
-                    {mapping.validation.errors.length > 0 ? (
+                    {mapping.validation?.errors?.length > 0 ? (
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', color: '#ef4444' }} title={mapping.validation.errors.join('\n')}>
                         <AlertCircle size={16} />
                       </div>
-                    ) : mapping.validation.warnings.length > 0 ? (
+                    ) : mapping.validation?.warnings?.length > 0 ? (
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', color: '#f59e0b' }} title={mapping.validation.warnings.join('\n')}>
                         <AlertTriangle size={16} />
                       </div>
@@ -2573,16 +2574,16 @@ export default function ColumnMapper({
                           const isSelected = selectedMappingId === mapping.id;
 
                           // Get nullable values from scripts
-                          const srcScript = sourceScript?.data.sources.concat(sourceScript?.data.targets || []);
-                          const tgtScript = targetScript?.data.sources.concat(targetScript?.data.targets || []);
+                          const srcScript = (sourceScript?.data?.sources || []).concat(sourceScript?.data?.targets || []);
+                          const tgtScript = (targetScript?.data?.sources || []).concat(targetScript?.data?.targets || []);
                           const srcTable = srcScript?.find(t => t.tableName === mapping.sourceTable);
                           let tgtTable = tgtScript?.find(t => t.tableName === mapping.targetTable);
 
                           // If not found in target script, search all scripts (for ISS schema tables etc)
-                          if (!tgtTable) {
+                          if (!tgtTable && scripts) {
                             for (const script of scripts) {
-                              const allTables = script.data.sources.concat(script.data.targets || []);
-                              const found = allTables.find(t => t.tableName === mapping.targetTable);
+                              const allTables = (script?.data?.sources || []).concat(script?.data?.targets || []);
+                              const found = allTables?.find(t => t.tableName === mapping.targetTable);
                               if (found) {
                                 tgtTable = found;
                                 break;
@@ -2590,8 +2591,8 @@ export default function ColumnMapper({
                             }
                           }
 
-                          const sourceCol = srcTable?.columns.find(c => c.name === mapping.sourceColumn);
-                          const targetCol = tgtTable?.columns.find(c => c.name === mapping.targetColumn);
+                          const sourceCol = srcTable?.columns?.find(c => c.name === mapping.sourceColumn);
+                          const targetCol = tgtTable?.columns?.find(c => c.name === mapping.targetColumn);
                           const sourceNullable = sourceCol?.nullable ? (sourceCol.nullable.toUpperCase() === 'YES' || sourceCol.nullable.toUpperCase() === 'Y' ? 'NULL' : 'NOT NULL') : '';
                           const targetNullable = targetCol?.nullable ? (targetCol.nullable.toUpperCase() === 'YES' || targetCol.nullable.toUpperCase() === 'Y' ? 'NULL' : 'NOT NULL') : '';
 
@@ -2646,11 +2647,11 @@ export default function ColumnMapper({
                                 {targetNullable}
                               </td>
                               <td style={{ padding: '8px 12px', textAlign: 'center' }}>
-                                {mapping.validation.errors.length > 0 ? (
+                                {mapping.validation?.errors?.length > 0 ? (
                                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', color: '#ef4444' }} title={mapping.validation.errors.join('\n')}>
                                     <AlertCircle size={14} />
                                   </div>
-                                ) : mapping.validation.warnings.length > 0 ? (
+                                ) : mapping.validation?.warnings?.length > 0 ? (
                                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', color: '#f59e0b' }} title={mapping.validation.warnings.join('\n')}>
                                     <AlertTriangle size={14} />
                                   </div>
@@ -3684,7 +3685,7 @@ export default function ColumnMapper({
             >
               <Layers size={14} />
               All Mappings
-              {project && project.mappings.length > 0 && (
+              {project && project.mappings && project.mappings.length > 0 && (
                 <span style={{
                   padding: '2px 6px',
                   background: theme.table.border,
@@ -4045,7 +4046,7 @@ export default function ColumnMapper({
                       const oppositeColumn = allMappedTablesPopup.side === 'source' ? mapping.targetColumn : mapping.sourceColumn;
                       const colorIndex = getMappingColorIndex(mapping);
                       const lineColor = LINE_COLORS[colorIndex];
-                      const hasIssues = mapping.validation.errors.length > 0 || mapping.validation.warnings.length > 0;
+                      const hasIssues = (mapping.validation?.errors?.length ?? 0) > 0 || (mapping.validation?.warnings?.length ?? 0) > 0;
 
                       return (
                         <div
@@ -4110,7 +4111,7 @@ export default function ColumnMapper({
                                 background: lineColor,
                               }} />
                               {hasIssues && (
-                                mapping.validation.errors.length > 0 ? (
+                                (mapping.validation?.errors?.length ?? 0) > 0 ? (
                                   <AlertCircle size={14} color="#ef4444" />
                                 ) : (
                                   <AlertTriangle size={14} color="#f59e0b" />
@@ -4129,7 +4130,7 @@ export default function ColumnMapper({
               {columnSearchPopup && (() => {
                 // Get fresh column data from current scripts
                 const table = columnSearchPopup.side === 'source' ? sourceTable : targetTable;
-                const freshColumn = table?.columns.find(c => c.name === columnSearchPopup.columnName) || columnSearchPopup.column;
+                const freshColumn = table?.columns?.find(c => c.name === columnSearchPopup.columnName) || columnSearchPopup.column;
 
                 return (
                 <div

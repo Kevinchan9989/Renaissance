@@ -293,7 +293,32 @@ export function loadMappingProjects(): MappingProject[] {
   try {
     const data = localStorage.getItem(MAPPING_PROJECTS_KEY);
     if (data) {
-      return JSON.parse(data);
+      const projects = JSON.parse(data) as MappingProject[];
+      // Migrate old mappings that might be missing the validation property
+      let needsSave = false;
+      for (const project of projects) {
+        for (const mapping of project.mappings) {
+          if (!mapping.validation) {
+            mapping.validation = {
+              typeMatch: true,
+              sizeMatch: true,
+              nullableMatch: true,
+              precisionMatch: true,
+              defaultMatch: true,
+              constraintMatch: true,
+              warnings: [],
+              errors: [],
+            };
+            needsSave = true;
+          }
+        }
+      }
+      // Save migrated data if any changes were made
+      if (needsSave) {
+        localStorage.setItem(MAPPING_PROJECTS_KEY, JSON.stringify(projects));
+        console.log('Migrated mapping projects to add missing validation properties');
+      }
+      return projects;
     }
   } catch (e) {
     console.error('Failed to load mapping projects:', e);
@@ -657,8 +682,8 @@ export function exportMappingProject(
       })),
       remarks: m.remarks,
       validation: {
-        warnings: m.validation.warnings,
-        errors: m.validation.errors,
+        warnings: m.validation?.warnings ?? [],
+        errors: m.validation?.errors ?? [],
       },
     })),
   };

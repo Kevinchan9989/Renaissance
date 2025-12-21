@@ -121,10 +121,23 @@ export function subscribeToLogs(callback: () => void): () => void {
 }
 
 /**
- * Notify all listeners
+ * Notify all listeners (deferred to avoid setState during render)
  */
+let notifyTimeout: ReturnType<typeof setTimeout> | null = null;
+
 function notifyListeners() {
-  listeners.forEach(listener => listener());
+  // Defer notification to after React's commit phase to avoid setState during render
+  // Using a longer timeout ensures we're well outside React's synchronous render cycle
+  if (notifyTimeout) {
+    clearTimeout(notifyTimeout);
+  }
+  notifyTimeout = setTimeout(() => {
+    notifyTimeout = null;
+    // Use requestAnimationFrame to further ensure we're outside React's render
+    requestAnimationFrame(() => {
+      listeners.forEach(listener => listener());
+    });
+  }, 16); // ~1 frame delay to ensure React render is complete
 }
 
 /**
