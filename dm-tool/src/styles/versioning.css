@@ -643,6 +643,15 @@
   background-color: rgba(46, 160, 67, 0.25) !important;
 }
 
+/* Light theme cell-level fallback styles */
+.diff-cell-added {
+  background-color: rgba(46, 160, 67, 0.25);
+}
+
+.diff-cell-deleted {
+  background-color: rgba(248, 81, 73, 0.25);
+}
+
 /* Diff markers (+/-) */
 .diff-marker {
   display: inline-block;
@@ -1016,36 +1025,70 @@
   background: #1e1e1e;
 }
 
-/* Dark theme: Added cells - green (INTENSE by default) */
+/* Dark theme: Added cells - green */
 .dark-theme .diff-cell-added {
   background: rgba(46, 160, 67, 0.35) !important;
 }
 
-/* Dark theme: Deleted cells - red (INTENSE by default) */
+/* Dark theme: Deleted cells - red */
 .dark-theme .diff-cell-deleted {
   background: rgba(248, 81, 73, 0.35) !important;
 }
 
-/* Dark theme: Modified cells - uses both added and deleted classes */
-.dark-theme .diff-cell-modified {
-  background: rgba(187, 128, 9, 0.35) !important;
+/* Dark theme: Added rows - proper side colors */
+.dark-theme .diff-row-added .diff-cell-num:nth-child(3),
+.dark-theme .diff-row-added .diff-cell-content:nth-child(4) {
+  background-color: rgba(46, 160, 67, 0.35) !important;
 }
 
-/* Dark theme HOVER states - LIGHTER colors on hover */
-.dark-theme .diff-table-row:hover .diff-cell-added {
-  background: rgba(46, 160, 67, 0.2) !important;
+.dark-theme .diff-row-added .diff-cell-num:nth-child(1),
+.dark-theme .diff-row-added .diff-cell-content:nth-child(2) {
+  background-color: #252526 !important;
 }
 
-.dark-theme .diff-table-row:hover .diff-cell-deleted {
-  background: rgba(248, 81, 73, 0.2) !important;
+/* Dark theme: Deleted rows - proper side colors */
+.dark-theme .diff-row-deleted .diff-cell-num:nth-child(1),
+.dark-theme .diff-row-deleted .diff-cell-content:nth-child(2) {
+  background-color: rgba(248, 81, 73, 0.35) !important;
 }
 
-.dark-theme .diff-table-row:hover .diff-cell-modified {
-  background: rgba(187, 128, 9, 0.2) !important;
+.dark-theme .diff-row-deleted .diff-cell-num:nth-child(3),
+.dark-theme .diff-row-deleted .diff-cell-content:nth-child(4) {
+  background-color: #252526 !important;
+}
+
+/* Dark theme: Modified rows - OLD side red, NEW side green */
+.dark-theme .diff-row-modified .diff-cell-num:nth-child(1),
+.dark-theme .diff-row-modified .diff-cell-content:nth-child(2) {
+  background-color: rgba(248, 81, 73, 0.35) !important;
+}
+
+.dark-theme .diff-row-modified .diff-cell-num:nth-child(3),
+.dark-theme .diff-row-modified .diff-cell-content:nth-child(4) {
+  background-color: rgba(46, 160, 67, 0.35) !important;
 }
 
 .dark-theme .diff-code {
   color: #e0e0e0;
+}
+
+/* Ensure text is readable in added rows - light text on green bg */
+.dark-theme .diff-row-added .diff-code {
+  color: #c8f7d4 !important;
+}
+
+/* Ensure text is readable in deleted rows - light text on red bg */
+.dark-theme .diff-row-deleted .diff-code {
+  color: #ffc8c8 !important;
+}
+
+/* Modified rows - old side (red bg) and new side (green bg) */
+.dark-theme .diff-row-modified .diff-cell-content:nth-child(2) .diff-code {
+  color: #ffc8c8 !important;
+}
+
+.dark-theme .diff-row-modified .diff-cell-content:nth-child(4) .diff-code {
+  color: #c8f7d4 !important;
 }
 
 .dark-theme .version-compare-container {
@@ -1104,10 +1147,21 @@
 
 .dark-theme .diff-char-added {
   background: rgba(46, 160, 67, 0.7);
+  color: #ffffff !important;
 }
 
 .dark-theme .diff-char-deleted {
   background: rgba(248, 81, 73, 0.7);
+  color: #ffffff !important;
+}
+
+/* Ensure markers are bright and visible in dark theme */
+.dark-theme .diff-marker-added {
+  color: #7ee787 !important;
+}
+
+.dark-theme .diff-marker-deleted {
+  color: #ff7b72 !important;
 }
 
 .dark-theme .version-compare-schema {
@@ -1645,4 +1699,43 @@
 .dark-theme .version-popup-empty p,
 .dark-theme .version-popup-compare-empty p {
   color: #808080;
+}
+
+/* Version Popup Diff - Ensure readable text colors in dark theme */
+.dark-theme .version-popup-diff-table .diff-code {
+  color: #e0e0e0;
+}
+
+.dark-theme .version-popup-diff-table .diff-row-added .diff-code {
+  color: #aaffaa !important;
+}
+
+.dark-theme .version-popup-diff-table .diff-row-deleted .diff-code {
+  color: #ffaaaa !important;
+}
+
+.dark-theme .version-popup-diff-table .diff-row-modified .diff-cell-content:nth-child(2) .diff-code {
+  color: #ffaaaa !important;
+}
+
+.dark-theme .version-popup-diff-table .diff-row-modified .diff-cell-content:nth-child(4) .diff-code {
+  color: #aaffaa !important;
+}
+
+.dark-theme .version-popup-diff-table .diff-marker-added {
+  color: #7ee787 !important;
+}
+
+.dark-theme .version-popup-diff-table .diff-marker-deleted {
+  color: #ff7b72 !important;
+}
+
+.dark-theme .version-popup-diff-table .diff-char-added {
+  background: rgba(46, 160, 67, 0.6);
+  color: #ffffff !important;
+}
+
+.dark-theme .version-popup-diff-table .diff-char-deleted {
+  background: rgba(248, 81, 73, 0.6);
+  color: #ffffff !important;
 }

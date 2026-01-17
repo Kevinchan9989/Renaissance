@@ -6,10 +6,13 @@ import { ScriptType } from '../types';
 import { getVSCodeTheme } from '../constants/vscodeTheme';
 import '../styles/codeEditor.css';
 
+// Supported editor languages (ScriptType + puml)
+type EditorLanguage = ScriptType | 'puml';
+
 interface CodeEditorProps {
   value: string;
   onChange: (value: string) => void;
-  language: ScriptType;
+  language: EditorLanguage;
   isDarkTheme?: boolean;
   darkThemeVariant?: 'slate' | 'vscode-gray';
   placeholder?: string;
@@ -34,17 +37,18 @@ export default function CodeEditor({
   currentMatchIndex = 0
 }: CodeEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const editorRef = useRef<HTMLDivElement>(null);
   const theme = getVSCodeTheme(isDarkTheme, darkThemeVariant);
 
   // Map script type to Prism language
-  const getPrismLanguage = (type: ScriptType): string => {
+  const getPrismLanguage = (type: EditorLanguage): string => {
     switch (type) {
       case 'postgresql':
       case 'oracle':
         return 'sql';
       case 'dbml':
         return 'javascript'; // DBML is similar to JS syntax
+      case 'puml':
+        return 'javascript'; // PUML syntax highlighting
       default:
         return 'sql';
     }
@@ -103,9 +107,6 @@ export default function CodeEditor({
         parent.normalize();
       }
     });
-
-    // Get the text content
-    const textContent = preElement.textContent || '';
 
     // Create a tree walker to find text nodes
     const walker = document.createTreeWalker(

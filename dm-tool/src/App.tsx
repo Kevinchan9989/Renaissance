@@ -1,13 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Script, ScriptType, AppView, Table, MappingProject } from './types';
+import { Script, ScriptType, AppView, Table, MappingProject, FlowchartScript } from './types';
 import { loadScripts, saveScripts, generateId, loadTheme, saveTheme, saveMappingProject, loadDarkThemeVariant, saveDarkThemeVariant, DarkThemeVariant, loadWorkspaceFromElectron, getSortedScripts } from './utils/storage';
-import { parseScript } from './utils/parsers';
+import { parseScript, parsePUML } from './utils/parsers';
 import Sidebar from './components/Sidebar';
 import DataDictionary from './components/DataDictionary';
 import SchemaCompare from './components/SchemaCompare';
 import ERDViewer from './components/ERDViewer';
 import ScriptManager from './components/ScriptManager';
 import ColumnMapper, { MappingStateForSidebar } from './components/ColumnMapper';
+import FlowchartViewer from './components/FlowchartViewer';
 import { Database, PanelLeftClose, PanelLeft, ChevronDown, GripVertical, Settings } from 'lucide-react';
 import { exportWorkspace, importWorkspace, downloadJson, WorkspaceData } from './utils/storage';
 import { isElectron } from './services/electronStorage';
@@ -27,8 +28,23 @@ interface MappingState {
   handleToggleTable: (tableName: string) => void;
 }
 
+// Flowchart scripts storage key (separate from DDL scripts)
+const FLOWCHART_SCRIPTS_KEY = 'dm_flowchart_scripts';
+
+// Load flowchart scripts from localStorage
+function loadFlowchartScripts(): FlowchartScript[] {
+  const saved = localStorage.getItem(FLOWCHART_SCRIPTS_KEY);
+  return saved ? JSON.parse(saved) : [];
+}
+
+// Save flowchart scripts to localStorage
+function saveFlowchartScripts(scripts: FlowchartScript[]) {
+  localStorage.setItem(FLOWCHART_SCRIPTS_KEY, JSON.stringify(scripts));
+}
+
 export default function App() {
   const [scripts, setScripts] = useState<Script[]>([]);
+  const [flowchartScripts, setFlowchartScripts] = useState<FlowchartScript[]>([]);
   const [activeScriptId, setActiveScriptId] = useState<string | null>(null);
   const [view, setView] = useState<AppView>('dictionary');
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
@@ -65,9 +81,11 @@ export default function App() {
           console.log('✅ Loaded workspace from Electron file');
           // Reload data from localStorage (which was updated by loadWorkspaceFromElectron)
           const savedScripts = loadScripts();
+          const savedFlowchartScripts = loadFlowchartScripts();
           const savedTheme = loadTheme();
           const savedVariant = loadDarkThemeVariant();
           setScripts(savedScripts);
+          setFlowchartScripts(savedFlowchartScripts);
           setTheme(savedTheme);
           setDarkThemeVariant(savedVariant);
 
@@ -87,9 +105,11 @@ export default function App() {
 
       // Fallback to loading from localStorage (web mode or no Electron file)
       const savedScripts = loadScripts();
+      const savedFlowchartScripts = loadFlowchartScripts();
       const savedTheme = loadTheme();
       const savedVariant = loadDarkThemeVariant();
       setScripts(savedScripts);
+      setFlowchartScripts(savedFlowchartScripts);
       setTheme(savedTheme);
       setDarkThemeVariant(savedVariant);
 
@@ -212,6 +232,40 @@ export default function App() {
     }
   }, [scripts, activeScriptId]);
 
+  // Flowchart script management
+  const createFlowchartScript = useCallback((name: string, content: string) => {
+    const data = parsePUML(content);
+    const newScript: FlowchartScript = {
+      id: generateId(),
+      name,
+      rawContent: content,
+      data,
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    };
+
+    const updated = [...flowchartScripts, newScript];
+    setFlowchartScripts(updated);
+    saveFlowchartScripts(updated);
+  }, [flowchartScripts]);
+
+  const updateFlowchartScript = useCallback((id: string, updates: Partial<FlowchartScript>) => {
+    const updated = flowchartScripts.map(s => {
+      if (s.id === id) {
+        return { ...s, ...updates, updatedAt: Date.now() };
+      }
+      return s;
+    });
+    setFlowchartScripts(updated);
+    saveFlowchartScripts(updated);
+  }, [flowchartScripts]);
+
+  const deleteFlowchartScript = useCallback((id: string) => {
+    const updated = flowchartScripts.filter(s => s.id !== id);
+    setFlowchartScripts(updated);
+    saveFlowchartScripts(updated);
+  }, [flowchartScripts]);
+
   // Theme toggle
   const toggleTheme = useCallback(() => {
     const newTheme = theme === 'light' ? 'dark' : 'light';
@@ -321,6 +375,10 @@ export default function App() {
           onCreateScript={createScript}
           onUpdateScript={updateScript}
           onDeleteScript={deleteScript}
+          flowchartScripts={flowchartScripts}
+          onCreateFlowchartScript={createFlowchartScript}
+          onUpdateFlowchartScript={updateFlowchartScript}
+          onDeleteFlowchartScript={deleteFlowchartScript}
           isDarkTheme={theme === 'dark'}
           darkThemeVariant={darkThemeVariant}
         />
@@ -340,6 +398,16 @@ export default function App() {
       );
     }
 
+    // Flowcharts view - standalone flowchart viewer
+    if (view === 'flowcharts') {
+      return (
+        <FlowchartViewer
+          flowchartScripts={flowchartScripts}
+          isDarkTheme={theme === 'dark'}
+          darkThemeVariant={darkThemeVariant}
+        />
+      );
+    }
 
     if (!activeScript) {
       return (
@@ -380,6 +448,7 @@ export default function App() {
             isDarkTheme={theme === 'dark'}
             darkThemeVariant={darkThemeVariant}
             scriptId={activeScript.id}
+            scriptName={activeScript.name}
             onRefresh={() => {
               const data = parseScript(activeScript.rawContent, activeScript.type);
               updateScript(activeScript.id, { data });
@@ -543,7 +612,7 @@ export default function App() {
         </div>
 
         {/* Content Area */}
-        <div className={`content-area ${view === 'erd' ? 'content-area-erd' : ''} ${view === 'scripts' ? 'content-area-scripts' : ''} ${view === 'mapping' ? 'content-area-mapping' : ''}`}>
+        <div className={`content-area ${view === 'erd' ? 'content-area-erd' : ''} ${view === 'scripts' ? 'content-area-scripts' : ''} ${view === 'mapping' ? 'content-area-mapping' : ''} ${view === 'flowcharts' ? 'content-area-flowcharts' : ''}`}>
           {renderContent()}
         </div>
       </div>

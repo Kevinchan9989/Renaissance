@@ -2093,7 +2093,7 @@ export default function ColumnMapper({
           </thead>
           <tbody>
             {Array.from(tablePairGroups.entries()).map(([pairKey, mappings]) => {
-              const [sourceTable, targetTable] = pairKey.split('→');
+              const [pairSourceTableName, pairTargetTableName] = pairKey.split('→');
               const isExpanded = expandedLinkageTablePairs.has(pairKey);
 
               return (
@@ -2119,9 +2119,9 @@ export default function ColumnMapper({
                     <td colSpan={10} style={{ padding: '8px 12px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600 }}>
                         {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                        <span style={{ color: '#3b82f6' }}>{sourceTable}</span>
+                        <span style={{ color: '#3b82f6' }}>{pairSourceTableName}</span>
                         <span style={{ color: theme.text.secondary }}>→</span>
-                        <span style={{ color: '#22c55e' }}>{targetTable}</span>
+                        <span style={{ color: '#22c55e' }}>{pairTargetTableName}</span>
                         <span style={{
                           marginLeft: 'auto',
                           fontSize: '12px',
@@ -2140,22 +2140,32 @@ export default function ColumnMapper({
               const lineColor = LINE_COLORS[colorIndex];
               const isSelected = selectedMappingId === mapping.id;
 
-              // For cross-schema mappings, we need to get the actual tables from the mapping
-              const mappingSourceTable = mapping.sourceTable === sourceTableName
-                ? sourceTable
-                : sourceScript?.data?.targets?.find(t => t.tableName === mapping.sourceTable);
+              // Get source and target tables - search both sources and targets arrays (like All Mappings tab)
+              const allSourceTables = (sourceScript?.data?.sources || []).concat(sourceScript?.data?.targets || []);
+              const allTargetTables = (targetScript?.data?.sources || []).concat(targetScript?.data?.targets || []);
 
-              // For target table, search in current target script first, then search all scripts
-              let mappingTargetTable = mapping.targetTable === targetTableName
-                ? targetTable
-                : targetScript?.data?.targets?.find(t => t.tableName === mapping.targetTable);
+              let mappingSourceTable = allSourceTables.find(t => t.tableName === mapping.sourceTable);
+              let mappingTargetTable = allTargetTables.find(t => t.tableName === mapping.targetTable);
 
               // If not found in target script, search all scripts (for ISS schema tables etc)
               if (!mappingTargetTable && scripts) {
                 for (const script of scripts) {
-                  const found = script?.data?.targets?.find(t => t.tableName === mapping.targetTable);
+                  const allTables = (script?.data?.sources || []).concat(script?.data?.targets || []);
+                  const found = allTables.find(t => t.tableName === mapping.targetTable);
                   if (found) {
                     mappingTargetTable = found;
+                    break;
+                  }
+                }
+              }
+
+              // Also search all scripts for source table if not found
+              if (!mappingSourceTable && scripts) {
+                for (const script of scripts) {
+                  const allTables = (script?.data?.sources || []).concat(script?.data?.targets || []);
+                  const found = allTables.find(t => t.tableName === mapping.sourceTable);
+                  if (found) {
+                    mappingSourceTable = found;
                     break;
                   }
                 }
@@ -3582,25 +3592,9 @@ export default function ColumnMapper({
       </div>
 
       {/* Content area */}
-      {!hasValidSelection ? (
+      <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 0%', minHeight: 0, overflow: 'hidden' }}>
+        {/* Tab bar - always visible */}
         <div style={{
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: theme.text.secondary,
-        }}>
-          <Database size={48} style={{ marginBottom: '16px', opacity: 0.3 }} />
-          <div style={{ fontSize: '16px', marginBottom: '8px' }}>Select Source and Target Tables</div>
-          <div style={{ fontSize: '13px', opacity: 0.7 }}>
-            Choose a script and table for both source and target to start mapping
-          </div>
-        </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 0%', minHeight: 0, overflow: 'hidden' }}>
-          {/* Tab bar */}
-          <div style={{
             display: 'flex',
             gap: '4px',
             padding: '8px 16px',
@@ -3798,7 +3792,7 @@ export default function ColumnMapper({
           </div>
 
           {/* Tab content */}
-          {activeTab === 'canvas' && (
+          {activeTab === 'canvas' && hasValidSelection && (
             <div
               ref={containerRef}
               style={{
@@ -4360,11 +4354,28 @@ export default function ColumnMapper({
               })()}
             </div>
           )}
-          {activeTab === 'linkage' && renderLinkageTable()}
-          {activeTab === 'summary' && renderSummaryTable()}
-          {activeTab === 'rules' && renderRulesTab()}
+          {activeTab === 'linkage' && hasValidSelection && renderLinkageTable()}
+          {activeTab === 'summary' && hasValidSelection && renderSummaryTable()}
+          {activeTab === 'rules' && hasValidSelection && renderRulesTab()}
+
+          {/* Empty state when no selection */}
+          {!hasValidSelection && (
+            <div style={{
+              flex: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: theme.text.secondary,
+            }}>
+              <Database size={48} style={{ marginBottom: '16px', opacity: 0.3 }} />
+              <div style={{ fontSize: '16px', marginBottom: '8px' }}>Select Source and Target Tables</div>
+              <div style={{ fontSize: '13px', opacity: 0.7 }}>
+                Choose a script and table for both source and target to start mapping
+              </div>
+            </div>
+          )}
         </div>
-      )}
 
       {/* Context Menu for Linkage Table */}
       {contextMenu && (

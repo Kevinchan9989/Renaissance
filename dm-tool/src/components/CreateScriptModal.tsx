@@ -16,24 +16,43 @@ export default function CreateScriptModal({ onClose, onCreate, isDarkTheme = fal
   const [type, setType] = useState<ScriptType>('postgresql');
   const [content, setContent] = useState('');
   const [autoDetect, setAutoDetect] = useState(true);
+  const [errors, setErrors] = useState<{ name?: string; content?: string }>({});
 
   const handleContentChange = (value: string) => {
     setContent(value);
+    // Clear content error when user starts typing
+    if (errors.content && value.trim()) {
+      setErrors(prev => ({ ...prev, content: undefined }));
+    }
     if (autoDetect && value.trim()) {
       const detected = detectScriptType(value);
       setType(detected);
     }
   };
 
+  const handleNameChange = (value: string) => {
+    setName(value);
+    // Clear name error when user starts typing
+    if (errors.name && value.trim()) {
+      setErrors(prev => ({ ...prev, name: undefined }));
+    }
+  };
+
   const handleSubmit = () => {
+    const newErrors: { name?: string; content?: string } = {};
+
     if (!name.trim()) {
-      alert('Please enter a script name');
-      return;
+      newErrors.name = 'Script name is required';
     }
     if (!content.trim()) {
-      alert('Please enter script content');
+      newErrors.content = 'Script content is required';
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
       return;
     }
+
     onCreate(name.trim(), type, content);
   };
 
@@ -52,11 +71,12 @@ export default function CreateScriptModal({ onClose, onCreate, isDarkTheme = fal
             <label className="form-label">Script Name</label>
             <input
               type="text"
-              className="form-input"
+              className={`form-input ${errors.name ? 'form-input-error' : ''}`}
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => handleNameChange(e.target.value)}
               placeholder="e.g., OMEGA Production Schema"
             />
+            {errors.name && <span className="form-error-message">{errors.name}</span>}
           </div>
 
           <div className="form-group">
@@ -88,15 +108,18 @@ export default function CreateScriptModal({ onClose, onCreate, isDarkTheme = fal
 
           <div className="form-group">
             <label className="form-label">DDL / DBML Content</label>
-            <CodeEditor
-              value={content}
-              onChange={handleContentChange}
-              language={type}
-              isDarkTheme={isDarkTheme}
-              darkThemeVariant={darkThemeVariant}
-              placeholder={getPlaceholder(type)}
-              minHeight="250px"
-            />
+            <div className={errors.content ? 'code-editor-error-wrapper' : ''}>
+              <CodeEditor
+                value={content}
+                onChange={handleContentChange}
+                language={type}
+                isDarkTheme={isDarkTheme}
+                darkThemeVariant={darkThemeVariant}
+                placeholder={getPlaceholder(type)}
+                minHeight="250px"
+              />
+            </div>
+            {errors.content && <span className="form-error-message">{errors.content}</span>}
           </div>
         </div>
 

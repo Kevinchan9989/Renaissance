@@ -162,7 +162,7 @@ export interface TableDiff {
 // App State Types
 // ============================================
 
-export type AppView = 'scripts' | 'dictionary' | 'compare' | 'erd' | 'mapping';
+export type AppView = 'scripts' | 'dictionary' | 'compare' | 'erd' | 'mapping' | 'flowcharts';
 
 export interface AppState {
   scripts: Script[];
@@ -345,4 +345,93 @@ export interface SqlAlignmentConfig {
   includeNullable: boolean;
   includeDatatype: boolean;
   datatypeMappings: DatatypeMapping[];
+}
+
+// ============================================
+// Flowchart/PUML Types
+// ============================================
+
+// Flowchart Script (separate from DDL Script)
+export interface FlowchartScript {
+  id: string;
+  name: string;
+  rawContent: string;
+  data: PUMLDiagram;
+  createdAt: number;
+  updatedAt: number;
+}
+
+// PUML Node Types (full activity diagram support)
+export type PUMLNodeType =
+  | 'start'
+  | 'stop'
+  | 'activity'
+  | 'decision'
+  | 'fork'
+  | 'join'
+  | 'note'
+  | 'partition-start'
+  | 'partition-end'
+  | 'while-start'
+  | 'while-end'
+  | 'repeat-start'
+  | 'repeat-end'
+  | 'detach'
+  | 'kill';
+
+export interface PUMLNode {
+  id: string;
+  type: PUMLNodeType;
+  text: string;
+  swimlane?: string;
+  partition?: string;
+  condition?: string;         // For decision text (e.g., "Validation OK?")
+  branches?: PUMLBranch[];    // For decision/switch branches
+  loopCondition?: string;     // For while/repeat loops
+  loopExitLabel?: string;     // Label for loop exit (e.g., "no")
+}
+
+export interface PUMLBranch {
+  label: string;              // Branch label (e.g., "yes", "no")
+  targetId: string;           // ID of the node this branch leads to
+}
+
+export interface PUMLConnection {
+  id: string;
+  from: string;               // Source node ID
+  to: string;                 // Target node ID
+  label?: string;             // Arrow label
+  condition?: string;         // Condition label (yes/no for decisions)
+  color?: string;             // Custom arrow color (e.g., "#blue")
+  style?: 'solid' | 'dashed' | 'dotted' | 'hidden';
+}
+
+export interface PUMLSwimlane {
+  id: string;
+  name: string;
+  color?: string;             // Custom color (e.g., "#lightblue") or auto-assigned
+  order: number;              // Left-to-right order (0-based)
+}
+
+export interface PUMLPartition {
+  id: string;
+  name: string;
+  nodeIds: string[];          // IDs of nodes contained in this partition
+}
+
+export interface PUMLNote {
+  id: string;
+  text: string;
+  position: 'left' | 'right' | 'top' | 'bottom';
+  attachedTo?: string;        // Node ID this note is attached to (if not floating)
+  isFloating: boolean;
+}
+
+export interface PUMLDiagram {
+  name: string;
+  nodes: PUMLNode[];
+  connections: PUMLConnection[];
+  swimlanes: PUMLSwimlane[];
+  partitions: PUMLPartition[];
+  notes: PUMLNote[];
 }

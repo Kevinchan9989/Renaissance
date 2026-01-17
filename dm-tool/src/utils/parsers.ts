@@ -1,4 +1,4 @@
-import { Table, ScriptData, ScriptType } from '../types';
+import { Table, ScriptData, ScriptType, PUMLDiagram, PUMLNode, PUMLConnection, PUMLSwimlane, PUMLPartition, PUMLNote } from '../types';
 
 // ============================================
 // Shared Utilities
@@ -722,6 +722,623 @@ export function parseDBML(dbml: string): ScriptData {
   }
 
   return { targets: tables, sources: [] };
+}
+
+// ============================================
+// PlantUML Parser (Activity Diagrams)
+// ============================================
+
+export function parsePUML(content: string): PUMLDiagram {
+  const nodes: PUMLNode[] = [];
+  const connections: PUMLConnection[] = [];
+  const swimlanes: PUMLSwimlane[] = [];
+  const partitions: PUMLPartition[] = [];
+  const notes: PUMLNote[] = [];
+
+  let diagramName = 'Flowchart';
+  let nodeIdCounter = 1;
+  let connectionIdCounter = 1;
+  let swimlaneOrder = 0;
+  let currentSwimlane: string | undefined = undefined;
+  let currentPartition: string | undefined = undefined;
+  let lastNodeId: string | null = null;
+
+  // Stack for tracking control flow (decisions, forks, loops)
+  const controlStack: { type: string; nodeId: string; branches?: { label: string; lastNodeId: string | null }[] }[] = [];
+
+  // Clean content and extract diagram name
+  const lines = content.split('\n');
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line || line.startsWith("'") || line.startsWith('//')) continue;
+
+    // Extract diagram name from @startuml
+    const startMatch = line.match(/@startuml\s*(\w*)/i);
+    if (startMatch) {
+      if (startMatch[1]) diagramName = startMatch[1];
+      continue;
+    }
+
+    // Skip @enduml
+    if (line.match(/@enduml/i)) continue;
+
+    // Parse swimlane: |Name| or |#color|Name|
+    const swimlaneMatch = line.match(/^\|(?:#([a-zA-Z0-9]+)\|)?([^|]+)\|$/);
+    if (swimlaneMatch) {
+      const color = swimlaneMatch[1] || undefined;
+      const name = swimlaneMatch[2].trim();
+
+      // Check if swimlane already exists
+      let existingSwimlane = swimlanes.find(s => s.name === name);
+      if (!existingSwimlane) {
+        existingSwimlane = {
+          id: `swimlane_${swimlanes.length + 1}`,
+          name,
+          color: color ? `#${color}` : undefined,
+          order: swimlaneOrder++
+        };
+        swimlanes.push(existingSwimlane);
+      }
+      currentSwimlane = name;
+      continue;
+    }
+
+    // Parse start
+    if (line.match(/^start$/i)) {
+      const nodeId = `node_${nodeIdCounter++}`;
+      nodes.push({
+        id: nodeId,
+        type: 'start',
+        text: 'Start',
+        swimlane: currentSwimlane,
+        partition: currentPartition
+      });
+
+      if (lastNodeId) {
+        connections.push({
+          id: `conn_${connectionIdCounter++}`,
+          from: lastNodeId,
+          to: nodeId
+        });
+      }
+      lastNodeId = nodeId;
+      continue;
+    }
+
+    // Parse stop/end
+    if (line.match(/^(stop|end)$/i)) {
+      const nodeId = `node_${nodeIdCounter++}`;
+      nodes.push({
+        id: nodeId,
+        type: 'stop',
+        text: 'Stop',
+        swimlane: currentSwimlane,
+        partition: currentPartition
+      });
+
+      if (lastNodeId) {
+        connections.push({
+          id: `conn_${connectionIdCounter++}`,
+          from: lastNodeId,
+          to: nodeId
+        });
+      }
+      lastNodeId = nodeId;
+      continue;
+    }
+
+    // Parse kill
+    if (line.match(/^kill$/i)) {
+      const nodeId = `node_${nodeIdCounter++}`;
+      nodes.push({
+        id: nodeId,
+        type: 'kill',
+        text: 'Kill',
+        swimlane: currentSwimlane,
+        partition: currentPartition
+      });
+
+      if (lastNodeId) {
+        connections.push({
+          id: `conn_${connectionIdCounter++}`,
+          from: lastNodeId,
+          to: nodeId
+        });
+      }
+      lastNodeId = null; // Kill terminates the flow
+      continue;
+    }
+
+    // Parse detach
+    if (line.match(/^detach$/i)) {
+      const nodeId = `node_${nodeIdCounter++}`;
+      nodes.push({
+        id: nodeId,
+        type: 'detach',
+        text: 'Detach',
+        swimlane: currentSwimlane,
+        partition: currentPartition
+      });
+
+      if (lastNodeId) {
+        connections.push({
+          id: `conn_${connectionIdCounter++}`,
+          from: lastNodeId,
+          to: nodeId
+        });
+      }
+      lastNodeId = null; // Detach ends the current branch
+      continue;
+    }
+
+    // Parse activity: :text;
+    const activityMatch = line.match(/^:([^;]+);$/);
+    if (activityMatch) {
+      const nodeId = `node_${nodeIdCounter++}`;
+      const text = activityMatch[1].trim();
+
+      nodes.push({
+        id: nodeId,
+        type: 'activity',
+        text,
+        swimlane: currentSwimlane,
+        partition: currentPartition
+      });
+
+      if (lastNodeId) {
+        connections.push({
+          id: `conn_${connectionIdCounter++}`,
+          from: lastNodeId,
+          to: nodeId
+        });
+      }
+      lastNodeId = nodeId;
+      continue;
+    }
+
+    // Parse if/elseif/else/endif
+    const ifMatch = line.match(/^if\s*\(([^)]+)\)\s*then\s*\(([^)]*)\)$/i);
+    if (ifMatch) {
+      const nodeId = `node_${nodeIdCounter++}`;
+      const condition = ifMatch[1].trim();
+      const thenLabel = ifMatch[2].trim() || 'yes';
+
+      nodes.push({
+        id: nodeId,
+        type: 'decision',
+        text: condition,
+        condition,
+        swimlane: currentSwimlane,
+        partition: currentPartition
+      });
+
+      if (lastNodeId) {
+        connections.push({
+          id: `conn_${connectionIdCounter++}`,
+          from: lastNodeId,
+          to: nodeId
+        });
+      }
+
+      // Push to control stack with branches
+      controlStack.push({
+        type: 'if',
+        nodeId,
+        branches: [{ label: thenLabel, lastNodeId: null }]
+      });
+      lastNodeId = nodeId;
+      continue;
+    }
+
+    // Parse elseif
+    const elseifMatch = line.match(/^elseif\s*\(([^)]+)\)\s*then\s*\(([^)]*)\)$/i);
+    if (elseifMatch) {
+      const condition = elseifMatch[1].trim();
+      const thenLabel = elseifMatch[2].trim() || 'yes';
+
+      // Save current branch ending
+      const currentIf = controlStack[controlStack.length - 1];
+      if (currentIf && currentIf.type === 'if' && currentIf.branches) {
+        currentIf.branches[currentIf.branches.length - 1].lastNodeId = lastNodeId;
+      }
+
+      const nodeId = `node_${nodeIdCounter++}`;
+      nodes.push({
+        id: nodeId,
+        type: 'decision',
+        text: condition,
+        condition,
+        swimlane: currentSwimlane,
+        partition: currentPartition
+      });
+
+      // Connect from previous decision's "no" path
+      if (currentIf) {
+        connections.push({
+          id: `conn_${connectionIdCounter++}`,
+          from: currentIf.nodeId,
+          to: nodeId,
+          condition: 'no'
+        });
+        currentIf.nodeId = nodeId;
+        currentIf.branches?.push({ label: thenLabel, lastNodeId: null });
+      }
+      lastNodeId = nodeId;
+      continue;
+    }
+
+    // Parse else
+    const elseMatch = line.match(/^else\s*\(([^)]*)\)$/i);
+    if (elseMatch) {
+      const elseLabel = elseMatch[1].trim() || 'no';
+
+      // Save current branch ending
+      const currentIf = controlStack[controlStack.length - 1];
+      if (currentIf && currentIf.type === 'if' && currentIf.branches) {
+        currentIf.branches[currentIf.branches.length - 1].lastNodeId = lastNodeId;
+        currentIf.branches.push({ label: elseLabel, lastNodeId: null });
+      }
+
+      // Connect from decision's "else/no" path
+      if (currentIf) {
+        lastNodeId = currentIf.nodeId;
+      }
+      continue;
+    }
+
+    // Parse endif
+    if (line.match(/^endif$/i)) {
+      const currentIf = controlStack.pop();
+      if (currentIf && currentIf.type === 'if' && currentIf.branches) {
+        // Save current branch ending
+        currentIf.branches[currentIf.branches.length - 1].lastNodeId = lastNodeId;
+
+        // Create a merge point (implicit)
+        const mergeId = `node_${nodeIdCounter++}`;
+        nodes.push({
+          id: mergeId,
+          type: 'activity',
+          text: '',  // Invisible merge point
+          swimlane: currentSwimlane,
+          partition: currentPartition
+        });
+
+        // Connect all branch ends to merge point
+        for (const branch of currentIf.branches) {
+          if (branch.lastNodeId) {
+            connections.push({
+              id: `conn_${connectionIdCounter++}`,
+              from: branch.lastNodeId,
+              to: mergeId,
+              condition: branch.label
+            });
+          }
+        }
+        lastNodeId = mergeId;
+      }
+      continue;
+    }
+
+    // Parse fork/fork again/end fork
+    if (line.match(/^fork$/i)) {
+      const nodeId = `node_${nodeIdCounter++}`;
+      nodes.push({
+        id: nodeId,
+        type: 'fork',
+        text: 'Fork',
+        swimlane: currentSwimlane,
+        partition: currentPartition
+      });
+
+      if (lastNodeId) {
+        connections.push({
+          id: `conn_${connectionIdCounter++}`,
+          from: lastNodeId,
+          to: nodeId
+        });
+      }
+
+      controlStack.push({
+        type: 'fork',
+        nodeId,
+        branches: [{ label: 'branch1', lastNodeId: null }]
+      });
+      lastNodeId = nodeId;
+      continue;
+    }
+
+    if (line.match(/^fork\s+again$/i)) {
+      const currentFork = controlStack[controlStack.length - 1];
+      if (currentFork && currentFork.type === 'fork' && currentFork.branches) {
+        // Save current branch ending
+        currentFork.branches[currentFork.branches.length - 1].lastNodeId = lastNodeId;
+        currentFork.branches.push({ label: `branch${currentFork.branches.length + 1}`, lastNodeId: null });
+      }
+      // Reset to fork node for new branch
+      if (currentFork) {
+        lastNodeId = currentFork.nodeId;
+      }
+      continue;
+    }
+
+    if (line.match(/^end\s+fork$/i)) {
+      const currentFork = controlStack.pop();
+      if (currentFork && currentFork.type === 'fork' && currentFork.branches) {
+        // Save current branch ending
+        currentFork.branches[currentFork.branches.length - 1].lastNodeId = lastNodeId;
+
+        // Create join node
+        const joinId = `node_${nodeIdCounter++}`;
+        nodes.push({
+          id: joinId,
+          type: 'join',
+          text: 'Join',
+          swimlane: currentSwimlane,
+          partition: currentPartition
+        });
+
+        // Connect all branch ends to join
+        for (const branch of currentFork.branches) {
+          if (branch.lastNodeId) {
+            connections.push({
+              id: `conn_${connectionIdCounter++}`,
+              from: branch.lastNodeId,
+              to: joinId
+            });
+          }
+        }
+        lastNodeId = joinId;
+      }
+      continue;
+    }
+
+    // Parse while/endwhile
+    const whileMatch = line.match(/^while\s*\(([^)]+)\)\s*(?:is\s*\(([^)]*)\))?$/i);
+    if (whileMatch) {
+      const nodeId = `node_${nodeIdCounter++}`;
+      const condition = whileMatch[1].trim();
+      const loopLabel = whileMatch[2]?.trim() || 'yes';
+
+      nodes.push({
+        id: nodeId,
+        type: 'while-start',
+        text: condition,
+        condition,
+        loopCondition: condition,
+        swimlane: currentSwimlane,
+        partition: currentPartition
+      });
+
+      if (lastNodeId) {
+        connections.push({
+          id: `conn_${connectionIdCounter++}`,
+          from: lastNodeId,
+          to: nodeId
+        });
+      }
+
+      controlStack.push({
+        type: 'while',
+        nodeId,
+        branches: [{ label: loopLabel, lastNodeId: null }]
+      });
+      lastNodeId = nodeId;
+      continue;
+    }
+
+    const endwhileMatch = line.match(/^endwhile\s*(?:\(([^)]*)\))?$/i);
+    if (endwhileMatch) {
+      const exitLabel = endwhileMatch[1]?.trim() || 'no';
+      const currentWhile = controlStack.pop();
+      if (currentWhile && currentWhile.type === 'while') {
+        // Connect back to while condition (loop)
+        if (lastNodeId) {
+          connections.push({
+            id: `conn_${connectionIdCounter++}`,
+            from: lastNodeId,
+            to: currentWhile.nodeId,
+            label: 'loop'
+          });
+        }
+
+        // Create exit node
+        const exitId = `node_${nodeIdCounter++}`;
+        nodes.push({
+          id: exitId,
+          type: 'while-end',
+          text: '',
+          loopExitLabel: exitLabel,
+          swimlane: currentSwimlane,
+          partition: currentPartition
+        });
+
+        connections.push({
+          id: `conn_${connectionIdCounter++}`,
+          from: currentWhile.nodeId,
+          to: exitId,
+          condition: exitLabel
+        });
+        lastNodeId = exitId;
+      }
+      continue;
+    }
+
+    // Parse repeat/repeat while
+    if (line.match(/^repeat$/i)) {
+      const nodeId = `node_${nodeIdCounter++}`;
+      nodes.push({
+        id: nodeId,
+        type: 'repeat-start',
+        text: 'Repeat',
+        swimlane: currentSwimlane,
+        partition: currentPartition
+      });
+
+      if (lastNodeId) {
+        connections.push({
+          id: `conn_${connectionIdCounter++}`,
+          from: lastNodeId,
+          to: nodeId
+        });
+      }
+
+      controlStack.push({
+        type: 'repeat',
+        nodeId,
+        branches: []
+      });
+      lastNodeId = nodeId;
+      continue;
+    }
+
+    const repeatWhileMatch = line.match(/^repeat\s+while\s*\(([^)]+)\)\s*(?:is\s*\(([^)]*)\))?$/i);
+    if (repeatWhileMatch) {
+      const condition = repeatWhileMatch[1].trim();
+      const loopLabel = repeatWhileMatch[2]?.trim() || 'yes';
+      const currentRepeat = controlStack.pop();
+
+      if (currentRepeat && currentRepeat.type === 'repeat') {
+        const nodeId = `node_${nodeIdCounter++}`;
+        nodes.push({
+          id: nodeId,
+          type: 'repeat-end',
+          text: condition,
+          condition,
+          loopCondition: condition,
+          swimlane: currentSwimlane,
+          partition: currentPartition
+        });
+
+        if (lastNodeId) {
+          connections.push({
+            id: `conn_${connectionIdCounter++}`,
+            from: lastNodeId,
+            to: nodeId
+          });
+        }
+
+        // Connect back to repeat start (loop)
+        connections.push({
+          id: `conn_${connectionIdCounter++}`,
+          from: nodeId,
+          to: currentRepeat.nodeId,
+          condition: loopLabel,
+          label: 'loop'
+        });
+
+        lastNodeId = nodeId;
+      }
+      continue;
+    }
+
+    // Parse partition
+    const partitionMatch = line.match(/^partition\s*["']?([^"'{]+)["']?\s*\{$/i);
+    if (partitionMatch) {
+      const name = partitionMatch[1].trim();
+      currentPartition = name;
+      partitions.push({
+        id: `partition_${partitions.length + 1}`,
+        name,
+        nodeIds: []
+      });
+      continue;
+    }
+
+    // Parse end of partition (just closing brace for partition)
+    if (line === '}' && currentPartition) {
+      currentPartition = undefined;
+      continue;
+    }
+
+    // Parse note
+    const noteMatch = line.match(/^note\s+(left|right|top|bottom)\s*:\s*(.+)$/i);
+    if (noteMatch) {
+      const position = noteMatch[1].toLowerCase() as 'left' | 'right' | 'top' | 'bottom';
+      const text = noteMatch[2].trim();
+
+      notes.push({
+        id: `note_${notes.length + 1}`,
+        text,
+        position,
+        attachedTo: lastNodeId || undefined,
+        isFloating: false
+      });
+      continue;
+    }
+
+    // Parse floating note
+    const floatingNoteMatch = line.match(/^floating\s+note\s+(left|right|top|bottom)\s*:\s*(.+)$/i);
+    if (floatingNoteMatch) {
+      const position = floatingNoteMatch[1].toLowerCase() as 'left' | 'right' | 'top' | 'bottom';
+      const text = floatingNoteMatch[2].trim();
+
+      notes.push({
+        id: `note_${notes.length + 1}`,
+        text,
+        position,
+        isFloating: true
+      });
+      continue;
+    }
+
+    // Parse arrow with label: -> text;
+    const arrowMatch = line.match(/^-(?:\[([^\]]*)\])?>\s*(.*)$/);
+    if (arrowMatch) {
+      // This is a labeled arrow, apply label to next connection
+      // Store for next connection (simplified handling)
+      continue;
+    }
+  }
+
+  // Update partition nodeIds
+  for (const node of nodes) {
+    if (node.partition) {
+      const partition = partitions.find(p => p.name === node.partition);
+      if (partition) {
+        partition.nodeIds.push(node.id);
+      }
+    }
+  }
+
+  // Filter out empty merge nodes (invisible)
+  const filteredNodes = nodes.filter(n => n.text !== '' || n.type !== 'activity');
+
+  // Update connections to skip empty merge nodes
+  const nodeIdMap = new Map<string, string>();
+  const emptyNodeIds = new Set(nodes.filter(n => n.text === '' && n.type === 'activity').map(n => n.id));
+
+  // Create mapping from empty nodes to their targets
+  for (const emptyId of emptyNodeIds) {
+    const outgoing = connections.find(c => c.from === emptyId);
+    if (outgoing) {
+      nodeIdMap.set(emptyId, outgoing.to);
+    }
+  }
+
+  // Update connections to bypass empty nodes
+  const filteredConnections = connections.filter(c => {
+    // Remove connections that go to or from empty nodes
+    if (emptyNodeIds.has(c.to)) {
+      return false;
+    }
+    return true;
+  }).map(c => {
+    // Redirect connections that target empty nodes
+    if (emptyNodeIds.has(c.from)) {
+      return c;
+    }
+    return c;
+  });
+
+  return {
+    name: diagramName,
+    nodes: filteredNodes,
+    connections: filteredConnections,
+    swimlanes,
+    partitions,
+    notes
+  };
 }
 
 // ============================================

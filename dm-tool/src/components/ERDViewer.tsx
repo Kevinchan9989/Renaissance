@@ -5,12 +5,14 @@ import dagre from '@dagrejs/dagre';
 import { Table } from '../types';
 import { TABLE_COLORS, SIZING, FONTS, LIGHT_THEME, getDarkTheme, ThemeColors, DarkThemeVariant } from '../constants/erd';
 import { ZoomIn, ZoomOut, Maximize2, Download, RotateCcw, Maximize, Search, X, RefreshCw } from 'lucide-react';
+import ERDExportPreview from './ERDExportPreview';
 
 interface ERDViewerProps {
   tables: Table[];
   isDarkTheme: boolean;
   darkThemeVariant?: DarkThemeVariant;
   scriptId: string;
+  scriptName?: string;
   onRefresh?: () => void;
 }
 
@@ -206,7 +208,7 @@ function getManySymbol(x: number, y: number, position: Position): string {
   return `M${x},${y - halfHeight} L${offset.x},${y} L${x},${y + halfHeight}`;
 }
 
-export default function ERDViewer({ tables, isDarkTheme, darkThemeVariant = 'slate', scriptId, onRefresh }: ERDViewerProps) {
+export default function ERDViewer({ tables, isDarkTheme, darkThemeVariant = 'slate', scriptId, scriptName = 'ERD', onRefresh }: ERDViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -217,6 +219,7 @@ export default function ERDViewer({ tables, isDarkTheme, darkThemeVariant = 'sla
   const [isDraggingStage, setIsDraggingStage] = useState(false);
   const [hoveredTable, setHoveredTable] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showExportPreview, setShowExportPreview] = useState(false);
 
   // Table positions stored separately from nodes to avoid re-layout
   const [tablePositions, setTablePositions] = useState<Record<string, { x: number; y: number }>>({});
@@ -682,16 +685,9 @@ export default function ERDViewer({ tables, isDarkTheme, darkThemeVariant = 'sla
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
 
-  // Export as PNG
+  // Show export preview modal
   const handleExport = () => {
-    const stage = stageRef.current;
-    if (!stage) return;
-
-    const uri = stage.toDataURL({ pixelRatio: 2 });
-    const link = document.createElement('a');
-    link.download = 'erd-diagram.png';
-    link.href = uri;
-    link.click();
+    setShowExportPreview(true);
   };
 
   // Stage drag handlers - only update position without affecting tables
@@ -1159,7 +1155,7 @@ export default function ERDViewer({ tables, isDarkTheme, darkThemeVariant = 'sla
           <Maximize size={16} />
         </button>
 
-        <button className="btn btn-sm btn-primary" onClick={handleExport} title="Export PNG">
+        <button className="btn btn-sm btn-primary" onClick={handleExport} title="Export as HTML">
           <Download size={16} />
           Export
         </button>
@@ -1189,6 +1185,18 @@ export default function ERDViewer({ tables, isDarkTheme, darkThemeVariant = 'sla
           {nodes.map(node => renderTable(node))}
         </Layer>
       </Stage>
+
+      {/* Export Preview Modal */}
+      <ERDExportPreview
+        isOpen={showExportPreview}
+        onClose={() => setShowExportPreview(false)}
+        tables={tables}
+        nodes={nodes}
+        edges={edges}
+        isDarkTheme={isDarkTheme}
+        darkThemeVariant={darkThemeVariant}
+        scriptName={scriptName}
+      />
     </div>
   );
 }

@@ -237,15 +237,15 @@ export default function DataDictionary({
       <h3 style={{ fontSize: '14px', color: '#2c3e50', marginBottom: '12px', borderBottom: '2px solid #eee', paddingBottom: '8px' }}>
         Column Details
       </h3>
-      <table className="data-table">
+      <table className="data-table" style={{ tableLayout: 'fixed', width: '100%' }}>
         <thead>
           <tr>
-            <th>Column</th>
-            <th>Type</th>
-            <th>Nullable</th>
-            <th>Default</th>
-            <th>Explanation</th>
-            <th>Mapping</th>
+            <th style={{ width: '18%' }}>Column</th>
+            <th style={{ width: '14%' }}>Type</th>
+            <th style={{ width: '8%' }}>Nullable</th>
+            <th style={{ width: '12%' }}>Default</th>
+            <th style={{ width: '24%' }}>Explanation</th>
+            <th style={{ width: '24%' }}>Mapping</th>
           </tr>
         </thead>
         <tbody>
@@ -272,46 +272,52 @@ export default function DataDictionary({
                 <td className="code-cell">{col.type}</td>
                 <td>{col.nullable}</td>
                 <td className="code-cell">{col.default || '-'}</td>
-                <td
-                  contentEditable
-                  suppressContentEditableWarning
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      e.currentTarget.blur();
-                    }
-                  }}
-                  onBlur={(e) => updateColumnField(col.name, 'explanation', e.currentTarget.innerHTML || '')}
-                  dangerouslySetInnerHTML={{ __html: col.explanation || '' }}
-                  style={{
-                    cursor: 'text',
-                    whiteSpace: 'pre-wrap',
-                    wordBreak: 'break-word',
-                    maxWidth: '300px',
-                  }}
-                />
-                <td
-                  contentEditable={!mappingInfo && migrationNeeded}
-                  suppressContentEditableWarning
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      e.currentTarget.blur();
-                    }
-                  }}
-                  onBlur={(e) => {
-                    if (!mappingInfo && migrationNeeded) {
-                      updateColumnField(col.name, 'mapping', e.currentTarget.innerHTML || '');
-                    }
-                  }}
-                  dangerouslySetInnerHTML={{ __html: mappingDisplay }}
-                  style={{
-                    cursor: mappingInfo || !migrationNeeded ? 'default' : 'text',
-                    whiteSpace: 'pre-wrap',
-                    wordBreak: 'break-word',
-                    maxWidth: '300px',
-                  }}
-                />
+                <td>
+                  <div
+                    contentEditable
+                    suppressContentEditableWarning
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        e.currentTarget.blur();
+                      }
+                    }}
+                    onBlur={(e) => updateColumnField(col.name, 'explanation', e.currentTarget.innerHTML || '')}
+                    dangerouslySetInnerHTML={{ __html: col.explanation || '' }}
+                    style={{
+                      cursor: 'text',
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-word',
+                      overflowWrap: 'break-word',
+                      minHeight: '20px',
+                    }}
+                  />
+                </td>
+                <td>
+                  <div
+                    contentEditable={!mappingInfo && migrationNeeded}
+                    suppressContentEditableWarning
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        e.currentTarget.blur();
+                      }
+                    }}
+                    onBlur={(e) => {
+                      if (!mappingInfo && migrationNeeded) {
+                        updateColumnField(col.name, 'mapping', e.currentTarget.innerHTML || '');
+                      }
+                    }}
+                    dangerouslySetInnerHTML={{ __html: mappingDisplay }}
+                    style={{
+                      cursor: mappingInfo || !migrationNeeded ? 'default' : 'text',
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-word',
+                      overflowWrap: 'break-word',
+                      minHeight: '20px',
+                    }}
+                  />
+                </td>
               </tr>
             );
           })}

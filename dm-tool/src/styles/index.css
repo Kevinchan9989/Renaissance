@@ -273,6 +273,12 @@ body {
   overflow: hidden;
 }
 
+/* Flowcharts Full Canvas Mode */
+.content-area-flowcharts {
+  padding: 0;
+  overflow: hidden;
+}
+
 /* Backup Settings Mode */
 .content-area-backup {
   overflow-y: auto;
@@ -584,6 +590,31 @@ body {
   box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
 }
 
+/* Form validation error states */
+.form-input-error {
+  border-color: #e74c3c !important;
+  box-shadow: 0 0 0 3px rgba(231, 76, 60, 0.15) !important;
+}
+
+.form-input-error:focus {
+  border-color: #e74c3c !important;
+  box-shadow: 0 0 0 3px rgba(231, 76, 60, 0.25) !important;
+}
+
+.form-error-message {
+  display: block;
+  color: #e74c3c;
+  font-size: 12px;
+  margin-top: 4px;
+  font-weight: 500;
+}
+
+.code-editor-error-wrapper {
+  border: 2px solid #e74c3c;
+  border-radius: 6px;
+  box-shadow: 0 0 0 3px rgba(231, 76, 60, 0.15);
+}
+
 /* Empty State */
 .empty-state {
   display: flex;
@@ -696,6 +727,25 @@ body.dark-theme .form-input:focus,
 body.dark-theme .form-select:focus {
   border-color: #3b82f6;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+
+body.dark-theme .form-input-error {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2) !important;
+}
+
+body.dark-theme .form-input-error:focus {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.3) !important;
+}
+
+body.dark-theme .form-error-message {
+  color: #f87171;
+}
+
+body.dark-theme .code-editor-error-wrapper {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2);
 }
 
 /* Sidebar Dark Theme - Matches Data Mapping page colors */
@@ -3549,6 +3599,25 @@ body.dark-theme.vscode-gray .form-input:focus,
 body.dark-theme.vscode-gray .form-select:focus {
   border-color: #264f78;
   box-shadow: 0 0 0 3px rgba(38, 79, 120, 0.2);
+}
+
+body.dark-theme.vscode-gray .form-input-error {
+  border-color: #f14c4c !important;
+  box-shadow: 0 0 0 3px rgba(241, 76, 76, 0.2) !important;
+}
+
+body.dark-theme.vscode-gray .form-input-error:focus {
+  border-color: #f14c4c !important;
+  box-shadow: 0 0 0 3px rgba(241, 76, 76, 0.3) !important;
+}
+
+body.dark-theme.vscode-gray .form-error-message {
+  color: #f14c4c;
+}
+
+body.dark-theme.vscode-gray .code-editor-error-wrapper {
+  border-color: #f14c4c;
+  box-shadow: 0 0 0 3px rgba(241, 76, 76, 0.2);
 }
 
 /* Sidebar - VS Code Gray */

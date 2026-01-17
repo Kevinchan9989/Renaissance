@@ -17,6 +17,7 @@ import {
   Settings,
   Eye,
   Columns,
+  Workflow,
 } from 'lucide-react';
 
 // Helper function to highlight matched characters in a string
@@ -197,6 +198,13 @@ export default function Sidebar({
         >
           <ArrowRightLeft size={16} />
           Data Mapping
+        </button>
+        <button
+          className={`nav-btn ${view === 'flowcharts' ? 'active' : ''}`}
+          onClick={() => onSelectView('flowcharts')}
+        >
+          <Workflow size={16} />
+          Flowcharts
         </button>
       </div>
 
