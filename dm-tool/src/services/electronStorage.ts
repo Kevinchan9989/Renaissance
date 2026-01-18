@@ -8,6 +8,16 @@ import { WorkspaceData } from '../utils/storage';
 export interface ElectronAPI {
   platform: string;
   isElectron: boolean;
+
+  // Git Sync APIs (new)
+  saveWorkspaceToPath: (filePath: string, data: WorkspaceData) => Promise<{ success: boolean; path?: string; error?: string }>;
+  loadWorkspaceFromPath: (filePath: string) => Promise<{ success: boolean; data?: WorkspaceData; error?: string }>;
+  selectFolder: () => Promise<{ success: boolean; path?: string; canceled?: boolean; error?: string }>;
+  selectFile: () => Promise<{ success: boolean; path?: string; canceled?: boolean; error?: string }>;
+  pathExists: (filePath: string) => Promise<{ success: boolean; exists?: boolean; error?: string }>;
+  getDefaultBackupsPath: () => Promise<{ success: boolean; path?: string; error?: string }>;
+
+  // Legacy APIs
   saveWorkspace: (data: WorkspaceData) => Promise<{ success: boolean; path?: string; error?: string }>;
   loadWorkspace: () => Promise<{ success: boolean; data?: WorkspaceData; error?: string }>;
   exportWorkspace: (data: WorkspaceData, filename?: string) => Promise<{ success: boolean; path?: string; canceled?: boolean; error?: string }>;

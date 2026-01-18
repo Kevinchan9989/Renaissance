@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Script, ScriptType, AppView, Table, MappingProject, FlowchartScript } from './types';
-import { loadScripts, saveScripts, generateId, loadTheme, saveTheme, saveMappingProject, loadDarkThemeVariant, saveDarkThemeVariant, DarkThemeVariant, loadWorkspaceFromElectron, getSortedScripts } from './utils/storage';
+import { loadScripts, saveScripts, generateId, loadTheme, saveTheme, saveMappingProject, loadDarkThemeVariant, saveDarkThemeVariant, DarkThemeVariant, loadWorkspaceFromElectron, getSortedScripts, loadFlowchartScripts, saveFlowchartScripts } from './utils/storage';
 import { parseScript, parsePUML } from './utils/parsers';
 import Sidebar from './components/Sidebar';
 import DataDictionary from './components/DataDictionary';
@@ -10,7 +10,7 @@ import ScriptManager from './components/ScriptManager';
 import ColumnMapper, { MappingStateForSidebar } from './components/ColumnMapper';
 import FlowchartViewer from './components/FlowchartViewer';
 import { Database, PanelLeftClose, PanelLeft, ChevronDown, GripVertical, Settings } from 'lucide-react';
-import { exportWorkspace, importWorkspace, downloadJson, WorkspaceData } from './utils/storage';
+// Storage functions imported for workspace management (used in settings modal)
 import { isElectron } from './services/electronStorage';
 import { initDebugLogger } from './utils/debugLogger';
 import SettingsModal from './components/SettingsModal';
@@ -26,20 +26,6 @@ interface MappingState {
   // Callbacks to call back into ColumnMapper
   handleSelectMapping: (id: string | null) => void;
   handleToggleTable: (tableName: string) => void;
-}
-
-// Flowchart scripts storage key (separate from DDL scripts)
-const FLOWCHART_SCRIPTS_KEY = 'dm_flowchart_scripts';
-
-// Load flowchart scripts from localStorage
-function loadFlowchartScripts(): FlowchartScript[] {
-  const saved = localStorage.getItem(FLOWCHART_SCRIPTS_KEY);
-  return saved ? JSON.parse(saved) : [];
-}
-
-// Save flowchart scripts to localStorage
-function saveFlowchartScripts(scripts: FlowchartScript[]) {
-  localStorage.setItem(FLOWCHART_SCRIPTS_KEY, JSON.stringify(scripts));
 }
 
 export default function App() {
@@ -297,20 +283,35 @@ export default function App() {
   }, [darkThemeVariant, theme]);
 
 
-  // Update table data (for inline editing)
-  const updateTable = useCallback((tableId: number, updates: Partial<Table>) => {
+  // Update table data (for inline editing) - supports both targets and sources
+  const updateTable = useCallback((tableId: number, updates: Partial<Table>, isSource?: boolean) => {
     if (!activeScript) return;
 
-    const updatedTables = activeScript.data.targets.map(t => {
-      if (t.id === tableId) {
-        return { ...t, ...updates };
-      }
-      return t;
-    });
+    if (isSource) {
+      // Update in sources array
+      const updatedSources = (activeScript.data.sources || []).map(t => {
+        if (t.id === tableId) {
+          return { ...t, ...updates };
+        }
+        return t;
+      });
 
-    updateScript(activeScript.id, {
-      data: { ...activeScript.data, targets: updatedTables }
-    });
+      updateScript(activeScript.id, {
+        data: { ...activeScript.data, sources: updatedSources }
+      });
+    } else {
+      // Update in targets array (default)
+      const updatedTargets = activeScript.data.targets.map(t => {
+        if (t.id === tableId) {
+          return { ...t, ...updates };
+        }
+        return t;
+      });
+
+      updateScript(activeScript.id, {
+        data: { ...activeScript.data, targets: updatedTargets }
+      });
+    }
   }, [activeScript, updateScript]);
 
   // Handle view change - switch to dictionary if no script selected for data views

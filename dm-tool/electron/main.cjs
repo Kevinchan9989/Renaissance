@@ -1,6 +1,9 @@
-const { app, BrowserWindow, Menu, ipcMain } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
+
+// Get the project root directory (for default backups path)
+const PROJECT_ROOT = path.join(__dirname, '..');
 
 let mainWindow;
 
@@ -72,7 +75,8 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      webSecurity: true
+      webSecurity: true,
+      preload: path.join(__dirname, 'preload.cjs')
     },
     show: false,
     backgroundColor: '#f4f4f9'
@@ -160,3 +164,148 @@ process.on('unhandledRejection', (reason, promise) => {
 app.on('before-quit', () => {
   logInfo('=== Application Quitting ===');
 });
+
+// ============================================
+// IPC Handlers for Git Sync
+// ============================================
+
+// Save workspace to a custom path
+ipcMain.handle('save-workspace-to-path', async (event, filePath, data) => {
+  try {
+    // Ensure directory exists
+    const dir = path.dirname(filePath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+
+    // Write the file
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
+    logInfo('Workspace saved to custom path', { path: filePath });
+
+    return { success: true, path: filePath };
+  } catch (error) {
+    logError('Failed to save workspace to path', { path: filePath, error: error.message });
+    return { success: false, error: error.message };
+  }
+});
+
+// Load workspace from a custom path
+ipcMain.handle('load-workspace-from-path', async (event, filePath) => {
+  try {
+    if (!fs.existsSync(filePath)) {
+      return { success: false, error: 'File not found' };
+    }
+
+    const content = fs.readFileSync(filePath, 'utf-8');
+    const data = JSON.parse(content);
+    logInfo('Workspace loaded from custom path', { path: filePath });
+
+    return { success: true, data };
+  } catch (error) {
+    logError('Failed to load workspace from path', { path: filePath, error: error.message });
+    return { success: false, error: error.message };
+  }
+});
+
+// Select folder dialog
+ipcMain.handle('select-folder', async () => {
+  try {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      properties: ['openDirectory', 'createDirectory'],
+      title: 'Select Git Sync Folder',
+      buttonLabel: 'Select Folder'
+    });
+
+    if (result.canceled || result.filePaths.length === 0) {
+      return { success: false, canceled: true };
+    }
+
+    return { success: true, path: result.filePaths[0] };
+  } catch (error) {
+    logError('Failed to show folder dialog', { error: error.message });
+    return { success: false, error: error.message };
+  }
+});
+
+// Select file dialog
+ipcMain.handle('select-file', async () => {
+  try {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      properties: ['openFile'],
+      title: 'Select Workspace File',
+      buttonLabel: 'Select File',
+      filters: [
+        { name: 'JSON Files', extensions: ['json'] },
+        { name: 'All Files', extensions: ['*'] }
+      ]
+    });
+
+    if (result.canceled || result.filePaths.length === 0) {
+      return { success: false, canceled: true };
+    }
+
+    return { success: true, path: result.filePaths[0] };
+  } catch (error) {
+    logError('Failed to show file dialog', { error: error.message });
+    return { success: false, error: error.message };
+  }
+});
+
+// Check if path exists
+ipcMain.handle('path-exists', async (event, filePath) => {
+  try {
+    const exists = fs.existsSync(filePath);
+    return { success: true, exists };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// Get default backups path (Renaissance/backups/)
+ipcMain.handle('get-default-backups-path', async () => {
+  try {
+    // Go up from dm-tool to Renaissance, then to backups
+    const backupsPath = path.join(PROJECT_ROOT, '..', 'backups');
+    const normalizedPath = path.normalize(backupsPath);
+
+    // Ensure it exists
+    if (!fs.existsSync(normalizedPath)) {
+      fs.mkdirSync(normalizedPath, { recursive: true });
+    }
+
+    return { success: true, path: normalizedPath };
+  } catch (error) {
+    logError('Failed to get default backups path', { error: error.message });
+    return { success: false, error: error.message };
+  }
+});
+
+// Legacy handlers for compatibility
+ipcMain.handle('save-workspace', async (event, data) => {
+  // Default save location in app data
+  const userDataPath = app.getPath('userData');
+  const filePath = path.join(userDataPath, 'workspace.json');
+  return ipcMain.emit('save-workspace-to-path', event, filePath, data);
+});
+
+ipcMain.handle('load-workspace', async () => {
+  const userDataPath = app.getPath('userData');
+  const filePath = path.join(userDataPath, 'workspace.json');
+
+  if (!fs.existsSync(filePath)) {
+    return { success: false, error: 'No workspace file found' };
+  }
+
+  try {
+    const content = fs.readFileSync(filePath, 'utf-8');
+    return { success: true, data: JSON.parse(content) };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('get-data-directory', async () => {
+  return { success: true, path: app.getPath('userData') };
+});
+
+logInfo('IPC handlers registered');

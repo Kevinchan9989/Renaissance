@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
-import { Download, Upload, Trash2, FileDown, X, Copy, Check, Sun, Moon, Palette } from 'lucide-react';
-import { exportWorkspace, importWorkspace, downloadJson, WorkspaceData } from '../utils/storage';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { Download, Upload, Trash2, FileDown, X, Copy, Check, Sun, Moon, Palette, GitBranch, FolderSync, Database, FileCode, Folder, RefreshCw, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { exportWorkspace, importWorkspace, downloadJson, WorkspaceData, exportWorkspaceForGit, getWorkspaceSummary, GIT_WORKSPACE_FILENAME, getGitSyncSettings, setGitSyncPath, setGitSyncEnabled, triggerGitSync, subscribeToGitSyncStatus, GitSyncSettings } from '../utils/storage';
 import { getLogs, clearLogs, subscribeToLogs, formatTimestamp, downloadLogs, exportLogsAsText } from '../utils/debugLogger';
+import { isElectron } from '../services/electronStorage';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -12,7 +13,7 @@ interface SettingsModalProps {
   onToggleDarkThemeVariant: () => void;
 }
 
-type TabType = 'appearance' | 'workspace' | 'logs' | 'erd';
+type TabType = 'appearance' | 'workspace' | 'git-sync' | 'logs' | 'erd';
 
 export default function SettingsModal({ isOpen, onClose, theme, darkThemeVariant, onToggleTheme, onToggleDarkThemeVariant }: SettingsModalProps) {
   const [activeTab, setActiveTab] = useState<TabType>('appearance');
@@ -23,6 +24,35 @@ export default function SettingsModal({ isOpen, onClose, theme, darkThemeVariant
     localStorage.getItem('erd_group_temporal_colors') === 'true'
   );
   const logsEndRef = useRef<HTMLDivElement>(null);
+
+  // Git sync state
+  const [gitSyncSettings, setGitSyncSettingsState] = useState<GitSyncSettings>(getGitSyncSettings);
+  const [gitSyncStatus, setGitSyncStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [gitSyncError, setGitSyncError] = useState<string | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  // Refresh git sync settings when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setGitSyncSettingsState(getGitSyncSettings());
+    }
+  }, [isOpen]);
+
+  // Subscribe to git sync status updates
+  useEffect(() => {
+    const unsubscribe = subscribeToGitSyncStatus((status, message) => {
+      setGitSyncStatus(status);
+      if (status === 'error') {
+        setGitSyncError(message || 'Unknown error');
+      } else {
+        setGitSyncError(null);
+      }
+      if (status === 'saved') {
+        setGitSyncSettingsState(getGitSyncSettings()); // Refresh to get new lastSaved
+      }
+    });
+    return unsubscribe;
+  }, []);
 
   // Subscribe to log updates
   useEffect(() => {
@@ -38,6 +68,94 @@ export default function SettingsModal({ isOpen, onClose, theme, darkThemeVariant
       logsEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [logs, autoScroll]);
+
+  // Git sync handlers
+  const handleSelectGitSyncFolder = useCallback(async () => {
+    if (!isElectron() || !window.electronAPI) {
+      alert('Folder selection requires the desktop app (Electron)');
+      return;
+    }
+
+    const result = await window.electronAPI.selectFolder();
+    if (result.success && result.path) {
+      setGitSyncPath(result.path);
+      setGitSyncSettingsState(getGitSyncSettings());
+    }
+  }, []);
+
+  const handleSetDefaultPath = useCallback(async () => {
+    if (!isElectron() || !window.electronAPI) {
+      alert('This feature requires the desktop app (Electron)');
+      return;
+    }
+
+    const result = await window.electronAPI.getDefaultBackupsPath();
+    if (result.success && result.path) {
+      setGitSyncPath(result.path);
+      setGitSyncSettingsState(getGitSyncSettings());
+    }
+  }, []);
+
+  const handleClearGitSyncPath = useCallback(() => {
+    setGitSyncPath(null);
+    setGitSyncEnabled(false);
+    setGitSyncSettingsState(getGitSyncSettings());
+  }, []);
+
+  const handleToggleAutoSync = useCallback((enabled: boolean) => {
+    setGitSyncEnabled(enabled);
+    setGitSyncSettingsState(getGitSyncSettings());
+  }, []);
+
+  const handleManualSync = useCallback(async () => {
+    if (!gitSyncSettings.path) {
+      alert('Please set a sync path first');
+      return;
+    }
+
+    setIsSyncing(true);
+    try {
+      await triggerGitSync();
+      setGitSyncSettingsState(getGitSyncSettings());
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [gitSyncSettings.path]);
+
+  const handleLoadFromSyncPath = useCallback(async () => {
+    if (!isElectron() || !window.electronAPI || !gitSyncSettings.path) {
+      return;
+    }
+
+    const fullPath = `${gitSyncSettings.path}/${GIT_WORKSPACE_FILENAME}`;
+    const result = await window.electronAPI.loadWorkspaceFromPath(fullPath);
+
+    if (result.success && result.data) {
+      const confirmed = window.confirm(
+        'This will replace all current data including scripts, mappings, and ERD positions. Are you sure?'
+      );
+      if (confirmed) {
+        importWorkspace(result.data as WorkspaceData);
+        onClose();
+        window.location.reload();
+      }
+    } else {
+      alert(`Failed to load workspace: ${result.error || 'File not found'}`);
+    }
+  }, [gitSyncSettings.path, onClose]);
+
+  const formatLastSaved = (timestamp: number | null): string => {
+    if (!timestamp) return 'Never';
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diff = now.getTime() - date.getTime();
+
+    if (diff < 60000) return 'Just now';
+    if (diff < 3600000) return `${Math.floor(diff / 60000)} min ago`;
+    if (diff < 86400000) return `${Math.floor(diff / 3600000)} hours ago`;
+
+    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
 
   if (!isOpen) return null;
 
@@ -252,6 +370,37 @@ export default function SettingsModal({ isOpen, onClose, theme, darkThemeVariant
             >
               <Download size={16} />
               Workspace
+            </button>
+            <button
+              onClick={() => setActiveTab('git-sync')}
+              style={{
+                padding: '12px 24px',
+                background: activeTab === 'git-sync' ? (isDark ? (isVscode ? '#37373d' : '#1e293b') : '#e5e7eb') : 'transparent',
+                border: 'none',
+                borderLeft: activeTab === 'git-sync' ? `3px solid #10b981` : '3px solid transparent',
+                color: activeTab === 'git-sync' ? textColor : textSecondary,
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: activeTab === 'git-sync' ? 600 : 500,
+                textAlign: 'left',
+                transition: 'all 0.2s',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+              }}
+              onMouseEnter={(e) => {
+                if (activeTab !== 'git-sync') {
+                  e.currentTarget.style.backgroundColor = hoverColor;
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (activeTab !== 'git-sync') {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }
+              }}
+            >
+              <GitBranch size={16} />
+              Git Sync
             </button>
             <button
               onClick={() => setActiveTab('erd')}
@@ -597,6 +746,449 @@ export default function SettingsModal({ isOpen, onClose, theme, darkThemeVariant
                 }}>
                   <strong>Note:</strong> The exported file includes all your work and can be used as a backup or to transfer your workspace to another device.
                 </p>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'git-sync' && (
+            <div>
+              <h3 style={{
+                margin: '0 0 8px 0',
+                color: textColor,
+                fontSize: '18px',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+              }}>
+                <GitBranch size={20} style={{ color: '#10b981' }} />
+                Git Repository Sync
+              </h3>
+              <p style={{
+                margin: '0 0 24px 0',
+                color: textSecondary,
+                fontSize: '14px',
+                lineHeight: '1.6',
+              }}>
+                Auto-save your workspace to a folder in your Git repository. Changes sync automatically when you make edits.
+              </p>
+
+              {/* Sync Path Configuration */}
+              <div style={{
+                padding: '16px',
+                borderRadius: '8px',
+                backgroundColor: isDark ? (isVscode ? '#252526' : '#1e293b') : '#f9fafb',
+                border: `1px solid ${gitSyncSettings.path ? '#10b981' : borderColor}`,
+                marginBottom: '16px',
+              }}>
+                <div style={{
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  color: textColor,
+                  marginBottom: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}>
+                  <Folder size={14} />
+                  Sync Folder
+                </div>
+
+                {gitSyncSettings.path ? (
+                  <>
+                    <div style={{
+                      padding: '10px 12px',
+                      backgroundColor: isDark ? '#0f172a' : '#e5e7eb',
+                      borderRadius: '6px',
+                      fontFamily: "'SF Mono', 'Fira Code', monospace",
+                      fontSize: '12px',
+                      color: textColor,
+                      marginBottom: '12px',
+                      wordBreak: 'break-all',
+                    }}>
+                      {gitSyncSettings.path}/{GIT_WORKSPACE_FILENAME}
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        onClick={handleSelectGitSyncFolder}
+                        style={{
+                          padding: '8px 12px',
+                          backgroundColor: isDark ? '#374151' : '#e5e7eb',
+                          color: textColor,
+                          border: 'none',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          fontSize: '13px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                        }}
+                      >
+                        <Folder size={14} />
+                        Change
+                      </button>
+                      <button
+                        onClick={handleClearGitSyncPath}
+                        style={{
+                          padding: '8px 12px',
+                          backgroundColor: 'transparent',
+                          color: '#ef4444',
+                          border: `1px solid #ef4444`,
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          fontSize: '13px',
+                        }}
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <button
+                      onClick={handleSetDefaultPath}
+                      style={{
+                        padding: '10px 16px',
+                        backgroundColor: '#10b981',
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontSize: '13px',
+                        fontWeight: 500,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                      }}
+                    >
+                      <FolderSync size={14} />
+                      Use Renaissance/backups
+                    </button>
+                    <button
+                      onClick={handleSelectGitSyncFolder}
+                      style={{
+                        padding: '10px 16px',
+                        backgroundColor: isDark ? '#374151' : '#e5e7eb',
+                        color: textColor,
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontSize: '13px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                      }}
+                    >
+                      <Folder size={14} />
+                      Browse...
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Auto-Sync Toggle */}
+              {gitSyncSettings.path && (
+                <div style={{
+                  padding: '16px',
+                  borderRadius: '8px',
+                  backgroundColor: isDark ? (isVscode ? '#252526' : '#1e293b') : '#f9fafb',
+                  border: `1px solid ${borderColor}`,
+                  marginBottom: '16px',
+                }}>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                  }}>
+                    <div>
+                      <div style={{ color: textColor, fontSize: '14px', fontWeight: 500, marginBottom: '4px' }}>
+                        Auto-Sync
+                      </div>
+                      <div style={{ color: textSecondary, fontSize: '12px' }}>
+                        Automatically save workspace when you make changes
+                      </div>
+                    </div>
+                    <label style={{
+                      position: 'relative',
+                      display: 'inline-block',
+                      width: '48px',
+                      height: '26px',
+                      cursor: 'pointer',
+                    }}>
+                      <input
+                        type="checkbox"
+                        checked={gitSyncSettings.enabled}
+                        onChange={(e) => handleToggleAutoSync(e.target.checked)}
+                        style={{
+                          opacity: 0,
+                          width: 0,
+                          height: 0,
+                        }}
+                      />
+                      <span style={{
+                        position: 'absolute',
+                        cursor: 'pointer',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        backgroundColor: gitSyncSettings.enabled ? '#10b981' : (isDark ? '#4b5563' : '#d1d5db'),
+                        transition: '0.3s',
+                        borderRadius: '26px',
+                      }}>
+                        <span style={{
+                          position: 'absolute',
+                          content: '',
+                          height: '20px',
+                          width: '20px',
+                          left: gitSyncSettings.enabled ? '25px' : '3px',
+                          bottom: '3px',
+                          backgroundColor: 'white',
+                          transition: '0.3s',
+                          borderRadius: '50%',
+                        }} />
+                      </span>
+                    </label>
+                  </div>
+
+                  {/* Status indicator */}
+                  <div style={{
+                    marginTop: '12px',
+                    paddingTop: '12px',
+                    borderTop: `1px solid ${borderColor}`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                  }}>
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      fontSize: '12px',
+                      color: textSecondary,
+                    }}>
+                      {gitSyncStatus === 'saving' || isSyncing ? (
+                        <>
+                          <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} />
+                          <span>Saving...</span>
+                        </>
+                      ) : gitSyncStatus === 'saved' ? (
+                        <>
+                          <CheckCircle size={14} style={{ color: '#10b981' }} />
+                          <span style={{ color: '#10b981' }}>Saved</span>
+                        </>
+                      ) : gitSyncStatus === 'error' ? (
+                        <>
+                          <AlertCircle size={14} style={{ color: '#ef4444' }} />
+                          <span style={{ color: '#ef4444' }}>{gitSyncError || 'Error'}</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>Last saved: {formatLastSaved(gitSyncSettings.lastSaved)}</span>
+                        </>
+                      )}
+                    </div>
+                    <button
+                      onClick={handleManualSync}
+                      disabled={isSyncing}
+                      style={{
+                        padding: '6px 12px',
+                        backgroundColor: 'transparent',
+                        color: '#10b981',
+                        border: `1px solid #10b981`,
+                        borderRadius: '6px',
+                        cursor: isSyncing ? 'not-allowed' : 'pointer',
+                        fontSize: '12px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        opacity: isSyncing ? 0.5 : 1,
+                      }}
+                    >
+                      <RefreshCw size={12} style={{ animation: isSyncing ? 'spin 1s linear infinite' : 'none' }} />
+                      Sync Now
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Workspace Summary */}
+              {(() => {
+                const summary = getWorkspaceSummary();
+                return (
+                  <div style={{
+                    padding: '16px',
+                    borderRadius: '8px',
+                    backgroundColor: isDark ? (isVscode ? '#252526' : '#1e293b') : '#f9fafb',
+                    border: `1px solid ${borderColor}`,
+                    marginBottom: '16px',
+                  }}>
+                    <div style={{
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      color: textColor,
+                      marginBottom: '12px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                    }}>
+                      <Database size={14} />
+                      Workspace Contents
+                    </div>
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(2, 1fr)',
+                      gap: '8px',
+                      fontSize: '13px',
+                    }}>
+                      <div style={{ color: textSecondary }}>
+                        DDL Scripts: <span style={{ color: textColor, fontWeight: 500 }}>{summary.scripts}</span>
+                      </div>
+                      <div style={{ color: textSecondary }}>
+                        Flowcharts: <span style={{ color: textColor, fontWeight: 500 }}>{summary.flowcharts}</span>
+                      </div>
+                      <div style={{ color: textSecondary }}>
+                        Mapping Projects: <span style={{ color: textColor, fontWeight: 500 }}>{summary.mappingProjects}</span>
+                      </div>
+                      <div style={{ color: textSecondary }}>
+                        Type Rule Sets: <span style={{ color: textColor, fontWeight: 500 }}>{summary.typeRuleSets}</span>
+                      </div>
+                      <div style={{ color: textSecondary, gridColumn: 'span 2' }}>
+                        Total Size: <span style={{ color: '#10b981', fontWeight: 500 }}>{summary.totalSize}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Manual Export/Import */}
+              <div style={{
+                padding: '16px',
+                borderRadius: '8px',
+                backgroundColor: isDark ? (isVscode ? '#252526' : '#1e293b') : '#f9fafb',
+                border: `1px solid ${borderColor}`,
+                marginBottom: '16px',
+              }}>
+                <div style={{
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  color: textColor,
+                  marginBottom: '12px',
+                }}>
+                  Manual Sync
+                </div>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <button
+                    onClick={() => exportWorkspaceForGit()}
+                    style={{
+                      padding: '8px 14px',
+                      backgroundColor: isDark ? '#374151' : '#e5e7eb',
+                      color: textColor,
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontSize: '13px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                    }}
+                  >
+                    <Download size={14} />
+                    Download {GIT_WORKSPACE_FILENAME}
+                  </button>
+                  {gitSyncSettings.path ? (
+                    <button
+                      onClick={handleLoadFromSyncPath}
+                      style={{
+                        padding: '8px 14px',
+                        backgroundColor: isDark ? '#374151' : '#e5e7eb',
+                        color: textColor,
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontSize: '13px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                      }}
+                    >
+                      <Upload size={14} />
+                      Load from Sync Folder
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleImportWorkspace}
+                      style={{
+                        padding: '8px 14px',
+                        backgroundColor: isDark ? '#374151' : '#e5e7eb',
+                        color: textColor,
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontSize: '13px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                      }}
+                    >
+                      <Upload size={14} />
+                      Import from File
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Git Instructions */}
+              <div style={{
+                padding: '16px',
+                borderRadius: '8px',
+                backgroundColor: isDark ? 'rgba(16, 185, 129, 0.1)' : 'rgba(16, 185, 129, 0.05)',
+                border: `1px solid ${isDark ? 'rgba(16, 185, 129, 0.2)' : 'rgba(16, 185, 129, 0.15)'}`,
+              }}>
+                <div style={{
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  color: '#10b981',
+                  marginBottom: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}>
+                  <FileCode size={14} />
+                  Git Workflow
+                </div>
+                <div style={{
+                  fontSize: '12px',
+                  color: isDark ? '#94a3b8' : '#64748b',
+                  lineHeight: '1.8',
+                }}>
+                  <div style={{ marginBottom: '8px' }}>
+                    <strong style={{ color: textColor }}>Push changes:</strong>
+                  </div>
+                  <code style={{
+                    display: 'block',
+                    backgroundColor: isDark ? '#0f172a' : '#e5e7eb',
+                    padding: '8px 12px',
+                    borderRadius: '4px',
+                    fontSize: '11px',
+                    marginBottom: '12px',
+                    wordBreak: 'break-all',
+                  }}>
+                    git add backups/{GIT_WORKSPACE_FILENAME} && git commit -m "Update workspace" && git push
+                  </code>
+                  <div style={{ marginBottom: '8px' }}>
+                    <strong style={{ color: textColor }}>Pull on another device:</strong>
+                  </div>
+                  <code style={{
+                    display: 'block',
+                    backgroundColor: isDark ? '#0f172a' : '#e5e7eb',
+                    padding: '8px 12px',
+                    borderRadius: '4px',
+                    fontSize: '11px',
+                  }}>
+                    git pull
+                  </code>
+                </div>
               </div>
             </div>
           )}

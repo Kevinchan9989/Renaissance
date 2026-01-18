@@ -299,6 +299,12 @@ export default function ColumnMapper({
     direction: 'toSource' | 'toTarget';
   } | null>(null);
 
+  // Copy Mappings Preview modal state
+  const [copyPreview, setCopyPreview] = useState<{
+    content: string;
+    format: 'tsv' | 'markdown' | 'csv' | 'json';
+  } | null>(null);
+
   // Multi-select state for linkage table
   const [selectedMappingIds, setSelectedMappingIds] = useState<Set<string>>(new Set());
   const [lastClickedIndex, setLastClickedIndex] = useState<number | null>(null);
@@ -475,10 +481,16 @@ export default function ColumnMapper({
         .filter(p => p.sourceScriptId === sourceScriptId || p.targetScriptId === targetScriptId)
         .flatMap(p => p.mappings);
 
-      // Deduplicate mappings by ID (in case same mapping appears in multiple projects)
-      const uniqueMappings = Array.from(
-        new Map(allRelatedMappings.map(m => [m.id, m])).values()
-      );
+      // Deduplicate mappings by ID, keeping the one with the latest updatedAt
+      // This is critical when the same mapping exists in multiple projects
+      const mappingMap = new Map<string, ColumnMapping>();
+      for (const m of allRelatedMappings) {
+        const existingMapping = mappingMap.get(m.id);
+        if (!existingMapping || (m.updatedAt || 0) > (existingMapping.updatedAt || 0)) {
+          mappingMap.set(m.id, m);
+        }
+      }
+      const uniqueMappings = Array.from(mappingMap.values());
 
       // Merge into current project for display (but don't save merged mappings back)
       const projectWithAllMappings = {
@@ -548,10 +560,15 @@ export default function ColumnMapper({
         .filter(p => p.sourceScriptId === sourceScriptId || p.targetScriptId === targetScriptId)
         .flatMap(p => p.mappings);
 
-      // Deduplicate mappings by ID
-      const uniqueMappings = Array.from(
-        new Map(allRelatedMappings.map(m => [m.id, m])).values()
-      );
+      // Deduplicate mappings by ID, keeping the one with the latest updatedAt
+      const mappingMap = new Map<string, ColumnMapping>();
+      for (const m of allRelatedMappings) {
+        const existingMapping = mappingMap.get(m.id);
+        if (!existingMapping || (m.updatedAt || 0) > (existingMapping.updatedAt || 0)) {
+          mappingMap.set(m.id, m);
+        }
+      }
+      const uniqueMappings = Array.from(mappingMap.values());
 
       setProject(prev => prev ? { ...prev, mappings: uniqueMappings, updatedAt: Date.now() } : null);
     } else if (action === 'add') {
@@ -576,10 +593,15 @@ export default function ColumnMapper({
         .filter(p => p.sourceScriptId === sourceScriptId || p.targetScriptId === targetScriptId)
         .flatMap(p => p.mappings);
 
-      // Deduplicate mappings by ID
-      const uniqueMappings = Array.from(
-        new Map(allRelatedMappings.map(m => [m.id, m])).values()
-      );
+      // Deduplicate mappings by ID, keeping the one with the latest updatedAt
+      const mappingMap = new Map<string, ColumnMapping>();
+      for (const m of allRelatedMappings) {
+        const existingMapping = mappingMap.get(m.id);
+        if (!existingMapping || (m.updatedAt || 0) > (existingMapping.updatedAt || 0)) {
+          mappingMap.set(m.id, m);
+        }
+      }
+      const uniqueMappings = Array.from(mappingMap.values());
 
       setProject(prev => prev ? { ...prev, mappings: uniqueMappings, updatedAt: Date.now() } : null);
     }
@@ -705,6 +727,7 @@ export default function ColumnMapper({
   // This allows viewing cross-schema mappings in linkage table
   // Also re-validates mappings when scripts change
   const currentMappings = useMemo(() => {
+    console.log('[currentMappings useMemo] Recalculating - project.mappings count:', project?.mappings?.length);
     if (!project || !project.mappings) return [];
 
     let filteredMappings: ColumnMapping[] = [];
@@ -790,6 +813,10 @@ export default function ColumnMapper({
       });
     }
 
+    // Log a sample mapping's remarks for debugging
+    if (filteredMappings.length > 0) {
+      console.log('[currentMappings useMemo] First mapping remarks:', filteredMappings[0].remarks, 'ID:', filteredMappings[0].id);
+    }
     return filteredMappings;
   }, [project, sourceTableName, targetTableName, sourceScript, targetScript]);
 
@@ -1237,23 +1264,202 @@ export default function ColumnMapper({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedMappingId, activeTab, handleDeleteMapping]);
 
-  // Update mapping remarks
+  // Update mapping remarks - loads fresh data from localStorage to avoid stale closure issues
   const handleUpdateRemarks = useCallback((mappingId: string, remarks: string) => {
-    if (!project || !project.mappings) return;
+    console.log('[handleUpdateRemarks] START - mappingId:', mappingId, 'remarks:', remarks);
 
-    const mapping = project.mappings.find(m => m.id === mappingId);
-    if (!mapping) return;
+    // Load fresh data from localStorage to avoid stale closure issues
+    const allProjects = loadMappingProjects() || [];
+    console.log('[handleUpdateRemarks] Loaded', allProjects.length, 'projects from localStorage');
+
+    // Find the project that contains this mapping
+    let ownerProject: MappingProject | undefined;
+    let mapping: ColumnMapping | undefined;
+
+    for (const p of allProjects) {
+      const found = p.mappings?.find(m => m.id === mappingId);
+      if (found) {
+        ownerProject = p;
+        mapping = found;
+        break;
+      }
+    }
+
+    if (!ownerProject || !mapping) {
+      console.warn('[handleUpdateRemarks] FAILED - Mapping not found in any project', mappingId);
+      console.log('[handleUpdateRemarks] Available mapping IDs:', allProjects.flatMap(p => p.mappings?.map(m => m.id) || []));
+      setEditingRemarkId(null);
+      setEditingRemarkValue('');
+      return;
+    }
+
+    console.log('[handleUpdateRemarks] Found mapping in project:', ownerProject.id, 'Old remarks:', mapping.remarks);
 
     const updatedMapping = { ...mapping, remarks, updatedAt: Date.now() };
+    console.log('[handleUpdateRemarks] Updated mapping remarks to:', updatedMapping.remarks);
 
-    // Save to the correct project (not the merged one)
-    saveToCorrectProject(updatedMapping, 'update');
+    // Update the project's mappings
+    const updatedMappings = ownerProject.mappings.map(m =>
+      m.id === mappingId ? updatedMapping : m
+    );
+
+    const updatedProject = {
+      ...ownerProject,
+      mappings: updatedMappings,
+      updatedAt: Date.now(),
+    };
+
+    // Save directly to localStorage
+    saveMappingProject(updatedProject);
+    console.log('[handleUpdateRemarks] Saved to localStorage');
+
+    // Reload fresh from localStorage after save to ensure consistency
+    // This avoids issues with stale data and merged views
+    const freshProjects = loadMappingProjects() || [];
+
+    // Verify the save worked
+    const verifyProject = freshProjects.find(p => p.id === ownerProject!.id);
+    const verifyMapping = verifyProject?.mappings?.find(m => m.id === mappingId);
+    console.log('[handleUpdateRemarks] Verify after save - remarks in localStorage:', verifyMapping?.remarks);
+
+    if (sourceScriptId && targetScriptId) {
+      console.log('[handleUpdateRemarks] Merged view mode - sourceScriptId:', sourceScriptId, 'targetScriptId:', targetScriptId);
+
+      // Collect mappings from all related projects (merged view)
+      const relatedProjects = freshProjects.filter(p =>
+        p.sourceScriptId === sourceScriptId || p.targetScriptId === targetScriptId
+      );
+      console.log('[handleUpdateRemarks] Related projects:', relatedProjects.map(p => ({ id: p.id, sourceScriptId: p.sourceScriptId, targetScriptId: p.targetScriptId })));
+
+      const allRelatedMappings = relatedProjects.flatMap(p => p.mappings || []);
+      console.log('[handleUpdateRemarks] All related mappings count:', allRelatedMappings.length);
+
+      // Deduplicate mappings by ID, keeping the one with the latest updatedAt
+      // This is critical when the same mapping exists in multiple projects
+      const mappingMap = new Map<string, ColumnMapping>();
+      for (const m of allRelatedMappings) {
+        const existing = mappingMap.get(m.id);
+        if (!existing || (m.updatedAt || 0) > (existing.updatedAt || 0)) {
+          mappingMap.set(m.id, m);
+        }
+      }
+      const uniqueMappings = Array.from(mappingMap.values());
+
+      // Check if our mapping is in the result
+      const ourMapping = uniqueMappings.find(m => m.id === mappingId);
+      console.log('[handleUpdateRemarks] Our mapping in uniqueMappings - remarks:', ourMapping?.remarks);
+
+      setProject(prev => {
+        console.log('[handleUpdateRemarks] setProject called - prev mappings count:', prev?.mappings?.length);
+        const newState = prev ? { ...prev, mappings: uniqueMappings, updatedAt: Date.now() } : null;
+        console.log('[handleUpdateRemarks] setProject - new mappings count:', newState?.mappings?.length);
+        return newState;
+      });
+    } else {
+      console.log('[handleUpdateRemarks] Single project view mode');
+      // Single project view - update directly
+      setProject(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          mappings: prev.mappings.map(m => m.id === mappingId ? updatedMapping : m),
+          updatedAt: Date.now(),
+        };
+      });
+    }
+
     setEditingRemarkId(null);
     setEditingRemarkValue('');
+    console.log('[handleUpdateRemarks] END');
 
-    // Sync remarks to data dictionary
-    syncMappingToDataDictionary(updatedMapping);
-  }, [project, saveToCorrectProject]);
+    // Sync remarks to data dictionary - load fresh scripts to avoid stale closure
+    if (sourceScriptId && targetScriptId) {
+      const allScripts = loadScripts();
+      const freshSourceScript = allScripts.find((s: Script) => s.id === sourceScriptId);
+      const freshTargetScript = allScripts.find((s: Script) => s.id === targetScriptId);
+
+      if (freshSourceScript && freshTargetScript) {
+        // Inline sync logic to avoid stale closure issues
+        let updated = false;
+        const sourceTable = freshSourceScript?.data?.targets?.find((t: Table) => t.tableName === updatedMapping.sourceTable);
+        const targetTable = freshTargetScript?.data?.targets?.find((t: Table) => t.tableName === updatedMapping.targetTable);
+        const sourceColumn = sourceTable?.columns?.find((c: Column) => c.name === updatedMapping.sourceColumn);
+        const targetColumn = targetTable?.columns?.find((c: Column) => c.name === updatedMapping.targetColumn);
+
+        const updatedScripts = allScripts.map((script: Script) => {
+          // Update source column
+          if (script.id === sourceScriptId && sourceColumn) {
+            const scriptCopy = { ...script };
+            scriptCopy.data = {
+              ...scriptCopy.data,
+              targets: scriptCopy.data.targets.map((table: Table) => {
+                if (table.tableName === updatedMapping.sourceTable) {
+                  return {
+                    ...table,
+                    columns: table.columns.map((col: Column) => {
+                      if (col.name === updatedMapping.sourceColumn) {
+                        const targetInfo = `${freshTargetScript.name}.${updatedMapping.targetTable}.${updatedMapping.targetColumn}`;
+                        const remarkText = sourceColumn.migrationNeeded === false && sourceColumn.nonMigrationComment
+                          ? sourceColumn.nonMigrationComment
+                          : (updatedMapping.remarks || '');
+                        const newMappingText = remarkText
+                          ? `Mapped to ${targetInfo}<br>${remarkText}`
+                          : `Mapped to ${targetInfo}`;
+                        updated = true;
+                        return { ...col, mapping: newMappingText };
+                      }
+                      return col;
+                    }),
+                  };
+                }
+                return table;
+              }),
+            };
+            scriptCopy.updatedAt = Date.now();
+            return scriptCopy;
+          }
+
+          // Update target column
+          if (script.id === targetScriptId && targetColumn) {
+            const scriptCopy = { ...script };
+            scriptCopy.data = {
+              ...scriptCopy.data,
+              targets: scriptCopy.data.targets.map((table: Table) => {
+                if (table.tableName === updatedMapping.targetTable) {
+                  return {
+                    ...table,
+                    columns: table.columns.map((col: Column) => {
+                      if (col.name === updatedMapping.targetColumn) {
+                        const sourceInfo = `${freshSourceScript.name}.${updatedMapping.sourceTable}.${updatedMapping.sourceColumn}`;
+                        const remarkText = targetColumn.migrationNeeded === false && targetColumn.nonMigrationComment
+                          ? targetColumn.nonMigrationComment
+                          : (updatedMapping.remarks || '');
+                        const newMappingText = remarkText
+                          ? `Mapped from ${sourceInfo}<br>${remarkText}`
+                          : `Mapped from ${sourceInfo}`;
+                        updated = true;
+                        return { ...col, mapping: newMappingText };
+                      }
+                      return col;
+                    }),
+                  };
+                }
+                return table;
+              }),
+            };
+            scriptCopy.updatedAt = Date.now();
+            return scriptCopy;
+          }
+
+          return script;
+        });
+
+        if (updated) {
+          saveScripts(updatedScripts);
+        }
+      }
+    }
+  }, [sourceScriptId, targetScriptId]);
 
   // Sync mapping information to data dictionary
   const syncMappingToDataDictionary = useCallback((mapping: ColumnMapping) => {
@@ -1390,6 +1596,146 @@ export default function ColumnMapper({
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   }, [generatedSql, sqlAlignDirection]);
+
+  // Format mappings for copy - supports TSV, Markdown, CSV, JSON
+  // Also includes non-migrated columns from source tables
+  const formatMappingsForCopy = useCallback((mappings: ColumnMapping[], format: 'tsv' | 'markdown' | 'csv' | 'json'): string => {
+    // Get column details for each mapping
+    const mappingsWithDetails = (mappings || []).map(mapping => {
+      const mappingSourceScript = scripts.find(s => s.id === mapping.sourceScriptId);
+      const mappingTargetScript = scripts.find(s => s.id === mapping.targetScriptId);
+
+      const allSourceTables = (mappingSourceScript?.data?.sources || []).concat(mappingSourceScript?.data?.targets || []);
+      const allTargetTables = (mappingTargetScript?.data?.sources || []).concat(mappingTargetScript?.data?.targets || []);
+
+      const sourceTable = allSourceTables.find(t => t.tableName === mapping.sourceTable);
+      const targetTable = allTargetTables.find(t => t.tableName === mapping.targetTable);
+
+      const sourceCol = sourceTable?.columns?.find(c => c.name === mapping.sourceColumn);
+      const targetCol = targetTable?.columns?.find(c => c.name === mapping.targetColumn);
+
+      const sourceNullable = sourceCol?.nullable
+        ? (sourceCol.nullable.toUpperCase() === 'YES' || sourceCol.nullable.toUpperCase() === 'Y' ? 'NULL' : 'NOT NULL')
+        : '';
+      const targetNullable = targetCol?.nullable
+        ? (targetCol.nullable.toUpperCase() === 'YES' || targetCol.nullable.toUpperCase() === 'Y' ? 'NULL' : 'NOT NULL')
+        : '';
+
+      return {
+        sourceTable: mapping.sourceTable,
+        sourceColumn: mapping.sourceColumn,
+        sourceType: sourceCol?.type || mapping.sourceType,
+        sourceNullable,
+        targetTable: mapping.targetTable,
+        targetColumn: mapping.targetColumn,
+        targetType: targetCol?.type || mapping.targetType,
+        targetNullable,
+        remarks: mapping.remarks || '',
+      };
+    });
+
+    // Collect non-migrated columns from source tables involved in mappings
+    interface NonMigratedEntry {
+      sourceTable: string;
+      sourceColumn: string;
+      sourceType: string;
+      sourceNullable: string;
+      targetTable: string;
+      targetColumn: string;
+      targetType: string;
+      targetNullable: string;
+      remarks: string;
+    }
+    const nonMigratedEntries: NonMigratedEntry[] = [];
+
+    // Get all source tables involved in the current mappings, plus the selected source table
+    const sourceTableNames = new Set<string>();
+    (mappings || []).forEach(m => sourceTableNames.add(m.sourceTable));
+    if (sourceTableName) sourceTableNames.add(sourceTableName);
+
+    // Collect non-migrated columns from these source tables
+    sourceTableNames.forEach(tableName => {
+      // Search all scripts for the table
+      for (const script of scripts) {
+        const allTables = (script?.data?.sources || []).concat(script?.data?.targets || []);
+        const table = allTables.find(t => t.tableName === tableName);
+        if (table) {
+          table.columns.forEach(col => {
+            if (col.migrationNeeded === false) {
+              const nullable = col.nullable
+                ? (col.nullable.toUpperCase() === 'NOT NULL' ? 'NOT NULL' : 'NULL')
+                : '';
+              nonMigratedEntries.push({
+                sourceTable: tableName,
+                sourceColumn: col.name,
+                sourceType: col.type,
+                sourceNullable: nullable,
+                targetTable: '(Not Migrated)',
+                targetColumn: '—',
+                targetType: '—',
+                targetNullable: '—',
+                remarks: col.nonMigrationComment || 'Not specified',
+              });
+            }
+          });
+          break; // Found the table, no need to search other scripts
+        }
+      }
+    });
+
+    // Combine mapped and non-migrated entries
+    const allEntries = [...mappingsWithDetails, ...nonMigratedEntries];
+
+    if (allEntries.length === 0) return '';
+
+    const headers = ['Source Table', 'Source Column', 'Source Type', 'Source Null', 'Target Table', 'Target Column', 'Target Type', 'Target Null', 'Remarks'];
+
+    switch (format) {
+      case 'tsv': {
+        const headerRow = headers.join('\t');
+        const dataRows = allEntries.map(m =>
+          [m.sourceTable, m.sourceColumn, m.sourceType, m.sourceNullable, m.targetTable, m.targetColumn, m.targetType, m.targetNullable, m.remarks].join('\t')
+        );
+        return [headerRow, ...dataRows].join('\n');
+      }
+
+      case 'csv': {
+        const escapeCSV = (val: string) => {
+          if (val.includes(',') || val.includes('"') || val.includes('\n')) {
+            return `"${val.replace(/"/g, '""')}"`;
+          }
+          return val;
+        };
+        const headerRow = headers.map(escapeCSV).join(',');
+        const dataRows = allEntries.map(m =>
+          [m.sourceTable, m.sourceColumn, m.sourceType, m.sourceNullable, m.targetTable, m.targetColumn, m.targetType, m.targetNullable, m.remarks].map(escapeCSV).join(',')
+        );
+        return [headerRow, ...dataRows].join('\n');
+      }
+
+      case 'markdown': {
+        const headerRow = '| ' + headers.join(' | ') + ' |';
+        const separatorRow = '| ' + headers.map(() => '---').join(' | ') + ' |';
+        const dataRows = allEntries.map(m =>
+          '| ' + [m.sourceTable, m.sourceColumn, m.sourceType, m.sourceNullable, m.targetTable, m.targetColumn, m.targetType, m.targetNullable, m.remarks.replace(/\|/g, '\\|').replace(/\n/g, '<br>')].join(' | ') + ' |'
+        );
+        return [headerRow, separatorRow, ...dataRows].join('\n');
+      }
+
+      case 'json': {
+        return JSON.stringify(allEntries, null, 2);
+      }
+
+      default:
+        return '';
+    }
+  }, [scripts, sourceTableName]);
+
+  // Open copy preview modal
+  const handleOpenCopyPreview = useCallback((format: 'tsv' | 'markdown' | 'csv' | 'json' = 'tsv') => {
+    const content = formatMappingsForCopy(currentMappings, format);
+    setCopyPreview({ content, format });
+  }, [currentMappings, formatMappingsForCopy]);
 
   // Generate SQL for a single column mapping
   const handleGenerateSingleColumnSql = useCallback((mapping: ColumnMapping, direction: 'toSource' | 'toTarget') => {
@@ -1999,7 +2345,55 @@ export default function ColumnMapper({
 
   // Render linkage table
   const renderLinkageTable = () => {
-    if (!currentMappings || currentMappings.length === 0) {
+    // Collect non-migrated columns from source tables FIRST (before empty check)
+    // These are columns marked with migrationNeeded === false
+    interface NonMigratedColumn {
+      tableName: string;
+      columnName: string;
+      columnType: string;
+      nullable: boolean;
+      reason: string;
+    }
+    const nonMigratedColumns: NonMigratedColumn[] = [];
+
+    // Get all source tables involved in the current mappings, plus the selected source table
+    const sourceTableNames = new Set<string>();
+    (currentMappings || []).forEach(m => sourceTableNames.add(m.sourceTable));
+    if (sourceTableName) sourceTableNames.add(sourceTableName);
+
+    // Collect non-migrated columns from these source tables
+    sourceTableNames.forEach(tableName => {
+      const allTables = (sourceScript?.data?.sources || []).concat(sourceScript?.data?.targets || []);
+      const table = allTables.find(t => t.tableName === tableName);
+      if (table) {
+        table.columns.forEach(col => {
+          if (col.migrationNeeded === false) {
+            nonMigratedColumns.push({
+              tableName,
+              columnName: col.name,
+              columnType: col.type,
+              nullable: col.nullable !== 'NOT NULL',
+              reason: col.nonMigrationComment || 'Not specified',
+            });
+          }
+        });
+      }
+    });
+
+    // Group non-migrated columns by source table
+    const nonMigratedGroups = new Map<string, NonMigratedColumn[]>();
+    nonMigratedColumns.forEach(col => {
+      if (!nonMigratedGroups.has(col.tableName)) {
+        nonMigratedGroups.set(col.tableName, []);
+      }
+      nonMigratedGroups.get(col.tableName)!.push(col);
+    });
+
+    // Show empty state only if no mappings AND no non-migrated columns
+    const hasMappings = currentMappings && currentMappings.length > 0;
+    const hasNonMigrated = nonMigratedGroups.size > 0;
+
+    if (!hasMappings && !hasNonMigrated) {
       return (
         <div style={{
           flex: 1,
@@ -2030,7 +2424,7 @@ export default function ColumnMapper({
     // Group mappings by table pairs (source table -> target table)
     const tablePairGroups = new Map<string, ColumnMapping[]>();
 
-    currentMappings.forEach(mapping => {
+    (currentMappings || []).forEach(mapping => {
       if (!mapping || !mapping.sourceTable || !mapping.targetTable) {
         console.warn('Skipping invalid mapping:', mapping);
         return;
@@ -2092,6 +2486,126 @@ export default function ColumnMapper({
             </tr>
           </thead>
           <tbody>
+            {/* Non-migrated columns - styled like regular groups but with grey source and - for target */}
+            {nonMigratedGroups.size > 0 && Array.from(nonMigratedGroups.entries()).map(([tableName, columns]) => {
+              const notMigratedKey = `${tableName}→-`;
+              const isExpanded = expandedLinkageTablePairs.has(notMigratedKey);
+
+              return (
+                <Fragment key={notMigratedKey}>
+                  {/* Header row - like regular pairs but greyed */}
+                  <tr
+                    onClick={() => {
+                      const newExpanded = new Set(expandedLinkageTablePairs);
+                      if (isExpanded) {
+                        newExpanded.delete(notMigratedKey);
+                      } else {
+                        newExpanded.add(notMigratedKey);
+                      }
+                      setExpandedLinkageTablePairs(newExpanded);
+                    }}
+                    style={{
+                      background: theme.table.headerBackground,
+                      cursor: 'pointer',
+                      borderTop: `2px solid ${theme.table.border}`,
+                      borderBottom: `1px solid ${theme.table.border}`,
+                    }}
+                  >
+                    <td colSpan={10} style={{ padding: '8px 12px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600 }}>
+                        {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                        <span style={{ color: theme.text.secondary }}>{tableName}</span>
+                        <span style={{ color: theme.text.secondary }}>→</span>
+                        <span style={{ color: theme.text.secondary }}>-</span>
+                        <span style={{
+                          marginLeft: 'auto',
+                          fontSize: '12px',
+                          color: theme.text.secondary,
+                          fontWeight: 400,
+                        }}>
+                          {columns.length} {columns.length === 1 ? 'column' : 'columns'}
+                        </span>
+                      </div>
+                    </td>
+                  </tr>
+
+                  {/* Non-migrated column rows - greyed styling */}
+                  {isExpanded && columns.map((col) => (
+                    <tr
+                      key={`${col.tableName}-${col.columnName}`}
+                      style={{
+                        background: theme.table.background,
+                        borderBottom: `1px solid ${theme.table.border}`,
+                      }}
+                    >
+                      <td style={{ padding: '10px 12px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <div style={{
+                            width: '8px',
+                            height: '8px',
+                            borderRadius: '50%',
+                            background: theme.text.secondary,
+                            flexShrink: 0,
+                            opacity: 0.5,
+                          }} />
+                          <span style={{ color: theme.text.secondary, fontWeight: 500 }}>
+                            {col.columnName}
+                          </span>
+                        </div>
+                      </td>
+                      <td style={{
+                        padding: '10px 12px',
+                        color: theme.text.secondary,
+                        fontSize: '11px',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        opacity: 0.7,
+                      }} title={col.columnType}>
+                        {col.columnType}
+                      </td>
+                      <td style={{ padding: '10px 12px', textAlign: 'center', opacity: 0.7 }}>
+                        {col.nullable ? (
+                          <span style={{ color: theme.text.secondary, fontSize: '11px' }}>NULL</span>
+                        ) : (
+                          <span style={{ color: theme.text.secondary, fontSize: '11px' }}>NOT NULL</span>
+                        )}
+                      </td>
+                      <td style={{ padding: '10px 12px', textAlign: 'center', color: theme.text.secondary, opacity: 0.5 }}>
+                        —
+                      </td>
+                      <td style={{ padding: '10px 12px', color: theme.text.secondary, opacity: 0.5 }}>
+                        —
+                      </td>
+                      <td style={{ padding: '10px 12px', color: theme.text.secondary, opacity: 0.5 }}>
+                        —
+                      </td>
+                      <td style={{ padding: '10px 12px', textAlign: 'center', color: theme.text.secondary, opacity: 0.5 }}>
+                        —
+                      </td>
+                      <td style={{ padding: '10px 12px', textAlign: 'center', color: theme.text.secondary, opacity: 0.5 }}>
+                        —
+                      </td>
+                      <td style={{ padding: '10px 12px', minWidth: '150px' }}>
+                        <div style={{
+                          color: theme.text.primary,
+                          whiteSpace: 'pre-wrap',
+                          wordBreak: 'break-word',
+                          lineHeight: '1.4',
+                        }}>
+                          {col.reason}
+                        </div>
+                      </td>
+                      <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                        {/* No actions for non-migrated columns */}
+                      </td>
+                    </tr>
+                  ))}
+                </Fragment>
+              );
+            })}
+
+            {/* Regular mapped columns */}
             {Array.from(tablePairGroups.entries()).map(([pairKey, mappings]) => {
               const [pairSourceTableName, pairTargetTableName] = pairKey.split('→');
               const isExpanded = expandedLinkageTablePairs.has(pairKey);
@@ -2315,18 +2829,19 @@ export default function ColumnMapper({
                         value={editingRemarkValue}
                         onChange={(e) => setEditingRemarkValue(e.target.value)}
                         onClick={(e) => e.stopPropagation()}
-                        onBlur={() => {
-                          handleUpdateRemarks(mapping.id, editingRemarkValue);
-                          setEditingRemarkId(null);
+                        onBlur={(e) => {
+                          // Read value directly from the textarea to avoid stale closure issues
+                          const currentValue = e.currentTarget.value;
+                          console.log('[Linkage onBlur] mapping.id:', mapping.id, 'textarea value:', currentValue);
+                          handleUpdateRemarks(mapping.id, currentValue);
                         }}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' && e.shiftKey) {
-                            // Allow Shift+Enter for new line
-                            return;
+                            return; // Allow Shift+Enter for new line
                           } else if (e.key === 'Enter') {
                             e.preventDefault();
-                            handleUpdateRemarks(mapping.id, editingRemarkValue);
-                            setEditingRemarkId(null);
+                            const currentValue = e.currentTarget.value;
+                            handleUpdateRemarks(mapping.id, currentValue);
                           } else if (e.key === 'Escape') {
                             setEditingRemarkId(null);
                             setEditingRemarkValue(mapping.remarks || '');
@@ -2359,10 +2874,9 @@ export default function ColumnMapper({
                           fontStyle: mapping.remarks ? 'normal' : 'italic',
                           cursor: 'text',
                           display: 'block',
-                          overflow: 'auto',
-                          maxHeight: '100px',
                           whiteSpace: 'pre-wrap',
                           wordBreak: 'break-word',
+                          lineHeight: '1.4',
                         }}
                       >
                         {mapping.remarks || 'Click to add...'}
@@ -2404,6 +2918,43 @@ export default function ColumnMapper({
   const renderSummaryTable = () => {
     const allMappings = project?.mappings || [];
 
+    // Collect non-migrated columns from ALL source tables in all scripts
+    interface NonMigratedColumn {
+      tableName: string;
+      columnName: string;
+      columnType: string;
+      nullable: boolean;
+      reason: string;
+    }
+    const nonMigratedColumns: NonMigratedColumn[] = [];
+
+    // Collect non-migrated columns from all scripts' source tables
+    scripts.forEach(script => {
+      const allTables = (script?.data?.sources || []).concat(script?.data?.targets || []);
+      allTables.forEach(table => {
+        table.columns.forEach(col => {
+          if (col.migrationNeeded === false) {
+            nonMigratedColumns.push({
+              tableName: table.tableName,
+              columnName: col.name,
+              columnType: col.type,
+              nullable: col.nullable !== 'NOT NULL',
+              reason: col.nonMigrationComment || 'Not specified',
+            });
+          }
+        });
+      });
+    });
+
+    // Group non-migrated columns by source table
+    const nonMigratedGroups = new Map<string, NonMigratedColumn[]>();
+    nonMigratedColumns.forEach(col => {
+      if (!nonMigratedGroups.has(col.tableName)) {
+        nonMigratedGroups.set(col.tableName, []);
+      }
+      nonMigratedGroups.get(col.tableName)!.push(col);
+    });
+
     // Group mappings by target table, then by source table within each target
     const groupedByTarget = new Map<string, Map<string, ColumnMapping[]>>();
 
@@ -2439,6 +2990,8 @@ export default function ColumnMapper({
       });
     }
 
+    const hasNonMigrated = nonMigratedGroups.size > 0;
+
     return (
       <div style={{
         flex: 1,
@@ -2446,7 +2999,7 @@ export default function ColumnMapper({
         padding: '16px',
         background: theme.canvas.background,
       }}>
-        {allMappings.length === 0 ? (
+        {allMappings.length === 0 && !hasNonMigrated ? (
           <div style={{
             display: 'flex',
             flexDirection: 'column',
@@ -2463,6 +3016,173 @@ export default function ColumnMapper({
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            {/* Non-migrated columns - styled like regular target groups but with "-" as target */}
+            {hasNonMigrated && (
+              <div style={{
+                background: theme.table.background,
+                borderRadius: '8px',
+                border: `1px solid ${theme.table.border}`,
+                overflow: 'hidden',
+              }}>
+                {/* Target Header - like regular groups but with "-" */}
+                <div
+                  onClick={() => {
+                    const newExpanded = new Set(expandedTargetTables);
+                    if (newExpanded.has('-')) {
+                      newExpanded.delete('-');
+                    } else {
+                      newExpanded.add('-');
+                    }
+                    setExpandedTargetTables(newExpanded);
+                  }}
+                  style={{
+                    padding: '12px 16px',
+                    background: theme.table.headerBackground,
+                    borderBottom: expandedTargetTables.has('-') ? `1px solid ${theme.table.border}` : 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    cursor: 'pointer',
+                    transition: 'background 0.2s',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = theme.canvas.grid;
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = theme.table.headerBackground;
+                  }}
+                >
+                  {expandedTargetTables.has('-') ? <ChevronDown size={16} color={theme.text.secondary} /> : <ChevronRight size={16} color={theme.text.secondary} />}
+                  <span style={{
+                    background: theme.text.secondary,
+                    color: '#fff',
+                    fontSize: '10px',
+                    padding: '2px 8px',
+                    borderRadius: '10px',
+                    fontWeight: 600,
+                    opacity: 0.6,
+                  }}>TGT</span>
+                  <span style={{
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    color: theme.text.secondary,
+                  }}>-</span>
+                  <span style={{
+                    fontSize: '12px',
+                    color: theme.text.secondary,
+                    marginLeft: 'auto',
+                  }}>
+                    {nonMigratedColumns.length} column{nonMigratedColumns.length !== 1 ? 's' : ''}
+                  </span>
+                </div>
+
+                {/* Non-migrated columns by source table */}
+                {expandedTargetTables.has('-') && Array.from(nonMigratedGroups.entries()).sort((a, b) => a[0].localeCompare(b[0])).map(([sourceTableName, columns]) => (
+                  <div key={sourceTableName}>
+                    {/* Source Table Sub-header - like regular groups but greyed */}
+                    <div style={{
+                      padding: '8px 16px 8px 32px',
+                      background: theme.canvas.grid,
+                      borderBottom: `1px solid ${theme.table.border}`,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                    }}>
+                      <span style={{
+                        background: theme.text.secondary,
+                        color: '#fff',
+                        fontSize: '10px',
+                        padding: '2px 8px',
+                        borderRadius: '10px',
+                        fontWeight: 600,
+                        opacity: 0.6,
+                      }}>SRC</span>
+                      <span style={{
+                        fontSize: '13px',
+                        fontWeight: 500,
+                        color: theme.text.secondary,
+                      }}>{sourceTableName}</span>
+                      <span style={{
+                        fontSize: '11px',
+                        color: theme.text.secondary,
+                        marginLeft: 'auto',
+                        opacity: 0.7,
+                      }}>
+                        {columns.length} column{columns.length !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+
+                    {/* Non-migrated columns table */}
+                    <table style={{
+                      width: '100%',
+                      borderCollapse: 'collapse',
+                      fontSize: '13px',
+                      tableLayout: 'auto',
+                    }}>
+                      <colgroup>
+                        <col style={{ width: '20%' }} />
+                        <col style={{ width: '15%' }} />
+                        <col style={{ width: '8%' }} />
+                        <col style={{ width: 'auto' }} />
+                      </colgroup>
+                      <tbody>
+                        {columns.map(col => (
+                          <tr
+                            key={`${col.tableName}-${col.columnName}`}
+                            style={{
+                              borderBottom: `1px solid ${theme.table.border}`,
+                            }}
+                          >
+                            <td style={{ padding: '8px 16px 8px 48px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <div style={{
+                                  width: '8px',
+                                  height: '8px',
+                                  borderRadius: '50%',
+                                  background: theme.text.secondary,
+                                  flexShrink: 0,
+                                  opacity: 0.5,
+                                }} />
+                                <span style={{ color: theme.text.secondary, fontWeight: 500 }}>
+                                  {col.columnName}
+                                </span>
+                              </div>
+                            </td>
+                            <td style={{
+                              padding: '8px 12px',
+                              color: theme.text.secondary,
+                              fontSize: '12px',
+                              opacity: 0.7,
+                            }}>
+                              {col.columnType}
+                            </td>
+                            <td style={{ padding: '8px 12px', textAlign: 'center', opacity: 0.7 }}>
+                              {col.nullable ? (
+                                <span style={{ color: theme.text.secondary, fontSize: '11px' }}>NULL</span>
+                              ) : (
+                                <span style={{ color: theme.text.secondary, fontSize: '11px' }}>NOT NULL</span>
+                              )}
+                            </td>
+                            <td style={{ padding: '8px 12px' }}>
+                              <div style={{
+                                color: theme.text.primary,
+                                whiteSpace: 'pre-wrap',
+                                wordBreak: 'break-word',
+                                lineHeight: '1.4',
+                              }}>
+                                {col.reason}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Regular mapped columns */}
             {Array.from(groupedByTarget.entries()).sort((a, b) => a[0].localeCompare(b[0])).map(([targetTable, sourceMap]) => {
               const isExpanded = expandedTargetTables.has(targetTable);
 
@@ -2677,18 +3397,18 @@ export default function ColumnMapper({
                                     value={editingRemarkValue}
                                     onChange={(e) => setEditingRemarkValue(e.target.value)}
                                     onClick={(e) => e.stopPropagation()}
-                                    onBlur={() => {
-                                      handleUpdateRemarks(mapping.id, editingRemarkValue);
-                                      setEditingRemarkId(null);
+                                    onBlur={(e) => {
+                                      // Read value directly from the textarea to avoid stale closure issues
+                                      const currentValue = e.currentTarget.value;
+                                      handleUpdateRemarks(mapping.id, currentValue);
                                     }}
                                     onKeyDown={(e) => {
                                       if (e.key === 'Enter' && e.shiftKey) {
-                                        // Allow Shift+Enter for new line
-                                        return;
+                                        return; // Allow Shift+Enter for new line
                                       } else if (e.key === 'Enter') {
                                         e.preventDefault();
-                                        handleUpdateRemarks(mapping.id, editingRemarkValue);
-                                        setEditingRemarkId(null);
+                                        const currentValue = e.currentTarget.value;
+                                        handleUpdateRemarks(mapping.id, currentValue);
                                       } else if (e.key === 'Escape') {
                                         setEditingRemarkId(null);
                                         setEditingRemarkValue(mapping.remarks || '');
@@ -2722,10 +3442,9 @@ export default function ColumnMapper({
                                       fontSize: '12px',
                                       cursor: 'text',
                                       display: 'block',
-                                      overflow: 'auto',
-                                      maxHeight: '100px',
                                       whiteSpace: 'pre-wrap',
                                       wordBreak: 'break-word',
+                                      lineHeight: '1.4',
                                     }}
                                   >
                                     {mapping.remarks || 'Click to add...'}
@@ -3757,6 +4476,36 @@ export default function ColumnMapper({
               </button>
             )}
 
+            {/* Copy Mappings button - visible on linkage tab when mappings exist */}
+            {currentMappings.length > 0 && activeTab === 'linkage' && (
+              <button
+                onClick={() => handleOpenCopyPreview('tsv')}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '8px 12px',
+                  background: theme.table.headerBackground,
+                  color: theme.text.primary,
+                  border: `1px solid ${theme.table.border}`,
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  transition: 'all 0.15s ease',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = isDarkTheme ? '#374151' : '#e5e7eb';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = theme.table.headerBackground;
+                }}
+              >
+                <Copy size={14} />
+                Copy Mappings
+              </button>
+            )}
+
             {/* Delete selected mapping button */}
             {selectedMappingId && activeTab === 'canvas' && (
               <button
@@ -4639,6 +5388,150 @@ export default function ColumnMapper({
                 }}
               >
                 <Copy size={16} />
+                Copy to Clipboard
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Copy Mappings Preview Modal */}
+      {copyPreview && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 2000,
+          }}
+          onClick={() => setCopyPreview(null)}
+        >
+          <div
+            style={{
+              background: theme.table.background,
+              borderRadius: '12px',
+              padding: '24px',
+              width: '90%',
+              maxWidth: '900px',
+              maxHeight: '80vh',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '0 20px 40px rgba(0, 0, 0, 0.3)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 600, color: theme.text.primary }}>
+                Copy Mappings ({currentMappings.length} mappings)
+              </h3>
+              <button
+                onClick={() => setCopyPreview(null)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: '4px',
+                  color: theme.text.secondary,
+                }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Format selector */}
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+              {(['tsv', 'markdown', 'csv', 'json'] as const).map((format) => (
+                <button
+                  key={format}
+                  onClick={() => {
+                    const content = formatMappingsForCopy(currentMappings, format);
+                    setCopyPreview({ content, format });
+                  }}
+                  style={{
+                    padding: '8px 16px',
+                    background: copyPreview.format === format ? theme.accent.primary : theme.table.headerBackground,
+                    color: copyPreview.format === format ? '#fff' : theme.text.primary,
+                    border: copyPreview.format === format ? 'none' : `1px solid ${theme.table.border}`,
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                    fontWeight: 500,
+                  }}
+                >
+                  {format === 'tsv' ? 'TSV (Excel)' : format === 'markdown' ? 'Markdown' : format.toUpperCase()}
+                </button>
+              ))}
+            </div>
+
+            {/* Preview area */}
+            <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+              <textarea
+                id="copy-mappings-textarea"
+                value={copyPreview.content}
+                readOnly
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  fontFamily: 'monospace',
+                  fontSize: '12px',
+                  lineHeight: '1.5',
+                  border: `1px solid ${theme.table.border}`,
+                  borderRadius: '8px',
+                  background: isDarkTheme ? '#1a1a2e' : '#f8fafc',
+                  color: theme.text.primary,
+                  resize: 'none',
+                  minHeight: '300px',
+                }}
+              />
+            </div>
+
+            {/* Actions */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '16px' }}>
+              <button
+                onClick={() => setCopyPreview(null)}
+                style={{
+                  padding: '10px 20px',
+                  background: 'transparent',
+                  border: `1px solid ${theme.table.border}`,
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  color: theme.text.primary,
+                }}
+              >
+                Close
+              </button>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(copyPreview.content);
+                  // Show brief feedback
+                  const btn = document.activeElement as HTMLButtonElement;
+                  const originalText = btn.textContent;
+                  btn.textContent = 'Copied!';
+                  setTimeout(() => { btn.textContent = originalText; }, 1500);
+                }}
+                style={{
+                  padding: '10px 20px',
+                  background: theme.accent.primary,
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: 500,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
+              >
+                <Copy size={14} />
                 Copy to Clipboard
               </button>
             </div>

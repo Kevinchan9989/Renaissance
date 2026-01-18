@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Script, Table, Column, MappingProject } from '../types';
+import { Script, Table, Column } from '../types';
 import { downloadJson, loadMappingProjects } from '../utils/storage';
 import CodeEditor from './CodeEditor';
 import { FileDown, Edit3, Save, X } from 'lucide-react';
@@ -8,7 +8,7 @@ interface DataDictionaryProps {
   script: Script;
   selectedTableId: number | null;
   onSelectTable: (id: number | null) => void;
-  onUpdateTable: (tableId: number, updates: Partial<Table>) => void;
+  onUpdateTable: (tableId: number, updates: Partial<Table>, isSource?: boolean) => void;
   onUpdateScript: (rawContent: string) => void;
   isDarkTheme?: boolean;
   darkThemeVariant?: 'slate' | 'vscode-gray';
@@ -28,7 +28,11 @@ export default function DataDictionary({
   const [editMode, setEditMode] = useState(false);
   const [editContent, setEditContent] = useState('');
 
-  const selectedTable = script.data.targets.find(t => t.id === selectedTableId);
+  // Find selected table from both targets and sources
+  const selectedTableFromTargets = script.data.targets.find(t => t.id === selectedTableId);
+  const selectedTableFromSources = script.data.sources?.find(t => t.id === selectedTableId);
+  const selectedTable = selectedTableFromTargets || selectedTableFromSources;
+  const isSourceTable = !selectedTableFromTargets && !!selectedTableFromSources;
 
   // Load mapping projects to show mapping info
   const mappingProjects = loadMappingProjects();
@@ -89,7 +93,7 @@ export default function DataDictionary({
       return col;
     });
 
-    onUpdateTable(selectedTable.id, { columns: updatedColumns });
+    onUpdateTable(selectedTable.id, { columns: updatedColumns }, isSourceTable);
   };
 
   // Toggle edit mode
@@ -195,7 +199,7 @@ export default function DataDictionary({
             <td
               contentEditable
               suppressContentEditableWarning
-              onBlur={(e) => onUpdateTable(selectedTable.id, { description: e.currentTarget.textContent || '' })}
+              onBlur={(e) => onUpdateTable(selectedTable.id, { description: e.currentTarget.textContent || '' }, isSourceTable)}
               style={{ cursor: 'text' }}
             >
               {selectedTable.description || '(Click to add description)'}
@@ -240,12 +244,13 @@ export default function DataDictionary({
       <table className="data-table" style={{ tableLayout: 'fixed', width: '100%' }}>
         <thead>
           <tr>
-            <th style={{ width: '18%' }}>Column</th>
-            <th style={{ width: '14%' }}>Type</th>
-            <th style={{ width: '8%' }}>Nullable</th>
-            <th style={{ width: '12%' }}>Default</th>
-            <th style={{ width: '24%' }}>Explanation</th>
-            <th style={{ width: '24%' }}>Mapping</th>
+            <th style={{ width: '14%' }}>Column</th>
+            <th style={{ width: '12%' }}>Type</th>
+            <th style={{ width: '7%' }}>Nullable</th>
+            <th style={{ width: '9%' }}>Default</th>
+            <th style={{ width: '18%' }}>Explanation</th>
+            <th style={{ width: '18%' }}>Mapping Logic</th>
+            <th style={{ width: '22%' }}>Mapped To</th>
           </tr>
         </thead>
         <tbody>
@@ -254,28 +259,29 @@ export default function DataDictionary({
             const mappingInfo = getMappingInfo(selectedTable.tableName, col.name);
             const migrationNeeded = col.migrationNeeded !== false; // default true
 
-            // Determine display text for mapping cell
-            let mappingDisplay = '';
+            // Determine display text for "Mapped To" column (auto-populated)
+            let mappedToDisplay = '';
             if (mappingInfo) {
-              mappingDisplay = mappingInfo;
+              mappedToDisplay = mappingInfo;
             } else if (!migrationNeeded) {
-              mappingDisplay = `Not Mapped${col.nonMigrationComment ? ` - ${col.nonMigrationComment}` : ''}`;
+              mappedToDisplay = `Not Mapped${col.nonMigrationComment ? ` - ${col.nonMigrationComment}` : ''}`;
             } else {
-              mappingDisplay = col.mapping || '';
+              mappedToDisplay = '-';
             }
 
             return (
               <tr key={i}>
-                <td className="code-cell">
+                <td className="code-cell" style={{ wordBreak: 'break-word', overflowWrap: 'break-word', whiteSpace: 'normal' }}>
                   {col.name}{tags.length > 0 ? ` (${tags.join(', ')})` : ''}
                 </td>
-                <td className="code-cell">{col.type}</td>
-                <td>{col.nullable}</td>
-                <td className="code-cell">{col.default || '-'}</td>
+                <td className="code-cell" style={{ wordBreak: 'break-word', overflowWrap: 'break-word', whiteSpace: 'normal' }}>{col.type}</td>
+                <td>{col.nullable?.toUpperCase() === 'YES' || col.nullable?.toUpperCase() === 'Y' ? 'NULL' : 'NOT NULL'}</td>
+                <td className="code-cell" style={{ wordBreak: 'break-word', overflowWrap: 'break-word', whiteSpace: 'normal' }}>{col.default || '-'}</td>
                 <td>
                   <div
                     contentEditable
                     suppressContentEditableWarning
+                    title="Click to edit explanation"
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && !e.shiftKey) {
                         e.preventDefault();
@@ -283,38 +289,83 @@ export default function DataDictionary({
                       }
                     }}
                     onBlur={(e) => updateColumnField(col.name, 'explanation', e.currentTarget.innerHTML || '')}
-                    dangerouslySetInnerHTML={{ __html: col.explanation || '' }}
+                    onFocus={(e) => {
+                      // Clear placeholder on focus
+                      if (e.currentTarget.innerHTML === '<span style="color: #999; font-style: italic;">(Click to add)</span>') {
+                        e.currentTarget.innerHTML = '';
+                      }
+                    }}
+                    dangerouslySetInnerHTML={{ __html: col.explanation || '<span style="color: #999; font-style: italic;">(Click to add)</span>' }}
                     style={{
                       cursor: 'text',
                       whiteSpace: 'pre-wrap',
                       wordBreak: 'break-word',
                       overflowWrap: 'break-word',
                       minHeight: '20px',
+                      padding: '4px',
+                      borderRadius: '4px',
+                      border: '1px dashed transparent',
+                      transition: 'border-color 0.2s, background-color 0.2s',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = '#ccc';
+                      e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.02)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = 'transparent';
+                      e.currentTarget.style.backgroundColor = 'transparent';
                     }}
                   />
                 </td>
                 <td>
                   <div
-                    contentEditable={!mappingInfo && migrationNeeded}
+                    contentEditable
                     suppressContentEditableWarning
+                    title="Click to edit mapping logic"
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && !e.shiftKey) {
                         e.preventDefault();
                         e.currentTarget.blur();
                       }
                     }}
-                    onBlur={(e) => {
-                      if (!mappingInfo && migrationNeeded) {
-                        updateColumnField(col.name, 'mapping', e.currentTarget.innerHTML || '');
+                    onBlur={(e) => updateColumnField(col.name, 'mapping', e.currentTarget.innerHTML || '')}
+                    onFocus={(e) => {
+                      // Clear placeholder on focus
+                      if (e.currentTarget.innerHTML === '<span style="color: #999; font-style: italic;">(Click to add)</span>') {
+                        e.currentTarget.innerHTML = '';
                       }
                     }}
-                    dangerouslySetInnerHTML={{ __html: mappingDisplay }}
+                    dangerouslySetInnerHTML={{ __html: col.mapping || '<span style="color: #999; font-style: italic;">(Click to add)</span>' }}
                     style={{
-                      cursor: mappingInfo || !migrationNeeded ? 'default' : 'text',
+                      cursor: 'text',
                       whiteSpace: 'pre-wrap',
                       wordBreak: 'break-word',
                       overflowWrap: 'break-word',
                       minHeight: '20px',
+                      padding: '4px',
+                      borderRadius: '4px',
+                      border: '1px dashed transparent',
+                      transition: 'border-color 0.2s, background-color 0.2s',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = '#ccc';
+                      e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.02)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = 'transparent';
+                      e.currentTarget.style.backgroundColor = 'transparent';
+                    }}
+                  />
+                </td>
+                <td>
+                  <div
+                    dangerouslySetInnerHTML={{ __html: mappedToDisplay }}
+                    style={{
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-word',
+                      overflowWrap: 'break-word',
+                      minHeight: '20px',
+                      color: mappedToDisplay === '-' ? '#999' : 'inherit',
                     }}
                   />
                 </td>

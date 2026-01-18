@@ -1,4 +1,4 @@
-import { Script, MappingProject, TypeRuleSet, ScriptVersion } from '../types';
+import { Script, MappingProject, TypeRuleSet, ScriptVersion, FlowchartScript } from '../types';
 import { saveWorkspaceToFile, isElectron } from '../services/electronStorage';
 
 const STORAGE_KEY = 'dm_tool_data';
@@ -7,11 +7,152 @@ const THEME_VARIANT_KEY = 'dm_tool_theme_variant';
 const MAPPING_PROJECTS_KEY = 'dm_tool_mapping_projects';
 const TYPE_RULE_SETS_KEY = 'dm_tool_type_rule_sets';
 const MAPPING_WORKSPACE_KEY = 'dm_tool_mapping_workspace';
+const FLOWCHART_SCRIPTS_KEY = 'dm_flowchart_scripts';
+
+// Git sync settings keys
+const GIT_SYNC_PATH_KEY = 'dm_tool_git_sync_path';
+const GIT_SYNC_ENABLED_KEY = 'dm_tool_git_sync_enabled';
+const GIT_SYNC_LAST_SAVED_KEY = 'dm_tool_git_sync_last_saved';
+
+// Git repository sync filename
+export const GIT_WORKSPACE_FILENAME = 'workspace.json';
+
+// ============================================
+// Git Sync Path Settings
+// ============================================
+
+export interface GitSyncSettings {
+  path: string | null;
+  enabled: boolean;
+  lastSaved: number | null;
+}
+
+export function getGitSyncSettings(): GitSyncSettings {
+  return {
+    path: localStorage.getItem(GIT_SYNC_PATH_KEY),
+    enabled: localStorage.getItem(GIT_SYNC_ENABLED_KEY) === 'true',
+    lastSaved: localStorage.getItem(GIT_SYNC_LAST_SAVED_KEY)
+      ? parseInt(localStorage.getItem(GIT_SYNC_LAST_SAVED_KEY)!, 10)
+      : null,
+  };
+}
+
+export function setGitSyncPath(path: string | null): void {
+  if (path) {
+    localStorage.setItem(GIT_SYNC_PATH_KEY, path);
+  } else {
+    localStorage.removeItem(GIT_SYNC_PATH_KEY);
+  }
+}
+
+export function setGitSyncEnabled(enabled: boolean): void {
+  localStorage.setItem(GIT_SYNC_ENABLED_KEY, String(enabled));
+}
+
+export function updateGitSyncLastSaved(): void {
+  localStorage.setItem(GIT_SYNC_LAST_SAVED_KEY, String(Date.now()));
+}
+
+export function getFullGitSyncPath(): string | null {
+  const settings = getGitSyncSettings();
+  if (!settings.path) return null;
+  return `${settings.path}/${GIT_WORKSPACE_FILENAME}`;
+}
+
+// Git sync auto-save (debounced)
+let gitSyncTimeout: ReturnType<typeof setTimeout> | null = null;
+let gitSyncListeners: Array<(status: 'saving' | 'saved' | 'error', message?: string) => void> = [];
+
+export function subscribeToGitSyncStatus(
+  callback: (status: 'saving' | 'saved' | 'error', message?: string) => void
+): () => void {
+  gitSyncListeners.push(callback);
+  return () => {
+    gitSyncListeners = gitSyncListeners.filter(cb => cb !== callback);
+  };
+}
+
+function notifyGitSyncStatus(status: 'saving' | 'saved' | 'error', message?: string): void {
+  gitSyncListeners.forEach(cb => cb(status, message));
+}
+
+async function performGitSync(): Promise<void> {
+  const settings = getGitSyncSettings();
+  if (!settings.enabled || !settings.path) return;
+  if (!isElectron()) return;
+
+  const fullPath = getFullGitSyncPath();
+  if (!fullPath) return;
+
+  notifyGitSyncStatus('saving');
+
+  try {
+    const api = window.electronAPI;
+    if (!api) throw new Error('Electron API not available');
+
+    const workspace = exportWorkspace();
+    const result = await api.saveWorkspaceToPath(fullPath, workspace);
+
+    if (result.success) {
+      updateGitSyncLastSaved();
+      notifyGitSyncStatus('saved');
+      console.log('✅ Git sync: Workspace saved to', fullPath);
+    } else {
+      throw new Error(result.error || 'Unknown error');
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    notifyGitSyncStatus('error', message);
+    console.error('❌ Git sync failed:', message);
+  }
+}
+
+function scheduleGitSync(): void {
+  const settings = getGitSyncSettings();
+  if (!settings.enabled || !settings.path) return;
+
+  // Debounce: wait 3 seconds after last change before syncing
+  if (gitSyncTimeout) {
+    clearTimeout(gitSyncTimeout);
+  }
+
+  gitSyncTimeout = setTimeout(() => {
+    performGitSync();
+  }, 3000);
+}
+
+// Manual git sync (immediate)
+export async function triggerGitSync(): Promise<boolean> {
+  if (gitSyncTimeout) {
+    clearTimeout(gitSyncTimeout);
+    gitSyncTimeout = null;
+  }
+
+  const settings = getGitSyncSettings();
+  if (!settings.path) return false;
+
+  // Temporarily enable for this sync
+  const wasEnabled = settings.enabled;
+  if (!wasEnabled) {
+    setGitSyncEnabled(true);
+  }
+
+  await performGitSync();
+
+  if (!wasEnabled) {
+    setGitSyncEnabled(false);
+  }
+
+  return true;
+}
 
 // Auto-save to Electron file system when data changes (debounced)
-let electronSaveTimeout: NodeJS.Timeout | null = null;
+let electronSaveTimeout: ReturnType<typeof setTimeout> | null = null;
 function scheduleElectronSave() {
   if (!isElectron()) return;
+
+  // Also schedule git sync if enabled
+  scheduleGitSync();
 
   // Debounce: wait 2 seconds after last change before saving
   if (electronSaveTimeout) {
@@ -164,11 +305,37 @@ export interface WorkspaceData {
   version: string;
   exportDate: string;
   scripts: Script[];
+  flowchartScripts?: FlowchartScript[];  // Added for complete workspace sync
   mappingProjects: MappingProject[];
   typeRuleSets: TypeRuleSet[];
   theme: 'light' | 'dark';
   themeVariant: DarkThemeVariant;
   erdPositions: Record<string, Record<string, { x: number; y: number }>>;
+}
+
+// ============================================
+// Flowchart Scripts Storage
+// ============================================
+
+export function loadFlowchartScripts(): FlowchartScript[] {
+  try {
+    const data = localStorage.getItem(FLOWCHART_SCRIPTS_KEY);
+    if (data) {
+      return JSON.parse(data);
+    }
+  } catch (e) {
+    console.error('Failed to load flowchart scripts:', e);
+  }
+  return [];
+}
+
+export function saveFlowchartScripts(scripts: FlowchartScript[]): void {
+  try {
+    localStorage.setItem(FLOWCHART_SCRIPTS_KEY, JSON.stringify(scripts));
+    scheduleElectronSave();
+  } catch (e) {
+    console.error('Failed to save flowchart scripts:', e);
+  }
 }
 
 export function exportWorkspace(): WorkspaceData {
@@ -190,9 +357,10 @@ export function exportWorkspace(): WorkspaceData {
   }
 
   return {
-    version: '1.0.0',
+    version: '1.1.0',  // Bumped version for flowchart support
     exportDate: new Date().toISOString(),
     scripts: loadScripts(),
+    flowchartScripts: loadFlowchartScripts(),  // Include flowcharts
     mappingProjects: loadMappingProjects(),
     typeRuleSets: loadTypeRuleSets(),
     theme: loadTheme(),
@@ -204,6 +372,11 @@ export function exportWorkspace(): WorkspaceData {
 export function importWorkspace(data: WorkspaceData): void {
   // Import scripts
   saveScripts(data.scripts || []);
+
+  // Import flowchart scripts (new in v1.1.0)
+  if (data.flowchartScripts) {
+    saveFlowchartScripts(data.flowchartScripts);
+  }
 
   // Import mapping projects
   saveMappingProjects(data.mappingProjects || []);
@@ -232,6 +405,42 @@ export function importWorkspace(data: WorkspaceData): void {
 
   // Save to Electron file if running in Electron
   scheduleElectronSave();
+}
+
+// ============================================
+// Git Repository Sync Functions
+// ============================================
+
+/**
+ * Export workspace for git repository sync
+ * Downloads the file with a fixed name that can be committed to git
+ */
+export function exportWorkspaceForGit(): void {
+  const workspace = exportWorkspace();
+  downloadJson(workspace, GIT_WORKSPACE_FILENAME);
+}
+
+/**
+ * Get workspace summary for display
+ */
+export function getWorkspaceSummary(): {
+  scripts: number;
+  flowcharts: number;
+  mappingProjects: number;
+  typeRuleSets: number;
+  totalSize: string;
+} {
+  const workspace = exportWorkspace();
+  const jsonStr = JSON.stringify(workspace);
+  const sizeInMB = (jsonStr.length / (1024 * 1024)).toFixed(2);
+
+  return {
+    scripts: workspace.scripts.length,
+    flowcharts: workspace.flowchartScripts?.length || 0,
+    mappingProjects: workspace.mappingProjects.length,
+    typeRuleSets: workspace.typeRuleSets.length,
+    totalSize: `${sizeInMB} MB`,
+  };
 }
 
 /**
