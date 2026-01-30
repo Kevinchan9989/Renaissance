@@ -749,13 +749,27 @@ export default function ColumnMapper({
 
     // Re-validate mappings with current script data
     // This ensures validation status updates when scripts are modified
-    if (sourceScript && targetScript && filteredMappings.length > 0) {
-      const ruleSets = getRuleSetsForDatabases(sourceScript.type, targetScript.type);
-
+    // IMPORTANT: Use the mapping's sourceScriptId/targetScriptId to find the correct scripts,
+    // not just the currently selected sourceScript/targetScript
+    if (filteredMappings.length > 0) {
       filteredMappings = filteredMappings.map(mapping => {
-        // Find the current column definitions from the scripts
-        const sourceTable = sourceScript?.data?.targets?.find(t => t.tableName === mapping.sourceTable);
-        const targetTable = targetScript?.data?.targets?.find(t => t.tableName === mapping.targetTable);
+        // Find the actual source and target scripts for this mapping
+        const mappingSourceScript = scripts.find(s => s.id === mapping.sourceScriptId) || sourceScript;
+        const mappingTargetScript = scripts.find(s => s.id === mapping.targetScriptId) || targetScript;
+
+        if (!mappingSourceScript || !mappingTargetScript) {
+          return mapping; // Can't validate without scripts
+        }
+
+        const ruleSets = getRuleSetsForDatabases(mappingSourceScript.type, mappingTargetScript.type);
+
+        // Find the current column definitions from the correct scripts
+        // Search in both sources and targets arrays
+        const allSourceTables = (mappingSourceScript?.data?.sources || []).concat(mappingSourceScript?.data?.targets || []);
+        const allTargetTables = (mappingTargetScript?.data?.sources || []).concat(mappingTargetScript?.data?.targets || []);
+
+        const sourceTable = allSourceTables.find(t => t.tableName === mapping.sourceTable);
+        const targetTable = allTargetTables.find(t => t.tableName === mapping.targetTable);
 
         if (sourceTable && targetTable) {
           const sourceCol = sourceTable.columns?.find(c => c.name === mapping.sourceColumn);
@@ -818,7 +832,56 @@ export default function ColumnMapper({
       console.log('[currentMappings useMemo] First mapping remarks:', filteredMappings[0].remarks, 'ID:', filteredMappings[0].id);
     }
     return filteredMappings;
-  }, [project, sourceTableName, targetTableName, sourceScript, targetScript]);
+  }, [project, sourceTableName, targetTableName, sourceScript, targetScript, scripts]);
+
+  // Re-validate ALL mappings in the project (used by Summary view)
+  // This ensures validation is correct regardless of which tables are currently selected
+  const validatedAllMappings = useMemo((): ColumnMapping[] => {
+    if (!project || !project.mappings || project.mappings.length === 0) return [];
+
+    return project.mappings.map(mapping => {
+      // Find the actual source and target scripts for this mapping
+      const mappingSourceScript = scripts.find(s => s.id === mapping.sourceScriptId);
+      const mappingTargetScript = scripts.find(s => s.id === mapping.targetScriptId);
+
+      if (!mappingSourceScript || !mappingTargetScript) {
+        return mapping; // Can't validate without scripts
+      }
+
+      const ruleSets = getRuleSetsForDatabases(mappingSourceScript.type, mappingTargetScript.type);
+
+      // Find the current column definitions from the correct scripts
+      // Search in both sources and targets arrays
+      const allSourceTables = (mappingSourceScript?.data?.sources || []).concat(mappingSourceScript?.data?.targets || []);
+      const allTargetTables = (mappingTargetScript?.data?.sources || []).concat(mappingTargetScript?.data?.targets || []);
+
+      const sourceTable = allSourceTables.find(t => t.tableName === mapping.sourceTable);
+      const targetTable = allTargetTables.find(t => t.tableName === mapping.targetTable);
+
+      if (sourceTable && targetTable) {
+        const sourceCol = sourceTable.columns?.find(c => c.name === mapping.sourceColumn);
+        const targetCol = targetTable.columns?.find(c => c.name === mapping.targetColumn);
+
+        if (sourceCol && targetCol) {
+          // Re-validate with current column data
+          const validation = validateColumnMapping(sourceCol, targetCol, sourceTable, targetTable, ruleSets);
+          const typeCheck = checkTypeCompatibility(sourceCol.type, targetCol.type, ruleSets);
+
+          // Return mapping with updated validation and types
+          return {
+            ...mapping,
+            sourceType: sourceCol.type,
+            targetType: targetCol.type,
+            typeCompatibility: typeCheck.compatibility,
+            validation,
+          };
+        }
+      }
+
+      // If we can't find the columns, return the mapping as-is
+      return mapping;
+    });
+  }, [project, scripts]);
 
   // Auto-expand all table pairs in linkage view when mappings change
   useEffect(() => {
@@ -1461,6 +1524,93 @@ export default function ColumnMapper({
     }
   }, [sourceScriptId, targetScriptId]);
 
+  // Toggle validation resolved status - loads fresh data from localStorage to avoid stale closure issues
+  const handleToggleValidationResolved = useCallback((mappingId: string) => {
+    console.log('[handleToggleValidationResolved] START - mappingId:', mappingId);
+
+    // Load fresh data from localStorage to avoid stale closure issues
+    const allProjects = loadMappingProjects() || [];
+    console.log('[handleToggleValidationResolved] Loaded', allProjects.length, 'projects from localStorage');
+
+    // Find the project that contains this mapping
+    let ownerProject: MappingProject | undefined;
+    let mapping: ColumnMapping | undefined;
+
+    for (const p of allProjects) {
+      const found = p.mappings?.find(m => m.id === mappingId);
+      if (found) {
+        ownerProject = p;
+        mapping = found;
+        break;
+      }
+    }
+
+    if (!ownerProject || !mapping) {
+      console.warn('[handleToggleValidationResolved] FAILED - Mapping not found in any project', mappingId);
+      return;
+    }
+
+    console.log('[handleToggleValidationResolved] Found mapping in project:', ownerProject.id, 'Current validationResolved:', mapping.validationResolved);
+
+    // Toggle the validationResolved field
+    const newResolvedValue = !mapping.validationResolved;
+    const updatedMapping = { ...mapping, validationResolved: newResolvedValue, updatedAt: Date.now() };
+    console.log('[handleToggleValidationResolved] Updated validationResolved to:', updatedMapping.validationResolved);
+
+    // Update the project's mappings
+    const updatedMappings = ownerProject.mappings.map(m =>
+      m.id === mappingId ? updatedMapping : m
+    );
+
+    const updatedProject = {
+      ...ownerProject,
+      mappings: updatedMappings,
+      updatedAt: Date.now(),
+    };
+
+    // Save directly to localStorage
+    saveMappingProject(updatedProject);
+    console.log('[handleToggleValidationResolved] Saved to localStorage');
+
+    // Reload fresh from localStorage after save to ensure consistency
+    const freshProjects = loadMappingProjects() || [];
+
+    if (sourceScriptId && targetScriptId) {
+      console.log('[handleToggleValidationResolved] Merged view mode');
+
+      // Collect mappings from all related projects (merged view)
+      const relatedProjects = freshProjects.filter(p =>
+        p.sourceScriptId === sourceScriptId || p.targetScriptId === targetScriptId
+      );
+
+      const allRelatedMappings = relatedProjects.flatMap(p => p.mappings || []);
+
+      // Deduplicate mappings by ID, keeping the one with the latest updatedAt
+      const mappingMap = new Map<string, ColumnMapping>();
+      for (const m of allRelatedMappings) {
+        const existing = mappingMap.get(m.id);
+        if (!existing || (m.updatedAt || 0) > (existing.updatedAt || 0)) {
+          mappingMap.set(m.id, m);
+        }
+      }
+      const uniqueMappings = Array.from(mappingMap.values());
+
+      setProject(prev => prev ? { ...prev, mappings: uniqueMappings, updatedAt: Date.now() } : null);
+    } else {
+      // Single project view - update directly
+      setProject(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          mappings: prev.mappings.map(m => m.id === mappingId ? updatedMapping : m),
+          updatedAt: Date.now(),
+        };
+      });
+    }
+
+    console.log('[handleToggleValidationResolved] END');
+  }, [sourceScriptId, targetScriptId]);
+
   // Sync mapping information to data dictionary
   const syncMappingToDataDictionary = useCallback((mapping: ColumnMapping) => {
     if (!sourceScript || !targetScript) return;
@@ -1821,6 +1971,17 @@ export default function ColumnMapper({
       setLastClickedIndex(index);
     }
   }, [lastClickedIndex, selectedMappingIds, currentMappings]);
+
+  // Handle double-click on linkage row to jump to canvas with mapping highlighted
+  const handleLinkageRowDoubleClick = useCallback((mapping: ColumnMapping) => {
+    // Switch to canvas tab and set the tables from this mapping
+    setSourceScriptId(mapping.sourceScriptId);
+    setTargetScriptId(mapping.targetScriptId);
+    setActiveTab('canvas');
+    setSourceTableName(mapping.sourceTable);
+    setTargetTableName(mapping.targetTable);
+    setSelectedMappingId(mapping.id);
+  }, []);
 
   // Handle context menu for linkage table
   const handleLinkageRowContextMenu = useCallback((e: React.MouseEvent, mapping: ColumnMapping) => {
@@ -2715,10 +2876,15 @@ export default function ColumnMapper({
 
               const hasNullableMismatch = sourceNullable && targetNullable && sourceNullable !== targetNullable;
 
+              // Check if validation issues are resolved
+              const hasValidationIssues = (mapping.validation?.errors?.length ?? 0) > 0 || (mapping.validation?.warnings?.length ?? 0) > 0;
+              const isValidationResolved = mapping.validationResolved && hasValidationIssues;
+
               return (
                 <tr
                   key={mapping.id}
                   onClick={(e) => handleLinkageRowClick(e, mapping, i)}
+                  onDoubleClick={() => handleLinkageRowDoubleClick(mapping)}
                   onContextMenu={(e) => handleLinkageRowContextMenu(e, mapping)}
                   style={{
                     background: isMultiSelected
@@ -2729,6 +2895,7 @@ export default function ColumnMapper({
                     cursor: 'pointer',
                     borderBottom: `1px solid ${theme.table.border}`,
                   }}
+                  title="Double-click to jump to canvas"
                 >
                   <td style={{ padding: '10px 12px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -2753,23 +2920,23 @@ export default function ColumnMapper({
                   </td>
                   <td style={{
                     padding: '10px 8px',
-                    color: hasTypeMismatch ? '#f59e0b' : theme.text.secondary,
+                    color: hasTypeMismatch ? (isValidationResolved ? '#38bdf8' : '#f59e0b') : theme.text.secondary,
                     fontFamily: 'monospace',
                     fontSize: '11px',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap',
                     fontWeight: hasTypeMismatch ? 600 : 400,
-                  }} title={hasTypeMismatch ? `Type mismatch: ${displaySourceType} ≠ ${displayTargetType}` : displaySourceType}>
+                  }} title={hasTypeMismatch ? `Type mismatch: ${displaySourceType} ≠ ${displayTargetType}${isValidationResolved ? ' (Resolved)' : ''}` : displaySourceType}>
                     {displaySourceType}
                   </td>
                   <td style={{
                     padding: '10px 6px',
                     textAlign: 'center',
-                    color: hasNullableMismatch ? '#f59e0b' : theme.text.secondary,
+                    color: hasNullableMismatch ? (isValidationResolved ? '#38bdf8' : '#f59e0b') : theme.text.secondary,
                     fontSize: '11px',
                     fontWeight: hasNullableMismatch ? 600 : 400,
-                  }} title={hasNullableMismatch ? `Nullable mismatch: ${sourceNullable} ≠ ${targetNullable}` : sourceNullable}>
+                  }} title={hasNullableMismatch ? `Nullable mismatch: ${sourceNullable} ≠ ${targetNullable}${isValidationResolved ? ' (Resolved)' : ''}` : sourceNullable}>
                     {sourceNullable}
                   </td>
                   <td style={{ padding: '10px 12px', textAlign: 'center', color: theme.text.secondary }}>
@@ -2789,27 +2956,33 @@ export default function ColumnMapper({
                   </td>
                   <td style={{
                     padding: '10px 8px',
-                    color: hasTypeMismatch ? '#f59e0b' : theme.text.secondary,
+                    color: hasTypeMismatch ? (isValidationResolved ? '#38bdf8' : '#f59e0b') : theme.text.secondary,
                     fontFamily: 'monospace',
                     fontSize: '11px',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap',
                     fontWeight: hasTypeMismatch ? 600 : 400,
-                  }} title={hasTypeMismatch ? `Type mismatch: ${displaySourceType} ≠ ${displayTargetType}` : displayTargetType}>
+                  }} title={hasTypeMismatch ? `Type mismatch: ${displaySourceType} ≠ ${displayTargetType}${isValidationResolved ? ' (Resolved)' : ''}` : displayTargetType}>
                     {displayTargetType}
                   </td>
                   <td style={{
                     padding: '10px 6px',
                     textAlign: 'center',
-                    color: hasNullableMismatch ? '#f59e0b' : theme.text.secondary,
+                    color: hasNullableMismatch ? (isValidationResolved ? '#38bdf8' : '#f59e0b') : theme.text.secondary,
                     fontSize: '11px',
                     fontWeight: hasNullableMismatch ? 600 : 400,
-                  }} title={hasNullableMismatch ? `Nullable mismatch: ${sourceNullable} ≠ ${targetNullable}` : targetNullable}>
+                  }} title={hasNullableMismatch ? `Nullable mismatch: ${sourceNullable} ≠ ${targetNullable}${isValidationResolved ? ' (Resolved)' : ''}` : targetNullable}>
                     {targetNullable}
                   </td>
                   <td style={{ padding: '10px 12px', textAlign: 'center' }}>
-                    {mapping.validation?.errors?.length > 0 ? (
+                    {isValidationResolved ? (
+                      // Resolved state - light blue icon with original message
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', color: '#38bdf8' }}
+                        title={`[Resolved] ${mapping.validation?.errors?.length > 0 ? mapping.validation.errors.join('\n') : mapping.validation?.warnings?.join('\n') || ''}`}>
+                        <CheckCircle2 size={16} />
+                      </div>
+                    ) : mapping.validation?.errors?.length > 0 ? (
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', color: '#ef4444' }} title={mapping.validation.errors.join('\n')}>
                         <AlertCircle size={16} />
                       </div>
@@ -2823,11 +2996,23 @@ export default function ColumnMapper({
                       </div>
                     )}
                   </td>
-                  <td style={{ padding: '10px 12px', overflow: 'hidden', minWidth: '150px' }}>
+                  <td style={{ padding: '10px 12px', overflow: 'visible', minWidth: '150px' }}>
                     {editingRemarkId === mapping.id ? (
                       <textarea
+                        ref={(el) => {
+                          if (el) {
+                            // Auto-expand to fit content
+                            el.style.height = 'auto';
+                            el.style.height = Math.max(el.scrollHeight, 32) + 'px';
+                          }
+                        }}
                         value={editingRemarkValue}
-                        onChange={(e) => setEditingRemarkValue(e.target.value)}
+                        onChange={(e) => {
+                          setEditingRemarkValue(e.target.value);
+                          // Auto-expand on change
+                          e.target.style.height = 'auto';
+                          e.target.style.height = Math.max(e.target.scrollHeight, 32) + 'px';
+                        }}
                         onClick={(e) => e.stopPropagation()}
                         onBlur={(e) => {
                           // Read value directly from the textarea to avoid stale closure issues
@@ -2850,16 +3035,19 @@ export default function ColumnMapper({
                         autoFocus
                         style={{
                           width: '100%',
-                          minHeight: '60px',
+                          minHeight: '32px',
+                          maxHeight: '300px',
                           padding: '4px 8px',
                           border: `1px solid ${theme.table.border}`,
                           borderRadius: '4px',
-                          background: 'transparent',
+                          background: theme.table.background,
                           color: theme.text.primary,
                           fontSize: '12px',
-                          resize: 'vertical',
+                          resize: 'none',
                           fontFamily: 'inherit',
                           outline: 'none',
+                          overflow: 'auto',
+                          lineHeight: '1.4',
                         }}
                       />
                     ) : (
@@ -2916,7 +3104,8 @@ export default function ColumnMapper({
 
   // Render all mappings summary table - grouped by target table, then by source table
   const renderSummaryTable = () => {
-    const allMappings = project?.mappings || [];
+    // Use validatedAllMappings which has correct validation status for ALL mappings
+    const allMappings = validatedAllMappings;
 
     // Collect non-migrated columns from ALL source tables in all scripts
     interface NonMigratedColumn {
@@ -3330,6 +3519,10 @@ export default function ColumnMapper({
                           const displaySourceType = sourceCol?.type || mapping.sourceType;
                           const displayTargetType = targetCol?.type || mapping.targetType;
 
+                          // Check if validation issues are resolved
+                          const hasValidationIssues = (mapping.validation?.errors?.length ?? 0) > 0 || (mapping.validation?.warnings?.length ?? 0) > 0;
+                          const isValidationResolved = mapping.validationResolved && hasValidationIssues;
+
                           return (
                             <tr
                               key={mapping.id}
@@ -3377,7 +3570,13 @@ export default function ColumnMapper({
                                 {targetNullable}
                               </td>
                               <td style={{ padding: '8px 12px', textAlign: 'center' }}>
-                                {mapping.validation?.errors?.length > 0 ? (
+                                {isValidationResolved ? (
+                                  // Resolved state - light blue icon with original message
+                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', color: '#38bdf8' }}
+                                    title={`[Resolved] ${mapping.validation?.errors?.length > 0 ? mapping.validation.errors.join('\n') : mapping.validation?.warnings?.join('\n') || ''}`}>
+                                    <CheckCircle2 size={14} />
+                                  </div>
+                                ) : mapping.validation?.errors?.length > 0 ? (
                                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', color: '#ef4444' }} title={mapping.validation.errors.join('\n')}>
                                     <AlertCircle size={14} />
                                   </div>
@@ -3391,11 +3590,23 @@ export default function ColumnMapper({
                                   </div>
                                 )}
                               </td>
-                              <td style={{ padding: '8px 12px', overflow: 'hidden', minWidth: '150px' }}>
+                              <td style={{ padding: '8px 12px', overflow: 'visible', minWidth: '150px' }}>
                                 {editingRemarkId === mapping.id ? (
                                   <textarea
+                                    ref={(el) => {
+                                      if (el) {
+                                        // Auto-expand to fit content
+                                        el.style.height = 'auto';
+                                        el.style.height = Math.max(el.scrollHeight, 32) + 'px';
+                                      }
+                                    }}
                                     value={editingRemarkValue}
-                                    onChange={(e) => setEditingRemarkValue(e.target.value)}
+                                    onChange={(e) => {
+                                      setEditingRemarkValue(e.target.value);
+                                      // Auto-expand on change
+                                      e.target.style.height = 'auto';
+                                      e.target.style.height = Math.max(e.target.scrollHeight, 32) + 'px';
+                                    }}
                                     onClick={(e) => e.stopPropagation()}
                                     onBlur={(e) => {
                                       // Read value directly from the textarea to avoid stale closure issues
@@ -3417,16 +3628,19 @@ export default function ColumnMapper({
                                     autoFocus
                                     style={{
                                       width: '100%',
-                                      minHeight: '60px',
+                                      minHeight: '32px',
+                                      maxHeight: '300px',
                                       padding: '4px 8px',
                                       border: `1px solid ${theme.table.border}`,
                                       borderRadius: '4px',
-                                      background: 'transparent',
+                                      background: theme.table.background,
                                       color: theme.text.primary,
                                       fontSize: '12px',
-                                      resize: 'vertical',
+                                      resize: 'none',
                                       fontFamily: 'inherit',
                                       outline: 'none',
+                                      overflow: 'auto',
+                                      lineHeight: '1.4',
                                     }}
                                   />
                                 ) : (
@@ -5226,6 +5440,45 @@ export default function ColumnMapper({
                 </span>
               </div>
             </div>
+
+            {/* Resolve/Unresolve Validation - only show if mapping has validation issues */}
+            {((contextMenu.mapping.validation?.errors?.length ?? 0) > 0 ||
+              (contextMenu.mapping.validation?.warnings?.length ?? 0) > 0) && (
+              <>
+                <div style={{
+                  height: '1px',
+                  background: theme.table.border,
+                  margin: '4px 0',
+                }} />
+                <div
+                  onClick={() => {
+                    handleToggleValidationResolved(contextMenu.mapping.id);
+                    setContextMenu(null);
+                  }}
+                  style={{
+                    padding: '8px 12px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    fontSize: '13px',
+                    color: contextMenu.mapping.validationResolved ? theme.text.primary : '#38bdf8',
+                    background: theme.table.background,
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = isDarkTheme ? '#374151' : '#f3f4f6';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = theme.table.background;
+                  }}
+                >
+                  <CheckCircle2 size={14} />
+                  <span style={{ fontWeight: 500 }}>
+                    {contextMenu.mapping.validationResolved ? 'Unresolve Validation' : 'Resolve Validation'}
+                  </span>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

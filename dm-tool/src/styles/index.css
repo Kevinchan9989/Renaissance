@@ -327,6 +327,47 @@ body {
   color: #2c3e50;
 }
 
+/* Excel-like Table Styles */
+.excel-table {
+  border: 2px solid #d1d5db;
+}
+
+.excel-table td {
+  cursor: cell;
+  transition: background-color 0.1s;
+}
+
+.excel-table td:hover {
+  background-color: rgba(59, 130, 246, 0.05);
+}
+
+.excel-table input {
+  width: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: inherit;
+  font-family: inherit;
+  padding: 0;
+}
+
+/* Dark theme Excel table */
+body.dark-theme .excel-table {
+  border-color: #4b5563;
+}
+
+body.dark-theme .excel-table td:hover {
+  background-color: rgba(59, 130, 246, 0.1);
+}
+
+body.dark-theme.vscode-gray .excel-table {
+  border-color: #3c3c3c;
+}
+
+body.dark-theme.vscode-gray .excel-table td:hover {
+  background-color: rgba(86, 156, 214, 0.1);
+}
+
 /* Schema Block */
 .schema-block {
   border-bottom: 1px solid #34495e;

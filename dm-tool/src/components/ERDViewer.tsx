@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react';
 import { Stage, Layer, Rect, Text, Line, Group, Path } from 'react-konva';
 import Konva from 'konva';
 import dagre from '@dagrejs/dagre';
@@ -208,10 +208,346 @@ function getManySymbol(x: number, y: number, position: Position): string {
   return `M${x},${y - halfHeight} L${offset.x},${y} L${x},${y + halfHeight}`;
 }
 
+// Memoized Table Node Component - prevents re-render when other tables change
+interface ERDTableNodeProps {
+  node: TableNode;
+  theme: ThemeColors;
+  isHighlighted: boolean;
+  highlightedColumn: { table: string; column: string } | null;
+  onDragMove: (tableId: string, x: number, y: number) => void;
+  onDragEnd: (tableId: string, x: number, y: number) => void;
+  onHoverChange: (tableId: string | null) => void;
+  stageRef: React.RefObject<Konva.Stage>;
+}
+
+const ERDTableNode = memo(function ERDTableNode({
+  node,
+  theme,
+  isHighlighted,
+  highlightedColumn,
+  onDragMove,
+  onDragEnd,
+  onHoverChange,
+  stageRef
+}: ERDTableNodeProps) {
+  const [isHovered, setIsHovered] = useState(false);
+  const [hoveredColumn, setHoveredColumn] = useState<string | null>(null);
+
+  const { table, x, y, width, height, colorIndex } = node;
+  const color = TABLE_COLORS[colorIndex];
+
+  // Get PK and FK columns
+  const pkCols = useMemo(() => {
+    const set = new Set<string>();
+    table.constraints.forEach(c => {
+      if (c.type === 'Primary Key') {
+        c.localCols.split(',').map(s => s.trim().toUpperCase()).forEach(col => set.add(col));
+      }
+    });
+    return set;
+  }, [table.constraints]);
+
+  const fkCols = useMemo(() => {
+    const set = new Set<string>();
+    table.constraints.forEach(c => {
+      if (c.type === 'Foreign Key') {
+        c.localCols.split(',').map(s => s.trim().toUpperCase()).forEach(col => set.add(col));
+      }
+    });
+    return set;
+  }, [table.constraints]);
+
+  const handleMouseEnter = useCallback(() => {
+    setIsHovered(true);
+    onHoverChange(node.id);
+    const stage = stageRef.current;
+    if (stage) {
+      stage.container().style.cursor = 'move';
+    }
+  }, [node.id, onHoverChange, stageRef]);
+
+  const handleMouseLeave = useCallback(() => {
+    setIsHovered(false);
+    onHoverChange(null);
+    const stage = stageRef.current;
+    if (stage) {
+      stage.container().style.cursor = 'grab';
+    }
+  }, [onHoverChange, stageRef]);
+
+  return (
+    <Group
+      x={x}
+      y={y}
+      draggable
+      onDragMove={(e) => {
+        e.cancelBubble = true;
+        onDragMove(node.id, e.target.x(), e.target.y());
+      }}
+      onDragEnd={(e) => {
+        e.cancelBubble = true;
+        onDragEnd(node.id, e.target.x(), e.target.y());
+      }}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
+      {/* Shadow */}
+      <Rect
+        width={width}
+        height={height}
+        fill={theme.table.shadow}
+        cornerRadius={6}
+        offsetX={-3}
+        offsetY={-3}
+      />
+
+      {/* Highlight border (for search) */}
+      {isHighlighted && (
+        <Rect
+          x={-4}
+          y={-4}
+          width={width + 8}
+          height={height + 8}
+          stroke={color.regular}
+          strokeWidth={3}
+          cornerRadius={8}
+          dash={[8, 4]}
+        />
+      )}
+
+      {/* Main container */}
+      <Rect
+        width={width}
+        height={height}
+        fill={theme.table.background}
+        stroke={isHovered || isHighlighted ? color.regular : theme.table.border}
+        strokeWidth={isHovered || isHighlighted ? 2 : 1}
+        cornerRadius={6}
+      />
+
+      {/* Color strip at top */}
+      <Rect
+        width={width}
+        height={SIZING.TABLE_COLOR_HEIGHT}
+        fill={color.regular}
+        cornerRadius={[6, 6, 0, 0]}
+      />
+
+      {/* Header background */}
+      <Rect
+        y={SIZING.TABLE_COLOR_HEIGHT}
+        width={width}
+        height={SIZING.TABLE_HEADER_HEIGHT}
+        fill={theme.table.headerBackground}
+      />
+
+      {/* Table name */}
+      <Text
+        text={table.tableName}
+        x={SIZING.PADDING + 6}
+        y={SIZING.TABLE_COLOR_HEIGHT + 10}
+        width={width - SIZING.PADDING * 2 - 12}
+        fontSize={FONTS.SIZE_TABLE_TITLE}
+        fontFamily={FONTS.FAMILY}
+        fontStyle="bold"
+        fill={theme.text.primary}
+        ellipsis={true}
+      />
+
+      {/* Separator line */}
+      <Line
+        points={[0, SIZING.TABLE_COLOR_HEIGHT + SIZING.TABLE_HEADER_HEIGHT, width, SIZING.TABLE_COLOR_HEIGHT + SIZING.TABLE_HEADER_HEIGHT]}
+        stroke={theme.table.border}
+        strokeWidth={1}
+      />
+
+      {/* Columns */}
+      {table.columns.map((col, i) => {
+        const colY = SIZING.TABLE_COLOR_HEIGHT + SIZING.TABLE_HEADER_HEIGHT + (i * SIZING.COLUMN_HEIGHT);
+        const isPk = pkCols.has(col.name.toUpperCase());
+        const isFk = fkCols.has(col.name.toUpperCase());
+        const isColHighlighted = highlightedColumn?.table === node.id &&
+                                  highlightedColumn?.column.toUpperCase() === col.name.toUpperCase();
+        const isColHovered = hoveredColumn === col.name;
+
+        return (
+          <Group key={col.name} y={colY}>
+            {/* Row highlight for search */}
+            {isColHighlighted && (
+              <Rect
+                x={1}
+                width={width - 2}
+                height={SIZING.COLUMN_HEIGHT}
+                fill={color.regular}
+                opacity={0.15}
+              />
+            )}
+
+            {/* Row highlight for hover */}
+            {isColHovered && !isColHighlighted && (
+              <Rect
+                x={1}
+                width={width - 2}
+                height={SIZING.COLUMN_HEIGHT}
+                fill={theme.table.headerBackground}
+                opacity={0.8}
+              />
+            )}
+
+            {/* Row background for PK/FK */}
+            {(isPk || isFk) && !isColHighlighted && !isColHovered && (
+              <Rect
+                x={1}
+                width={width - 2}
+                height={SIZING.COLUMN_HEIGHT}
+                fill={isPk ? color.lighter : '#f0f9ff'}
+                opacity={0.3}
+              />
+            )}
+
+            {/* Invisible rect for hover detection */}
+            <Rect
+              x={0}
+              width={width}
+              height={SIZING.COLUMN_HEIGHT}
+              fill="transparent"
+              onMouseEnter={() => setHoveredColumn(col.name)}
+              onMouseLeave={() => setHoveredColumn(null)}
+            />
+
+            {/* Key indicator */}
+            {(isPk || isFk) && (
+              <Text
+                text={isPk ? '🔑' : '🔗'}
+                x={6}
+                y={7}
+                fontSize={10}
+              />
+            )}
+
+            {/* Column name */}
+            <Text
+              text={col.name}
+              x={isPk || isFk ? 22 : SIZING.PADDING + 6}
+              y={8}
+              width={width * 0.5}
+              fontSize={FONTS.SIZE_SM}
+              fontFamily={FONTS.FAMILY}
+              fontStyle={isPk || isColHighlighted ? 'bold' : 'normal'}
+              fill={isPk ? color.regular : theme.text.primary}
+              ellipsis={true}
+            />
+
+            {/* Column type */}
+            <Text
+              text={col.type}
+              x={width * 0.55}
+              y={8}
+              width={width * 0.4}
+              fontSize={FONTS.SIZE_SM - 1}
+              fontFamily={FONTS.FAMILY}
+              fill={theme.text.secondary}
+              ellipsis={true}
+              align="right"
+            />
+          </Group>
+        );
+      })}
+    </Group>
+  );
+}, (prevProps, nextProps) => {
+  // Custom comparison - only re-render when necessary
+  return (
+    prevProps.node.id === nextProps.node.id &&
+    prevProps.node.x === nextProps.node.x &&
+    prevProps.node.y === nextProps.node.y &&
+    prevProps.node.width === nextProps.node.width &&
+    prevProps.node.height === nextProps.node.height &&
+    prevProps.node.colorIndex === nextProps.node.colorIndex &&
+    prevProps.theme === nextProps.theme &&
+    prevProps.isHighlighted === nextProps.isHighlighted &&
+    prevProps.highlightedColumn?.table === nextProps.highlightedColumn?.table &&
+    prevProps.highlightedColumn?.column === nextProps.highlightedColumn?.column
+  );
+});
+
+// Memoized Edge Component - prevents re-render when unrelated state changes
+interface ERDEdgePathProps {
+  edge: Edge;
+  sourceNode: TableNode;
+  targetNode: TableNode;
+  theme: ThemeColors;
+  hoveredTableId: string | null;
+}
+
+const ERDEdgePath = memo(function ERDEdgePath({
+  edge,
+  sourceNode,
+  targetNode,
+  theme,
+  hoveredTableId
+}: ERDEdgePathProps) {
+  // Get column Y position
+  const getColumnY = (node: TableNode, colName: string): number => {
+    const colIndex = node.table.columns.findIndex(
+      c => c.name.toUpperCase() === colName.toUpperCase()
+    );
+    const baseY = node.y + SIZING.TABLE_COLOR_HEIGHT + SIZING.TABLE_HEADER_HEIGHT;
+    if (colIndex === -1) return baseY + SIZING.COLUMN_HEIGHT / 2;
+    return baseY + (colIndex * SIZING.COLUMN_HEIGHT) + SIZING.COLUMN_HEIGHT / 2;
+  };
+
+  const sourceY = getColumnY(sourceNode, edge.sourceColumn);
+  const targetY = getColumnY(targetNode, edge.targetColumn);
+
+  const [sourcePosition, targetPosition, sourceX, targetX] = computeConnectionHandlePos(
+    sourceNode.x,
+    sourceNode.width,
+    targetNode.x,
+    targetNode.width
+  );
+
+  const sourcePoint = { x: sourceX, y: sourceY };
+  const targetPoint = { x: targetX, y: targetY };
+
+  const pathData = getBezierPath(sourcePoint, targetPoint, sourcePosition, targetPosition);
+  const sourceSymbol = getManySymbol(sourceX, sourceY, sourcePosition);
+  const targetSymbol = getOneSymbol(targetX, targetY, targetPosition);
+
+  const fullPath = `${pathData} ${sourceSymbol} ${targetSymbol}`;
+
+  const isHovered = hoveredTableId === edge.sourceTable || hoveredTableId === edge.targetTable;
+  const sourceColor = TABLE_COLORS[sourceNode.colorIndex];
+
+  return (
+    <Path
+      data={fullPath}
+      stroke={isHovered ? sourceColor.regular : theme.connection.default}
+      strokeWidth={isHovered ? 2.5 : SIZING.CONNECTION_STROKE_WIDTH}
+      lineCap="round"
+      lineJoin="round"
+      opacity={isHovered ? 1 : 0.7}
+    />
+  );
+}, (prevProps, nextProps) => {
+  // Custom comparison - only re-render when nodes move or hover changes
+  return (
+    prevProps.edge.id === nextProps.edge.id &&
+    prevProps.sourceNode.x === nextProps.sourceNode.x &&
+    prevProps.sourceNode.y === nextProps.sourceNode.y &&
+    prevProps.targetNode.x === nextProps.targetNode.x &&
+    prevProps.targetNode.y === nextProps.targetNode.y &&
+    prevProps.theme === nextProps.theme &&
+    prevProps.hoveredTableId === nextProps.hoveredTableId
+  );
+});
+
 export default function ERDViewer({ tables, isDarkTheme, darkThemeVariant = 'slate', scriptId, scriptName = 'ERD', onRefresh }: ERDViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const dragRafRef = useRef<number | null>(null);
+  const pendingDragRef = useRef<{ tableId: string; x: number; y: number } | null>(null);
 
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
   const [scale, setScale] = useState(0.8);
@@ -231,9 +567,6 @@ export default function ERDViewer({ tables, isDarkTheme, darkThemeVariant = 'sla
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
   const [highlightedTable, setHighlightedTable] = useState<string | null>(null);
   const [highlightedColumn, setHighlightedColumn] = useState<{ table: string; column: string } | null>(null);
-
-  // Hover state for columns
-  const [hoveredColumn, setHoveredColumn] = useState<{ table: string; column: string } | null>(null);
 
   // ERD settings
   const [groupTemporalColors, setGroupTemporalColors] = useState(
@@ -312,55 +645,27 @@ export default function ERDViewer({ tables, isDarkTheme, darkThemeVariant = 'sla
     const result: Edge[] = [];
     const tableNames = new Set(tables.map(t => t.tableName.toUpperCase()));
 
-    console.log('🔍 ERD: Available tables:', Array.from(tableNames));
-    console.log('🔍 ERD: Total tables loaded:', tables.length);
-
-    // Log each table with its constraints
-    tables.forEach(table => {
-      const fkConstraints = table.constraints.filter(c => c.type === 'Foreign Key');
-      console.log(`📊 ERD: Table ${table.tableName} has ${table.constraints.length} constraints (${fkConstraints.length} FKs)`);
-      if (fkConstraints.length > 0) {
-        fkConstraints.forEach(fk => {
-          console.log(`  FK: ${fk.name} → ${fk.ref}`);
-        });
-      }
-    });
-
     for (const table of tables) {
       for (const constraint of table.constraints) {
         if (constraint.type === 'Foreign Key' && constraint.ref) {
-          console.log(`🔍 ERD: Processing FK in ${table.tableName}:`, constraint.name, '→', constraint.ref);
-
           const refMatch = constraint.ref.match(/(?:(\w+)\.)?(\w+)\(([^)]+)\)/);
           if (refMatch) {
             const refTable = refMatch[2].toUpperCase();
             const refCol = refMatch[3].split(',')[0].trim();
 
-            console.log(`  Schema: ${refMatch[1]}, Table: ${refTable}, Column: ${refCol}`);
-            console.log(`  Looking for table: ${refTable} in set:`, tableNames.has(refTable));
-
             if (tableNames.has(refTable)) {
-              const edge = {
+              result.push({
                 id: `${table.tableName}-${refTable}-${constraint.localCols}`,
                 sourceTable: table.tableName.toUpperCase(),
                 sourceColumn: constraint.localCols.split(',')[0].trim(),
                 targetTable: refTable,
                 targetColumn: refCol
-              };
-              console.log(`  ✅ Creating edge:`, edge);
-              result.push(edge);
-            } else {
-              console.log(`  ❌ Target table ${refTable} not found in diagram`);
+              });
             }
-          } else {
-            console.log(`  ❌ Regex failed to match ref:`, constraint.ref);
           }
         }
       }
     }
-
-    console.log('🔍 ERD: Total edges created:', result.length);
-    result.forEach(e => console.log(`  ${e.sourceTable}.${e.sourceColumn} → ${e.targetTable}.${e.targetColumn}`));
 
     return result;
   }, [tables]);
@@ -588,16 +893,6 @@ export default function ERDViewer({ tables, isDarkTheme, darkThemeVariant = 'sla
     }, 3000);
   };
 
-  // Get column Y position for edge connections
-  const getColumnY = useCallback((node: TableNode, colName: string): number => {
-    const colIndex = node.table.columns.findIndex(
-      c => c.name.toUpperCase() === colName.toUpperCase()
-    );
-    const baseY = node.y + SIZING.TABLE_COLOR_HEIGHT + SIZING.TABLE_HEADER_HEIGHT;
-    if (colIndex === -1) return baseY + SIZING.COLUMN_HEIGHT / 2;
-    return baseY + (colIndex * SIZING.COLUMN_HEIGHT) + SIZING.COLUMN_HEIGHT / 2;
-  }, []);
-
   // Zoom handler with smooth scaling
   const handleWheel = useCallback((e: Konva.KonvaEventObject<WheelEvent>) => {
     e.evt.preventDefault();
@@ -697,12 +992,22 @@ export default function ERDViewer({ tables, isDarkTheme, darkThemeVariant = 'sla
     setStagePosition({ x: e.target.x(), y: e.target.y() });
   };
 
-  // Table drag handler - updates table position independently
+  // Table drag handler - throttled with requestAnimationFrame for smooth performance
   const handleTableDragMove = useCallback((tableId: string, newX: number, newY: number) => {
-    setTablePositions(prev => ({
-      ...prev,
-      [tableId]: { x: newX, y: newY }
-    }));
+    pendingDragRef.current = { tableId, x: newX, y: newY };
+
+    if (dragRafRef.current === null) {
+      dragRafRef.current = requestAnimationFrame(() => {
+        const pending = pendingDragRef.current;
+        if (pending) {
+          setTablePositions(prev => ({
+            ...prev,
+            [pending.tableId]: { x: pending.x, y: pending.y }
+          }));
+        }
+        dragRafRef.current = null;
+      });
+    }
   }, []);
 
   const handleTableDragEnd = useCallback((tableId: string, newX: number, newY: number) => {
@@ -714,263 +1019,17 @@ export default function ERDViewer({ tables, isDarkTheme, darkThemeVariant = 'sla
     savePositions(newPositions);
   }, [tablePositions, savePositions]);
 
-  // Render table node
-  const renderTable = useCallback((node: TableNode) => {
-    const { table, x, y, width, height, colorIndex } = node;
-    const color = TABLE_COLORS[colorIndex];
-    const isHovered = hoveredTable === node.id;
-    const isHighlighted = highlightedTable === node.id;
+  // Stable callback for hover changes (used by memoized table components for edge highlighting)
+  const handleTableHoverChange = useCallback((tableId: string | null) => {
+    setHoveredTable(tableId);
+  }, []);
 
-    // Get PK and FK columns
-    const pkCols = new Set<string>();
-    const fkCols = new Set<string>();
-    table.constraints.forEach(c => {
-      const cols = c.localCols.split(',').map(s => s.trim().toUpperCase());
-      if (c.type === 'Primary Key') cols.forEach(col => pkCols.add(col));
-      if (c.type === 'Foreign Key') cols.forEach(col => fkCols.add(col));
-    });
-
-    return (
-      <Group
-        key={node.id}
-        x={x}
-        y={y}
-        draggable
-        onDragMove={(e) => {
-          // Prevent stage from moving
-          e.cancelBubble = true;
-          handleTableDragMove(node.id, e.target.x(), e.target.y());
-        }}
-        onDragEnd={(e) => {
-          e.cancelBubble = true;
-          handleTableDragEnd(node.id, e.target.x(), e.target.y());
-        }}
-        onMouseEnter={() => {
-          setHoveredTable(node.id);
-          const stage = stageRef.current;
-          if (stage) {
-            stage.container().style.cursor = 'move';
-          }
-        }}
-        onMouseLeave={() => {
-          setHoveredTable(null);
-          const stage = stageRef.current;
-          if (stage) {
-            stage.container().style.cursor = 'grab';
-          }
-        }}
-      >
-        {/* Shadow */}
-        <Rect
-          width={width}
-          height={height}
-          fill={theme.table.shadow}
-          cornerRadius={6}
-          offsetX={-3}
-          offsetY={-3}
-        />
-
-        {/* Highlight border (for search) */}
-        {isHighlighted && (
-          <Rect
-            x={-4}
-            y={-4}
-            width={width + 8}
-            height={height + 8}
-            stroke={color.regular}
-            strokeWidth={3}
-            cornerRadius={8}
-            dash={[8, 4]}
-          />
-        )}
-
-        {/* Main container */}
-        <Rect
-          width={width}
-          height={height}
-          fill={theme.table.background}
-          stroke={isHovered || isHighlighted ? color.regular : theme.table.border}
-          strokeWidth={isHovered || isHighlighted ? 2 : 1}
-          cornerRadius={6}
-        />
-
-        {/* Color strip at top */}
-        <Rect
-          width={width}
-          height={SIZING.TABLE_COLOR_HEIGHT}
-          fill={color.regular}
-          cornerRadius={[6, 6, 0, 0]}
-        />
-
-        {/* Header background */}
-        <Rect
-          y={SIZING.TABLE_COLOR_HEIGHT}
-          width={width}
-          height={SIZING.TABLE_HEADER_HEIGHT}
-          fill={theme.table.headerBackground}
-        />
-
-        {/* Table name */}
-        <Text
-          text={table.tableName}
-          x={SIZING.PADDING + 6}
-          y={SIZING.TABLE_COLOR_HEIGHT + 10}
-          width={width - SIZING.PADDING * 2 - 12}
-          fontSize={FONTS.SIZE_TABLE_TITLE}
-          fontFamily={FONTS.FAMILY}
-          fontStyle="bold"
-          fill={theme.text.primary}
-          ellipsis={true}
-        />
-
-        {/* Separator line */}
-        <Line
-          points={[0, SIZING.TABLE_COLOR_HEIGHT + SIZING.TABLE_HEADER_HEIGHT, width, SIZING.TABLE_COLOR_HEIGHT + SIZING.TABLE_HEADER_HEIGHT]}
-          stroke={theme.table.border}
-          strokeWidth={1}
-        />
-
-        {/* Columns */}
-        {table.columns.map((col, i) => {
-          const colY = SIZING.TABLE_COLOR_HEIGHT + SIZING.TABLE_HEADER_HEIGHT + (i * SIZING.COLUMN_HEIGHT);
-          const isPk = pkCols.has(col.name.toUpperCase());
-          const isFk = fkCols.has(col.name.toUpperCase());
-          const isColHighlighted = highlightedColumn?.table === node.id &&
-                                    highlightedColumn?.column.toUpperCase() === col.name.toUpperCase();
-          const isColHovered = hoveredColumn?.table === node.id &&
-                               hoveredColumn?.column.toUpperCase() === col.name.toUpperCase();
-
-          return (
-            <Group key={col.name} y={colY}>
-              {/* Row highlight for search */}
-              {isColHighlighted && (
-                <Rect
-                  x={1}
-                  width={width - 2}
-                  height={SIZING.COLUMN_HEIGHT}
-                  fill={color.regular}
-                  opacity={0.15}
-                />
-              )}
-
-              {/* Row highlight for hover */}
-              {isColHovered && !isColHighlighted && (
-                <Rect
-                  x={1}
-                  width={width - 2}
-                  height={SIZING.COLUMN_HEIGHT}
-                  fill={theme.table.headerBackground}
-                  opacity={0.8}
-                />
-              )}
-
-              {/* Row background for PK/FK */}
-              {(isPk || isFk) && !isColHighlighted && !isColHovered && (
-                <Rect
-                  x={1}
-                  width={width - 2}
-                  height={SIZING.COLUMN_HEIGHT}
-                  fill={isPk ? color.lighter : '#f0f9ff'}
-                  opacity={0.3}
-                />
-              )}
-
-              {/* Invisible rect for hover detection */}
-              <Rect
-                x={0}
-                width={width}
-                height={SIZING.COLUMN_HEIGHT}
-                fill="transparent"
-                onMouseEnter={() => setHoveredColumn({ table: node.id, column: col.name })}
-                onMouseLeave={() => setHoveredColumn(null)}
-              />
-
-              {/* Key indicator */}
-              {(isPk || isFk) && (
-                <Text
-                  text={isPk ? '🔑' : '🔗'}
-                  x={6}
-                  y={7}
-                  fontSize={10}
-                />
-              )}
-
-              {/* Column name */}
-              <Text
-                text={col.name}
-                x={isPk || isFk ? 22 : SIZING.PADDING + 6}
-                y={8}
-                width={width * 0.5}
-                fontSize={FONTS.SIZE_SM}
-                fontFamily={FONTS.FAMILY}
-                fontStyle={isPk || isColHighlighted ? 'bold' : 'normal'}
-                fill={isPk ? color.regular : theme.text.primary}
-                ellipsis={true}
-              />
-
-              {/* Column type */}
-              <Text
-                text={col.type}
-                x={width * 0.55}
-                y={8}
-                width={width * 0.4}
-                fontSize={FONTS.SIZE_SM - 1}
-                fontFamily={FONTS.FAMILY}
-                fill={theme.text.secondary}
-                ellipsis={true}
-                align="right"
-              />
-            </Group>
-          );
-        })}
-      </Group>
-    );
-  }, [theme, hoveredTable, highlightedTable, highlightedColumn, handleTableDragMove, handleTableDragEnd]);
-
-  // Render edge with smooth bezier curves (following db-schema-visualizer pattern)
-  const renderEdge = useCallback((edge: Edge) => {
-    const sourceNode = nodes.find(n => n.id === edge.sourceTable);
-    const targetNode = nodes.find(n => n.id === edge.targetTable);
-    if (!sourceNode || !targetNode) return null;
-
-    const sourceY = getColumnY(sourceNode, edge.sourceColumn);
-    const targetY = getColumnY(targetNode, edge.targetColumn);
-
-    // Compute connection positions (left or right side)
-    const [sourcePosition, targetPosition, sourceX, targetX] = computeConnectionHandlePos(
-      sourceNode.x,
-      sourceNode.width,
-      targetNode.x,
-      targetNode.width
-    );
-
-    const sourcePoint = { x: sourceX, y: sourceY };
-    const targetPoint = { x: targetX, y: targetY };
-
-    // Generate bezier path
-    const pathData = getBezierPath(sourcePoint, targetPoint, sourcePosition, targetPosition);
-
-    // Generate relation symbols (many-to-one: crow's foot at source, line at target)
-    const sourceSymbol = getManySymbol(sourceX, sourceY, sourcePosition);
-    const targetSymbol = getOneSymbol(targetX, targetY, targetPosition);
-
-    const fullPath = `${pathData} ${sourceSymbol} ${targetSymbol}`;
-
-    const isHovered = hoveredTable === edge.sourceTable || hoveredTable === edge.targetTable;
-    const sourceColor = TABLE_COLORS[sourceNode.colorIndex];
-
-    return (
-      <Path
-        key={edge.id}
-        data={fullPath}
-        stroke={isHovered ? sourceColor.regular : theme.connection.default}
-        strokeWidth={isHovered ? 2.5 : SIZING.CONNECTION_STROKE_WIDTH}
-        lineCap="round"
-        lineJoin="round"
-        opacity={isHovered ? 1 : 0.7}
-      />
-    );
-  }, [nodes, getColumnY, theme, hoveredTable]);
+  // Create a lookup map for nodes by ID (for edge rendering)
+  const nodeMap = useMemo(() => {
+    const map = new Map<string, TableNode>();
+    nodes.forEach(node => map.set(node.id, node));
+    return map;
+  }, [nodes]);
 
   if (tables.length === 0) {
     return (
@@ -1181,8 +1240,34 @@ export default function ERDViewer({ tables, isDarkTheme, darkThemeVariant = 'sla
         style={{ cursor: isDraggingStage ? 'grabbing' : 'grab' }}
       >
         <Layer>
-          {edges.map(edge => renderEdge(edge))}
-          {nodes.map(node => renderTable(node))}
+          {edges.map(edge => {
+            const sourceNode = nodeMap.get(edge.sourceTable);
+            const targetNode = nodeMap.get(edge.targetTable);
+            if (!sourceNode || !targetNode) return null;
+            return (
+              <ERDEdgePath
+                key={edge.id}
+                edge={edge}
+                sourceNode={sourceNode}
+                targetNode={targetNode}
+                theme={theme}
+                hoveredTableId={hoveredTable}
+              />
+            );
+          })}
+          {nodes.map(node => (
+            <ERDTableNode
+              key={node.id}
+              node={node}
+              theme={theme}
+              isHighlighted={highlightedTable === node.id}
+              highlightedColumn={highlightedColumn}
+              onDragMove={handleTableDragMove}
+              onDragEnd={handleTableDragEnd}
+              onHoverChange={handleTableHoverChange}
+              stageRef={stageRef}
+            />
+          ))}
         </Layer>
       </Stage>
 

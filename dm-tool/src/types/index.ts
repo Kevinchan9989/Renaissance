@@ -199,6 +199,7 @@ export interface ColumnMapping {
 
   // Validation results
   validation: MappingValidation;
+  validationResolved?: boolean; // True if validation issues have been manually resolved/acknowledged
 
   // Transformations (ordered)
   transformations: Transformation[];
