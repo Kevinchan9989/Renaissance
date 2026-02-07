@@ -48,6 +48,15 @@ export default function DataDictionary({
 
   const tableRef = useRef<HTMLTableElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const updateCellValueRef = useRef<(row: number, col: number, value: string, skipUndo?: boolean) => void>(() => {});
+  const editingCellRef = useRef<CellCoord | null>(null);
+  const [editInputPosition, setEditInputPosition] = useState<{ top: number; left: number; width: number; height: number } | null>(null);
+
+  // Undo/Redo history stacks (stores column snapshots)
+  const undoStackRef = useRef<Column[][]>([]);
+  const redoStackRef = useRef<Column[][]>([]);
+  const MAX_UNDO = 50;
 
   // Find selected table from both targets and sources
   const selectedTableFromTargets = script.data.targets.find(t => t.id === selectedTableId);
@@ -145,26 +154,84 @@ export default function DataDictionary({
     }
   }, [selectedTable, getMappingInfo]);
 
-  // Update cell value by coordinates (only for editable columns 0-5)
-  const updateCellValue = useCallback((row: number, col: number, value: string) => {
+  // Field map for column index to Column property
+  const fieldMap: { [key: number]: keyof Column } = {
+    0: 'name',
+    1: 'type',
+    2: 'nullable',
+    3: 'default',
+    4: 'explanation',
+    5: 'mapping',
+  };
+
+  // Push current column state to undo stack before making changes
+  const pushUndo = useCallback(() => {
+    if (!selectedTable) return;
+    const snapshot = selectedTable.columns.map(c => ({ ...c }));
+    undoStackRef.current.push(snapshot);
+    if (undoStackRef.current.length > MAX_UNDO) {
+      undoStackRef.current.shift();
+    }
+    // Clear redo stack on new action
+    redoStackRef.current = [];
+  }, [selectedTable]);
+
+  // Update a single cell value by coordinates (only for editable columns 0-5)
+  // skipUndo: used by debounced auto-save to avoid pushing undo on every keystroke
+  const updateCellValue = useCallback((row: number, col: number, value: string, skipUndo = false) => {
     if (!selectedTable || row < 0 || row >= selectedTable.columns.length) return;
     if (col >= 6) return; // "Mapped To" is read-only
     const column = selectedTable.columns[row];
 
-    const fieldMap: { [key: number]: keyof Column } = {
-      0: 'name',
-      1: 'type',
-      2: 'nullable',
-      3: 'default',
-      4: 'explanation',
-      5: 'mapping',
-    };
-
     const field = fieldMap[col];
     if (field) {
+      if (!skipUndo) pushUndo();
       updateColumnField(column.name, field, value);
     }
-  }, [selectedTable, updateColumnField]);
+  }, [selectedTable, updateColumnField, pushUndo]);
+
+  // Batch update multiple cells in one onUpdateTable call
+  // This is critical for paste and multi-delete: calling updateCellValue in a loop
+  // would cause each call to read from stale data, so only the last write survives.
+  const batchUpdateCells = useCallback((updates: { row: number; col: number; value: string }[]) => {
+    if (!selectedTable) return;
+
+    pushUndo(); // Save state before batch change
+
+    const updatedColumns = [...selectedTable.columns.map(c => ({ ...c }))];
+
+    for (const { row, col, value } of updates) {
+      if (row < 0 || row >= updatedColumns.length || col >= 6) continue;
+      const field = fieldMap[col];
+      if (field) {
+        updatedColumns[row] = { ...updatedColumns[row], [field]: value };
+      }
+    }
+
+    onUpdateTable(selectedTable.id, { columns: updatedColumns }, isSourceTable);
+  }, [selectedTable, onUpdateTable, isSourceTable, pushUndo]);
+
+  // Undo: restore previous column state
+  const handleUndo = useCallback(() => {
+    if (!selectedTable || undoStackRef.current.length === 0) return;
+    // Save current state to redo stack
+    const currentSnapshot = selectedTable.columns.map(c => ({ ...c }));
+    redoStackRef.current.push(currentSnapshot);
+    // Pop and apply previous state
+    const previousState = undoStackRef.current.pop()!;
+    onUpdateTable(selectedTable.id, { columns: previousState }, isSourceTable);
+  }, [selectedTable, onUpdateTable, isSourceTable]);
+
+  // Redo: re-apply undone change
+  const handleRedo = useCallback(() => {
+    if (!selectedTable || redoStackRef.current.length === 0) return;
+    // Save current state to undo stack
+    const currentSnapshot = selectedTable.columns.map(c => ({ ...c }));
+    undoStackRef.current.push(currentSnapshot);
+    // Pop and apply redo state
+    const redoState = redoStackRef.current.pop()!;
+    onUpdateTable(selectedTable.id, { columns: redoState }, isSourceTable);
+  }, [selectedTable, onUpdateTable, isSourceTable]);
 
   // Check if cell is selected
   const isCellSelected = useCallback((row: number, col: number): boolean => {
@@ -175,11 +242,6 @@ export default function DataDictionary({
   const isCellActive = useCallback((row: number, col: number): boolean => {
     return activeCell?.row === row && activeCell?.col === col;
   }, [activeCell]);
-
-  // Check if cell is being edited
-  const isCellEditing = useCallback((row: number, col: number): boolean => {
-    return editingCell?.row === row && editingCell?.col === col;
-  }, [editingCell]);
 
   // Get range of cells between two coordinates
   const getCellRange = useCallback((start: CellCoord, end: CellCoord): CellCoord[] => {
@@ -201,6 +263,17 @@ export default function DataDictionary({
   const handleCellClick = useCallback((row: number, col: number, e: React.MouseEvent) => {
     if (!excelMode) return;
 
+    // If we were editing, the input's onBlur already saved.
+    // Just clear editing state if it's somehow still set.
+    if (editingCell) {
+      // Flush any pending debounced save
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = null;
+      }
+      setEditingCell(null);
+    }
+
     if (e.shiftKey && activeCell) {
       // Shift+click: extend selection from active cell
       const range = getCellRange(activeCell, { row, col });
@@ -218,22 +291,19 @@ export default function DataDictionary({
       setSelectedCells([{ row, col }]);
       setActiveCell({ row, col });
     }
-
-    // Clear any editing state
-    if (editingCell) {
-      setEditingCell(null);
-    }
   }, [excelMode, activeCell, getCellRange, isCellSelected, editingCell]);
 
   // Handle cell double click to enter edit mode
   const handleCellDoubleClick = useCallback((row: number, col: number) => {
     if (!excelMode) return;
+    if (col >= 6) return; // Can't edit read-only columns
 
+    pushUndo(); // Save state before editing starts
     setEditingCell({ row, col });
     setEditValue(getCellValue(row, col));
     setActiveCell({ row, col });
     setSelectedCells([{ row, col }]);
-  }, [excelMode, getCellValue]);
+  }, [excelMode, getCellValue, pushUndo]);
 
   // Handle mouse down for drag selection
   const handleCellMouseDown = useCallback((row: number, col: number, e: React.MouseEvent) => {
@@ -272,7 +342,8 @@ export default function DataDictionary({
   // Commit edit and move to next cell
   const commitEdit = useCallback((moveDirection?: 'down' | 'right' | 'up' | 'left') => {
     if (editingCell) {
-      updateCellValue(editingCell.row, editingCell.col, editValue);
+      // skipUndo=true because undo was pushed when editing started (double-click/Enter/typing)
+      updateCellValue(editingCell.row, editingCell.col, editValue, true);
       setEditingCell(null);
 
       if (moveDirection && activeCell && selectedTable) {
@@ -313,6 +384,20 @@ export default function DataDictionary({
         e.preventDefault();
         setEditingCell(null);
       }
+      return;
+    }
+
+    // Handle undo (Ctrl+Z)
+    if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+      e.preventDefault();
+      handleUndo();
+      return;
+    }
+
+    // Handle redo (Ctrl+Y or Ctrl+Shift+Z)
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey) || (e.key === 'Z' && e.shiftKey))) {
+      e.preventDefault();
+      handleRedo();
       return;
     }
 
@@ -394,31 +479,38 @@ export default function DataDictionary({
           newRow = Math.max(0, activeCell.row - 1);
         } else {
           // Start editing on Enter
-          setEditingCell(activeCell);
-          setEditValue(getCellValue(activeCell.row, activeCell.col));
+          if (activeCell.col < 6) {
+            pushUndo();
+            setEditingCell(activeCell);
+            setEditValue(getCellValue(activeCell.row, activeCell.col));
+          }
           return;
         }
         break;
       case 'F2':
         // F2 to edit cell
         e.preventDefault();
-        setEditingCell(activeCell);
-        setEditValue(getCellValue(activeCell.row, activeCell.col));
+        if (activeCell.col < 6) {
+          pushUndo();
+          setEditingCell(activeCell);
+          setEditValue(getCellValue(activeCell.row, activeCell.col));
+        }
         return;
       case 'Delete':
       case 'Backspace':
-        // Clear selected cells
+        // Clear selected cells (batch update to avoid stale data)
         e.preventDefault();
-        selectedCells.forEach(cell => {
-          updateCellValue(cell.row, cell.col, '');
-        });
+        batchUpdateCells(selectedCells.map(cell => ({ row: cell.row, col: cell.col, value: '' })));
         return;
       default:
         // Start editing on any printable character
         if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
-          e.preventDefault();
-          setEditingCell(activeCell);
-          setEditValue(e.key);
+          if (activeCell.col < 6) {
+            e.preventDefault();
+            pushUndo();
+            setEditingCell(activeCell);
+            setEditValue(e.key);
+          }
           return;
         }
         return;
@@ -436,7 +528,7 @@ export default function DataDictionary({
       setActiveCell({ row: newRow, col: newCol });
       setSelectedCells([{ row: newRow, col: newCol }]);
     }
-  }, [excelMode, selectedTable, editingCell, activeCell, selectedCells, commitEdit, getCellValue, getCellRange, updateCellValue]);
+  }, [excelMode, selectedTable, editingCell, activeCell, selectedCells, commitEdit, getCellValue, getCellRange, batchUpdateCells, handleUndo, handleRedo, pushUndo]);
 
   // Handle copy to clipboard
   const handleCopy = useCallback(async () => {
@@ -480,15 +572,10 @@ export default function DataDictionary({
       const text = await navigator.clipboard.readText();
       if (!text) return;
 
-      // Parse TSV/CSV (handle both tab and comma separators)
+      // Parse TSV only (tab-separated) — Excel/spreadsheet apps copy as TSV.
+      // Do NOT split on commas, as cell values may legitimately contain commas.
       const lines = text.split(/\r?\n/).filter(line => line.length > 0);
-      const clipboardRows = lines.map(line => {
-        // Prefer tab-separated (Excel default) but fall back to comma
-        if (line.includes('\t')) {
-          return line.split('\t');
-        }
-        return line.split(',');
-      });
+      const clipboardRows = lines.map(line => line.split('\t'));
 
       const clipboardRowCount = clipboardRows.length;
       const clipboardColCount = Math.max(...clipboardRows.map(r => r.length));
@@ -498,13 +585,16 @@ export default function DataDictionary({
       const tableMaxRow = selectedTable.columns.length - 1;
       const tableMaxCol = COLUMN_COUNT - 1;
 
+      // Collect all updates, then apply in one batch
+      const updates: { row: number; col: number; value: string }[] = [];
+
       // Case 1: Multiple cells selected - paste to all selected cells
       if (selectedCells.length > 1) {
         if (isSingleValue) {
           // Single value clipboard: paste same value to all selected cells
           selectedCells.forEach(cell => {
             if (cell.row <= tableMaxRow && cell.col <= tableMaxCol) {
-              updateCellValue(cell.row, cell.col, singleValue);
+              updates.push({ row: cell.row, col: cell.col, value: singleValue });
             }
           });
         } else {
@@ -524,7 +614,7 @@ export default function DataDictionary({
                 const clipRow = (row - minSelRow) % clipboardRowCount;
                 const clipCol = (col - minSelCol) % clipboardColCount;
                 const value = clipboardRows[clipRow]?.[clipCol] ?? '';
-                updateCellValue(row, col, value.trim());
+                updates.push({ row, col, value: value.trim() });
               }
             }
           }
@@ -544,7 +634,7 @@ export default function DataDictionary({
             const targetCol = startCol + colOffset;
             if (targetCol > tableMaxCol) return;
 
-            updateCellValue(targetRow, targetCol, value.trim());
+            updates.push({ row: targetRow, col: targetCol, value: value.trim() });
             newSelectedCells.push({ row: targetRow, col: targetCol });
           });
         });
@@ -554,24 +644,90 @@ export default function DataDictionary({
           setSelectedCells(newSelectedCells);
         }
       }
+
+      // Apply all updates in a single batch
+      if (updates.length > 0) {
+        batchUpdateCells(updates);
+      }
     } catch (err) {
       console.error('Failed to paste:', err);
     }
-  }, [selectedTable, activeCell, selectedCells, updateCellValue, isCellSelected]);
+  }, [selectedTable, activeCell, selectedCells, batchUpdateCells, isCellSelected]);
 
-  // Focus input when editing starts
+  // Keep refs in sync to avoid stale closures in debounced save
+  useEffect(() => { updateCellValueRef.current = updateCellValue; }, [updateCellValue]);
+  useEffect(() => { editingCellRef.current = editingCell; }, [editingCell]);
+
+  // Calculate input position when editing starts
   useEffect(() => {
-    if (editingCell && inputRef.current) {
-      inputRef.current.focus();
-      inputRef.current.select();
+    if (editingCell && tableRef.current) {
+      // Find the cell element to position the input
+      const rows = tableRef.current.querySelectorAll('tbody tr');
+      if (rows[editingCell.row]) {
+        const cells = rows[editingCell.row].querySelectorAll('td');
+        if (cells[editingCell.col]) {
+          const cell = cells[editingCell.col] as HTMLElement;
+          const tableRect = tableRef.current.getBoundingClientRect();
+          const cellRect = cell.getBoundingClientRect();
+
+          setEditInputPosition({
+            top: cellRect.top - tableRect.top,
+            left: cellRect.left - tableRect.left,
+            width: cellRect.width,
+            height: cellRect.height,
+          });
+        }
+      }
+    } else {
+      setEditInputPosition(null);
     }
   }, [editingCell]);
 
-  // Clear selection when switching tables or modes
+  // Focus input after position is calculated and input is rendered
+  useEffect(() => {
+    if (editingCell && editInputPosition && inputRef.current) {
+      inputRef.current.focus();
+      // Only select all if entering edit mode (not on position recalc)
+      inputRef.current.select();
+    }
+  }, [editingCell, editInputPosition]);
+
+  // Debounced auto-save for Excel mode editing
+  // IMPORTANT: Only depend on editValue to avoid infinite loop.
+  // updateCellValue changes when selectedTable changes (after save), which would re-trigger this effect.
+  // Using refs for editingCell and updateCellValue to always get current values without triggering the effect.
+  useEffect(() => {
+    if (editingCellRef.current) {
+      // Clear any existing timeout
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+
+      // Set new timeout for auto-save (300ms debounce)
+      // skipUndo=true because undo was pushed when editing started
+      saveTimeoutRef.current = setTimeout(() => {
+        const cell = editingCellRef.current;
+        if (cell) {
+          updateCellValueRef.current(cell.row, cell.col, editValue, true);
+        }
+      }, 300);
+    }
+
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editValue]);
+
+  // Clear selection and undo/redo when switching tables or modes
   useEffect(() => {
     setSelectedCells([]);
     setActiveCell(null);
     setEditingCell(null);
+    undoStackRef.current = [];
+    redoStackRef.current = [];
   }, [selectedTableId, excelMode]);
 
   // Toggle Excel mode
@@ -584,39 +740,6 @@ export default function DataDictionary({
       setEditingCell(null);
     }
   }, [excelMode]);
-
-  // Get cell style based on selection state
-  const getCellStyle = useCallback((row: number, col: number): React.CSSProperties => {
-    const baseStyle: React.CSSProperties = {
-      cursor: excelMode ? 'cell' : 'default',
-      userSelect: excelMode ? 'none' : 'auto',
-      position: 'relative',
-      padding: '6px 8px',
-      wordBreak: 'break-word',
-      overflowWrap: 'break-word',
-      whiteSpace: 'normal',
-    };
-
-    if (!excelMode) return baseStyle;
-
-    if (isCellActive(row, col)) {
-      return {
-        ...baseStyle,
-        outline: '2px solid #2563eb',
-        outlineOffset: '-2px',
-        backgroundColor: isDarkTheme ? '#1e3a5f' : '#dbeafe',
-      };
-    }
-
-    if (isCellSelected(row, col)) {
-      return {
-        ...baseStyle,
-        backgroundColor: isDarkTheme ? '#1e3a5f80' : '#bfdbfe',
-      };
-    }
-
-    return baseStyle;
-  }, [excelMode, isCellActive, isCellSelected, isDarkTheme]);
 
   // ============================================
   // END EXCEL-LIKE EDITING FUNCTIONS
@@ -692,7 +815,7 @@ export default function DataDictionary({
 
   return (
     <div
-      style={{ height: '100%', overflow: 'auto' }}
+      style={{ height: '100%', overflow: 'auto', outline: excelMode ? 'none' : undefined }}
       tabIndex={excelMode ? 0 : undefined}
       onKeyDown={excelMode ? handleKeyDown : undefined}
     >
@@ -730,7 +853,7 @@ export default function DataDictionary({
         }}>
           <strong>Excel Mode:</strong> Click to select • Shift+Click for range • Ctrl+Click for multi-select •
           Drag to select range • Arrow keys to navigate • Enter/F2 to edit • Tab to move right •
-          Ctrl+C to copy • Ctrl+V to paste • Delete to clear
+          Ctrl+C to copy • Ctrl+V to paste • Delete to clear • Ctrl+Z undo • Ctrl+Y redo
         </div>
       )}
 
@@ -797,6 +920,7 @@ export default function DataDictionary({
       </h3>
 
       {/* Single table with optional Excel mode selection overlay */}
+      <div style={{ position: 'relative' }}>
       <table
         ref={tableRef}
         className={`data-table ${excelMode ? 'excel-mode' : ''}`}
@@ -854,6 +978,7 @@ export default function DataDictionary({
             // Helper for Excel mode cell event handlers
             const excelCellProps = (colIndex: number) => excelMode ? {
               onClick: (e: React.MouseEvent) => handleCellClick(rowIndex, colIndex, e),
+              onDoubleClick: () => handleCellDoubleClick(rowIndex, colIndex),
               onMouseDown: (e: React.MouseEvent) => handleCellMouseDown(rowIndex, colIndex, e),
               onMouseMove: () => handleCellMouseMove(rowIndex, colIndex),
               style: {
@@ -1069,6 +1194,81 @@ export default function DataDictionary({
           })}
         </tbody>
       </table>
+
+      {/* Excel mode editing input overlay */}
+      {excelMode && editingCell && editInputPosition && (
+        <input
+          ref={inputRef}
+          type="text"
+          value={editValue}
+          onChange={(e) => {
+            e.stopPropagation(); // Prevent bubbling to parent handlers
+            setEditValue(e.target.value);
+          }}
+          onKeyDown={(e) => {
+            // CRITICAL: Stop propagation so parent div's handleKeyDown doesn't also fire
+            // Without this, Enter/Tab/Escape get handled TWICE (input + parent div),
+            // causing double saves and double cursor movement
+            e.stopPropagation();
+
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              // Flush any pending debounced save first
+              if (saveTimeoutRef.current) {
+                clearTimeout(saveTimeoutRef.current);
+                saveTimeoutRef.current = null;
+              }
+              commitEdit('down');
+            } else if (e.key === 'Tab') {
+              e.preventDefault();
+              if (saveTimeoutRef.current) {
+                clearTimeout(saveTimeoutRef.current);
+                saveTimeoutRef.current = null;
+              }
+              commitEdit(e.shiftKey ? 'left' : 'right');
+            } else if (e.key === 'Escape') {
+              e.preventDefault();
+              // Cancel: clear pending save and discard
+              if (saveTimeoutRef.current) {
+                clearTimeout(saveTimeoutRef.current);
+                saveTimeoutRef.current = null;
+              }
+              setEditingCell(null);
+            }
+          }}
+          onBlur={() => {
+            // Save and close editing on blur (clicking elsewhere)
+            // Flush any pending debounced save
+            if (saveTimeoutRef.current) {
+              clearTimeout(saveTimeoutRef.current);
+              saveTimeoutRef.current = null;
+            }
+            if (editingCell) {
+              updateCellValue(editingCell.row, editingCell.col, editValue);
+              setEditingCell(null);
+            }
+          }}
+          style={{
+            position: 'absolute',
+            top: editInputPosition.top,
+            left: editInputPosition.left,
+            width: editInputPosition.width,
+            height: editInputPosition.height,
+            minWidth: '60px',
+            boxSizing: 'border-box',
+            padding: '4px 8px',
+            fontSize: '13px',
+            fontFamily: 'inherit',
+            border: '2px solid #2563eb',
+            borderRadius: '2px',
+            outline: 'none',
+            backgroundColor: isDarkTheme ? '#1e293b' : '#ffffff',
+            color: isDarkTheme ? '#e2e8f0' : '#1e293b',
+            zIndex: 100,
+          }}
+        />
+      )}
+      </div>
     </div>
   );
 }

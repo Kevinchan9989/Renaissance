@@ -4639,3 +4639,16 @@ body.dark-theme.vscode-gray .code-editor-container mark.search-highlight.active 
   background-color: #d97706;
   color: #fffbeb;
 }
+
+/* =========================================
+   Animations
+   ========================================= */
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}

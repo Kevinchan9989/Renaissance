@@ -23,6 +23,12 @@ export default function SettingsModal({ isOpen, onClose, theme, darkThemeVariant
   const [groupTemporalColors, setGroupTemporalColors] = useState(
     localStorage.getItem('erd_group_temporal_colors') === 'true'
   );
+  const [smartAutoLayout, setSmartAutoLayout] = useState(
+    localStorage.getItem('erd_smart_auto_layout') === 'true'
+  );
+  const [zoomSensitivity, setZoomSensitivity] = useState(
+    localStorage.getItem('erd_zoom_sensitivity') || '1.1'
+  );
   const logsEndRef = useRef<HTMLDivElement>(null);
 
   // Git sync state
@@ -619,6 +625,75 @@ export default function SettingsModal({ isOpen, onClose, theme, darkThemeVariant
                 Configure how ERD diagrams display tables and relationships.
               </p>
 
+              {/* Smart Auto-Layout Toggle */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '16px',
+                borderRadius: '8px',
+                backgroundColor: isDark ? (isVscode ? '#252526' : '#1e293b') : '#f9fafb',
+                border: `1px solid ${borderColor}`,
+                marginBottom: '16px',
+              }}>
+                <div>
+                  <div style={{ color: textColor, fontSize: '14px', fontWeight: 500, marginBottom: '4px' }}>
+                    Smart Auto-Layout
+                  </div>
+                  <div style={{ color: textSecondary, fontSize: '13px' }}>
+                    Uses advanced algorithm to arrange tables cleanly with minimal edge crossings. Master and _T tables are placed side-by-side.
+                  </div>
+                </div>
+                <label style={{
+                  position: 'relative',
+                  display: 'inline-block',
+                  width: '48px',
+                  height: '26px',
+                  cursor: 'pointer',
+                  flexShrink: 0,
+                  marginLeft: '12px',
+                }}>
+                  <input
+                    type="checkbox"
+                    checked={smartAutoLayout}
+                    onChange={(e) => {
+                      const newValue = e.target.checked;
+                      setSmartAutoLayout(newValue);
+                      localStorage.setItem('erd_smart_auto_layout', String(newValue));
+                      window.dispatchEvent(new CustomEvent('erd-settings-changed'));
+                    }}
+                    style={{
+                      opacity: 0,
+                      width: 0,
+                      height: 0,
+                    }}
+                  />
+                  <span style={{
+                    position: 'absolute',
+                    cursor: 'pointer',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: smartAutoLayout ? '#10b981' : (isDark ? '#4b5563' : '#d1d5db'),
+                    transition: '0.3s',
+                    borderRadius: '26px',
+                  }}>
+                    <span style={{
+                      position: 'absolute',
+                      content: '',
+                      height: '20px',
+                      width: '20px',
+                      left: smartAutoLayout ? '25px' : '3px',
+                      bottom: '3px',
+                      backgroundColor: 'white',
+                      transition: '0.3s',
+                      borderRadius: '50%',
+                    }} />
+                  </span>
+                </label>
+              </div>
+
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -682,6 +757,51 @@ export default function SettingsModal({ isOpen, onClose, theme, darkThemeVariant
                     }} />
                   </span>
                 </label>
+              </div>
+
+              {/* Zoom Sensitivity Setting */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '16px',
+                borderRadius: '8px',
+                backgroundColor: isDark ? (isVscode ? '#252526' : '#1e293b') : '#f9fafb',
+                border: `1px solid ${borderColor}`,
+                marginTop: '16px',
+              }}>
+                <div>
+                  <div style={{ color: textColor, fontSize: '14px', fontWeight: 500, marginBottom: '4px' }}>
+                    Zoom Sensitivity
+                  </div>
+                  <div style={{ color: textSecondary, fontSize: '13px' }}>
+                    How fast the canvas zooms when scrolling
+                  </div>
+                </div>
+                <select
+                  value={zoomSensitivity}
+                  onChange={(e) => {
+                    const newValue = e.target.value;
+                    setZoomSensitivity(newValue);
+                    localStorage.setItem('erd_zoom_sensitivity', newValue);
+                    window.dispatchEvent(new CustomEvent('erd-settings-changed'));
+                  }}
+                  style={{
+                    padding: '8px 12px',
+                    borderRadius: '6px',
+                    border: `1px solid ${borderColor}`,
+                    backgroundColor: isDark ? (isVscode ? '#3c3c3c' : '#374151') : '#ffffff',
+                    color: textColor,
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    minWidth: '120px',
+                  }}
+                >
+                  <option value="1.05">Slow</option>
+                  <option value="1.1">Medium</option>
+                  <option value="1.15">Fast</option>
+                  <option value="1.2">Very Fast</option>
+                </select>
               </div>
             </div>
           )}
