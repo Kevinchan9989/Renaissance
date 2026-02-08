@@ -13,6 +13,7 @@ export interface Column {
   mapping: string;
   migrationNeeded?: boolean;
   nonMigrationComment?: string;
+  sampleValues?: string[];  // Sample values from attached CSV
 }
 
 export interface Constraint {
@@ -29,11 +30,34 @@ export interface Table {
   description: string;
   constraints: Constraint[];
   columns: Column[];
+  toIgnore?: boolean;  // Flag to mark table as ignored for migration
 }
 
 export interface ScriptData {
   targets: Table[];
   sources: Table[];
+}
+
+// ============================================
+// Sample Data Attachment Types
+// ============================================
+
+export interface SampleDataMatchResult {
+  csvTableName: string;
+  matchedScriptTable: string | null;  // null if no match
+  matchedColumns: { csvColumn: string; scriptColumn: string }[];
+  unmatchedCsvColumns: string[];
+  unmatchedScriptColumns: string[];
+  matchMethod?: 'name' | 'columns';  // How the match was found (name-based or column-based)
+  matchScore?: number;  // For column-based matching, the percentage of columns matched
+}
+
+export interface SampleDataAttachment {
+  id: string;
+  fileName: string;
+  uploadedAt: number;
+  matchResults: SampleDataMatchResult[];
+  warnings: string[];
 }
 
 export interface Script {
@@ -49,6 +73,8 @@ export interface Script {
   versions?: ScriptVersion[];
   versioningEnabled?: boolean;
   maxVersions?: number;
+  // Sample data attachments
+  sampleDataAttachments?: SampleDataAttachment[];
 }
 
 // ============================================
