@@ -22,8 +22,14 @@ import {
   Download,
   GitBranch,
   History,
-  Workflow
+  Workflow,
+  Paperclip,
+  FileText,
+  Table2
 } from 'lucide-react';
+import AttachSampleDataModal from './AttachSampleDataModal';
+import ImportExplanationsModal from './ImportExplanationsModal';
+import ImportTableDescriptionsModal from './ImportTableDescriptionsModal';
 
 interface ScriptManagerProps {
   scripts: Script[];
@@ -72,6 +78,15 @@ export default function ScriptManager({
 
   // Versioning state
   const [showVersionHistory, setShowVersionHistory] = useState(false);
+
+  // Sample data attachment state
+  const [showAttachSampleData, setShowAttachSampleData] = useState(false);
+
+  // Import explanations state
+  const [showImportExplanations, setShowImportExplanations] = useState(false);
+
+  // Import table descriptions state
+  const [showImportTableDescriptions, setShowImportTableDescriptions] = useState(false);
 
   // Drag and drop state
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
@@ -686,6 +701,40 @@ stop
                   </>
                 ) : (
                   <>
+                    <button
+                      className="btn btn-sm"
+                      onClick={() => setShowAttachSampleData(true)}
+                      title="Attach sample data from CSV"
+                    >
+                      <Paperclip size={14} />
+                      {(selectedScript.sampleDataAttachments?.length || 0) > 0 && (
+                        <span style={{
+                          marginLeft: '4px',
+                          backgroundColor: '#22c55e',
+                          color: 'white',
+                          borderRadius: '10px',
+                          padding: '0 6px',
+                          fontSize: '11px',
+                          fontWeight: 600
+                        }}>
+                          {selectedScript.sampleDataAttachments?.length}
+                        </span>
+                      )}
+                    </button>
+                    <button
+                      className="btn btn-sm"
+                      onClick={() => setShowImportExplanations(true)}
+                      title="Import column explanations"
+                    >
+                      <FileText size={14} />
+                    </button>
+                    <button
+                      className="btn btn-sm"
+                      onClick={() => setShowImportTableDescriptions(true)}
+                      title="Import table descriptions"
+                    >
+                      <Table2 size={14} />
+                    </button>
                     {!selectedScript.versioningEnabled && (
                       <button
                         className="btn btn-sm"
@@ -963,6 +1012,55 @@ stop
           onClose={() => setShowVersionHistory(false)}
           onScriptUpdate={handleVersionHistoryUpdate}
           isDarkTheme={isDarkTheme}
+        />
+      )}
+
+      {/* Attach Sample Data Modal */}
+      {showAttachSampleData && selectedScript && (
+        <AttachSampleDataModal
+          script={selectedScript}
+          onClose={() => setShowAttachSampleData(false)}
+          onAttach={(updatedScript) => {
+            onUpdateScript(updatedScript.id, {
+              data: updatedScript.data,
+              sampleDataAttachments: updatedScript.sampleDataAttachments
+            });
+            setShowAttachSampleData(false);
+          }}
+          isDarkTheme={isDarkTheme}
+          darkThemeVariant={darkThemeVariant}
+        />
+      )}
+
+      {/* Import Explanations Modal */}
+      {showImportExplanations && selectedScript && (
+        <ImportExplanationsModal
+          script={selectedScript}
+          onClose={() => setShowImportExplanations(false)}
+          onImport={(updatedScript) => {
+            onUpdateScript(updatedScript.id, {
+              data: updatedScript.data
+            });
+            setShowImportExplanations(false);
+          }}
+          isDarkTheme={isDarkTheme}
+          darkThemeVariant={darkThemeVariant}
+        />
+      )}
+
+      {/* Import Table Descriptions Modal */}
+      {showImportTableDescriptions && selectedScript && (
+        <ImportTableDescriptionsModal
+          script={selectedScript}
+          onClose={() => setShowImportTableDescriptions(false)}
+          onImport={(updatedScript) => {
+            onUpdateScript(updatedScript.id, {
+              data: updatedScript.data
+            });
+            setShowImportTableDescriptions(false);
+          }}
+          isDarkTheme={isDarkTheme}
+          darkThemeVariant={darkThemeVariant}
         />
       )}
     </div>
