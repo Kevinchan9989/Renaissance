@@ -4641,6 +4641,74 @@ body.dark-theme.vscode-gray .code-editor-container mark.search-highlight.active 
 }
 
 /* =========================================
+   Import DDL Modal
+   ========================================= */
+
+.import-ddl-stat {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 16px;
+}
+
+.import-ddl-stat-added {
+  color: #16a34a;
+  background: rgba(34, 197, 94, 0.1);
+}
+
+.import-ddl-stat-removed {
+  color: #dc2626;
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.import-ddl-stat-modified {
+  color: #d97706;
+  background: rgba(234, 179, 8, 0.1);
+}
+
+.import-ddl-stat-unchanged {
+  color: #6b7280;
+  background: rgba(107, 114, 128, 0.1);
+}
+
+.import-ddl-table-item .compare-table {
+  font-size: 11px;
+}
+
+.import-ddl-table-item .compare-table th,
+.import-ddl-table-item .compare-table td {
+  padding: 4px 8px;
+}
+
+/* Dark theme */
+.dark .import-ddl-stat-added,
+[data-theme="dark"] .import-ddl-stat-added {
+  color: #4ade80;
+  background: rgba(34, 197, 94, 0.15);
+}
+
+.dark .import-ddl-stat-removed,
+[data-theme="dark"] .import-ddl-stat-removed {
+  color: #f87171;
+  background: rgba(239, 68, 68, 0.15);
+}
+
+.dark .import-ddl-stat-modified,
+[data-theme="dark"] .import-ddl-stat-modified {
+  color: #fbbf24;
+  background: rgba(234, 179, 8, 0.15);
+}
+
+.dark .import-ddl-stat-unchanged,
+[data-theme="dark"] .import-ddl-stat-unchanged {
+  color: #9ca3af;
+  background: rgba(107, 114, 128, 0.15);
+}
+
+/* =========================================
    Animations
    ========================================= */
 

@@ -25,11 +25,13 @@ import {
   Workflow,
   Paperclip,
   FileText,
-  Table2
+  Table2,
+  Upload
 } from 'lucide-react';
 import AttachSampleDataModal from './AttachSampleDataModal';
 import ImportExplanationsModal from './ImportExplanationsModal';
 import ImportTableDescriptionsModal from './ImportTableDescriptionsModal';
+import ImportDDLModal from './ImportDDLModal';
 
 interface ScriptManagerProps {
   scripts: Script[];
@@ -87,6 +89,9 @@ export default function ScriptManager({
 
   // Import table descriptions state
   const [showImportTableDescriptions, setShowImportTableDescriptions] = useState(false);
+
+  // Import DDL state
+  const [showImportDDL, setShowImportDDL] = useState(false);
 
   // Drag and drop state
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
@@ -735,6 +740,13 @@ stop
                     >
                       <Table2 size={14} />
                     </button>
+                    <button
+                      className="btn btn-sm"
+                      onClick={() => setShowImportDDL(true)}
+                      title="Import DDL changes"
+                    >
+                      <Upload size={14} />
+                    </button>
                     {!selectedScript.versioningEnabled && (
                       <button
                         className="btn btn-sm"
@@ -1058,6 +1070,28 @@ stop
               data: updatedScript.data
             });
             setShowImportTableDescriptions(false);
+          }}
+          isDarkTheme={isDarkTheme}
+          darkThemeVariant={darkThemeVariant}
+        />
+      )}
+
+      {/* Import DDL Modal */}
+      {showImportDDL && selectedScript && (
+        <ImportDDLModal
+          script={selectedScript}
+          onClose={() => setShowImportDDL(false)}
+          onImport={(updatedScript) => {
+            onUpdateScript(updatedScript.id, {
+              rawContent: updatedScript.rawContent,
+              data: updatedScript.data,
+              type: updatedScript.type,
+              versioningEnabled: updatedScript.versioningEnabled,
+              versions: updatedScript.versions,
+              currentVersionId: updatedScript.currentVersionId,
+              maxVersions: updatedScript.maxVersions,
+            });
+            setShowImportDDL(false);
           }}
           isDarkTheme={isDarkTheme}
           darkThemeVariant={darkThemeVariant}
