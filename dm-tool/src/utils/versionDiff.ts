@@ -461,6 +461,176 @@ export function findPrevChange(hunks: DiffHunk[], currentLine: number): number |
   return prevHunk?.startLine || null;
 }
 
+// ============================================
+// Character-level Diff (shared utility)
+// ============================================
+
+// Character-level diff for highlighting individual character changes
+export interface CharDiff {
+  text: string;
+  type: 'unchanged' | 'added' | 'deleted';
+}
+
+/**
+ * Compute character-level diff between two strings
+ */
+export function computeCharDiff(oldStr: string, newStr: string): { oldChars: CharDiff[], newChars: CharDiff[] } {
+  if (!oldStr && !newStr) {
+    return { oldChars: [], newChars: [] };
+  }
+  if (!oldStr) {
+    return {
+      oldChars: [],
+      newChars: [{ text: newStr, type: 'added' }]
+    };
+  }
+  if (!newStr) {
+    return {
+      oldChars: [{ text: oldStr, type: 'deleted' }],
+      newChars: []
+    };
+  }
+
+  const oldChars: CharDiff[] = [];
+  const newChars: CharDiff[] = [];
+
+  // Find common prefix
+  let prefixLen = 0;
+  while (prefixLen < oldStr.length && prefixLen < newStr.length && oldStr[prefixLen] === newStr[prefixLen]) {
+    prefixLen++;
+  }
+
+  // Find common suffix
+  let suffixLen = 0;
+  while (
+    suffixLen < oldStr.length - prefixLen &&
+    suffixLen < newStr.length - prefixLen &&
+    oldStr[oldStr.length - 1 - suffixLen] === newStr[newStr.length - 1 - suffixLen]
+  ) {
+    suffixLen++;
+  }
+
+  // Build the result
+  if (prefixLen > 0) {
+    const prefix = oldStr.substring(0, prefixLen);
+    oldChars.push({ text: prefix, type: 'unchanged' });
+    newChars.push({ text: prefix, type: 'unchanged' });
+  }
+
+  const oldMiddle = oldStr.substring(prefixLen, oldStr.length - suffixLen);
+  const newMiddle = newStr.substring(prefixLen, newStr.length - suffixLen);
+
+  if (oldMiddle) {
+    oldChars.push({ text: oldMiddle, type: 'deleted' });
+  }
+  if (newMiddle) {
+    newChars.push({ text: newMiddle, type: 'added' });
+  }
+
+  if (suffixLen > 0) {
+    const suffix = oldStr.substring(oldStr.length - suffixLen);
+    oldChars.push({ text: suffix, type: 'unchanged' });
+    newChars.push({ text: suffix, type: 'unchanged' });
+  }
+
+  return { oldChars, newChars };
+}
+
+// ============================================
+// Unified Diff Rows (shared utility)
+// ============================================
+
+// Unified diff row for GitHub-style table
+export interface UnifiedDiffRow {
+  oldLineNum: number | null;
+  newLineNum: number | null;
+  oldContent: string;
+  newContent: string;
+  type: 'unchanged' | 'added' | 'deleted' | 'modified';
+  oldChars?: CharDiff[];
+  newChars?: CharDiff[];
+}
+
+/**
+ * Build unified diff rows that align old and new content side by side
+ */
+export function buildUnifiedRows(lines: LineDiff[]): UnifiedDiffRow[] {
+  const rows: UnifiedDiffRow[] = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    if (line.type === 'unchanged') {
+      rows.push({
+        oldLineNum: line.oldLineNumber || null,
+        newLineNum: line.newLineNumber || null,
+        oldContent: line.oldContent || '',
+        newContent: line.newContent || '',
+        type: 'unchanged'
+      });
+      i++;
+    } else if (line.type === 'modified') {
+      const { oldChars, newChars } = computeCharDiff(line.oldContent || '', line.newContent || '');
+      rows.push({
+        oldLineNum: line.oldLineNumber || null,
+        newLineNum: line.newLineNumber || null,
+        oldContent: line.oldContent || '',
+        newContent: line.newContent || '',
+        type: 'modified',
+        oldChars,
+        newChars
+      });
+      i++;
+    } else if (line.type === 'deleted') {
+      // Look ahead for a matching added line (modification pair)
+      const nextLine = lines[i + 1];
+      if (nextLine && nextLine.type === 'added') {
+        // This is a modification - show side by side
+        const { oldChars, newChars } = computeCharDiff(line.oldContent || '', nextLine.newContent || '');
+        rows.push({
+          oldLineNum: line.oldLineNumber || null,
+          newLineNum: nextLine.newLineNumber || null,
+          oldContent: line.oldContent || '',
+          newContent: nextLine.newContent || '',
+          type: 'modified',
+          oldChars,
+          newChars
+        });
+        i += 2;
+      } else {
+        // Pure deletion
+        rows.push({
+          oldLineNum: line.oldLineNumber || null,
+          newLineNum: null,
+          oldContent: line.oldContent || '',
+          newContent: '',
+          type: 'deleted'
+        });
+        i++;
+      }
+    } else if (line.type === 'added') {
+      // Pure addition (not paired with deletion)
+      rows.push({
+        oldLineNum: null,
+        newLineNum: line.newLineNumber || null,
+        oldContent: '',
+        newContent: line.newContent || '',
+        type: 'added'
+      });
+      i++;
+    } else {
+      i++;
+    }
+  }
+
+  return rows;
+}
+
+// ============================================
+// Additional Exports
+// ============================================
+
 /**
  * Count total changes in diff result
  */
