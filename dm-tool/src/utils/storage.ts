@@ -311,6 +311,8 @@ export interface WorkspaceData {
   theme: 'light' | 'dark';
   themeVariant: DarkThemeVariant;
   erdPositions: Record<string, Record<string, { x: number; y: number }>>;
+  ddVisibleColumns?: Record<string, DDColumnState | string[]>;  // Data Dictionary column visibility per script
+  ddColumnWidths?: Record<string, Record<string, number>>;  // Data Dictionary column widths per script
 }
 
 // ============================================
@@ -356,6 +358,28 @@ export function exportWorkspace(): WorkspaceData {
     }
   }
 
+  // Load DD visible columns
+  let ddVisibleColumns: Record<string, DDColumnState | string[]> = {};
+  try {
+    const ddData = localStorage.getItem(DD_VISIBLE_COLUMNS_KEY);
+    if (ddData) {
+      ddVisibleColumns = JSON.parse(ddData);
+    }
+  } catch (e) {
+    console.warn('Failed to parse DD visible columns for export');
+  }
+
+  // Load DD column widths
+  let ddColumnWidths: Record<string, Record<string, number>> = {};
+  try {
+    const cwData = localStorage.getItem(DD_COLUMN_WIDTHS_KEY);
+    if (cwData) {
+      ddColumnWidths = JSON.parse(cwData);
+    }
+  } catch (e) {
+    console.warn('Failed to parse DD column widths for export');
+  }
+
   return {
     version: '1.1.0',  // Bumped version for flowchart support
     exportDate: new Date().toISOString(),
@@ -366,6 +390,8 @@ export function exportWorkspace(): WorkspaceData {
     theme: loadTheme(),
     themeVariant: loadDarkThemeVariant(),
     erdPositions,
+    ddVisibleColumns,
+    ddColumnWidths,
   };
 }
 
@@ -401,6 +427,16 @@ export function importWorkspace(data: WorkspaceData): void {
     for (const [scriptId, positions] of Object.entries(data.erdPositions)) {
       localStorage.setItem(`erd_positions_${scriptId}`, JSON.stringify(positions));
     }
+  }
+
+  // Import DD visible columns
+  if (data.ddVisibleColumns) {
+    localStorage.setItem(DD_VISIBLE_COLUMNS_KEY, JSON.stringify(data.ddVisibleColumns));
+  }
+
+  // Import DD column widths
+  if (data.ddColumnWidths) {
+    localStorage.setItem(DD_COLUMN_WIDTHS_KEY, JSON.stringify(data.ddColumnWidths));
   }
 
   // Save to Electron file if running in Electron
@@ -1320,6 +1356,100 @@ export function getVersionsStorageSize(script: Script): number {
   }
 
   return totalSize;
+}
+
+// ============================================
+// Data Dictionary Visible Columns Persistence
+// ============================================
+
+const DD_VISIBLE_COLUMNS_KEY = 'dm_tool_dd_visible_columns';
+
+// Storage format: { visible: string[], knownColumns: string[] }
+// knownColumns tracks which columns existed at save time so we can
+// distinguish "new column added" from "user deliberately hid column"
+interface DDColumnState {
+  visible: string[];
+  knownColumns: string[];
+}
+
+export function loadDDVisibleColumns(scriptId: string): { visible: string[]; knownColumns: string[] } | null {
+  try {
+    const data = localStorage.getItem(DD_VISIBLE_COLUMNS_KEY);
+    if (data) {
+      const allStates = JSON.parse(data) as Record<string, DDColumnState | string[]>;
+      const entry = allStates[scriptId];
+      if (!entry) return null;
+      // Backward compatibility: old format was just string[]
+      if (Array.isArray(entry)) {
+        return { visible: entry, knownColumns: entry };
+      }
+      return entry;
+    }
+  } catch (e) {
+    console.error('Failed to load DD visible columns:', e);
+  }
+  return null;
+}
+
+export function saveDDVisibleColumns(scriptId: string, visible: string[], knownColumns: string[]): void {
+  try {
+    const data = localStorage.getItem(DD_VISIBLE_COLUMNS_KEY);
+    const allStates = data ? JSON.parse(data) as Record<string, DDColumnState | string[]> : {};
+    allStates[scriptId] = { visible, knownColumns };
+    localStorage.setItem(DD_VISIBLE_COLUMNS_KEY, JSON.stringify(allStates));
+    scheduleElectronSave(); // Persist to workspace file
+  } catch (e) {
+    console.error('Failed to save DD visible columns:', e);
+  }
+}
+
+// Column widths persistence
+const DD_COLUMN_WIDTHS_KEY = 'dm_tool_dd_column_widths';
+
+export function loadDDColumnWidths(scriptId: string): Record<string, number> | null {
+  try {
+    const data = localStorage.getItem(DD_COLUMN_WIDTHS_KEY);
+    if (data) {
+      const allStates = JSON.parse(data) as Record<string, Record<string, number>>;
+      return allStates[scriptId] || null;
+    }
+  } catch (e) {
+    console.error('Failed to load DD column widths:', e);
+  }
+  return null;
+}
+
+export function saveDDColumnWidths(scriptId: string, widths: Record<string, number>): void {
+  try {
+    const data = localStorage.getItem(DD_COLUMN_WIDTHS_KEY);
+    const allStates = data ? JSON.parse(data) as Record<string, Record<string, number>> : {};
+    allStates[scriptId] = widths;
+    localStorage.setItem(DD_COLUMN_WIDTHS_KEY, JSON.stringify(allStates));
+    scheduleElectronSave();
+  } catch (e) {
+    console.error('Failed to save DD column widths:', e);
+  }
+}
+
+// Excel export column selection persistence
+const EXCEL_EXPORT_COLUMNS_KEY = 'dm_tool_excel_export_columns';
+
+export function loadExcelExportColumns(): string[] | null {
+  try {
+    const data = localStorage.getItem(EXCEL_EXPORT_COLUMNS_KEY);
+    if (data) return JSON.parse(data) as string[];
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveExcelExportColumns(columns: string[]): void {
+  try {
+    localStorage.setItem(EXCEL_EXPORT_COLUMNS_KEY, JSON.stringify(columns));
+  } catch (e) {
+    console.error('Failed to save Excel export columns:', e);
+  }
 }
 
 /**

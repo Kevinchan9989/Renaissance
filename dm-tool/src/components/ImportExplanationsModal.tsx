@@ -14,6 +14,7 @@ interface ParsedExplanation {
   tableName: string;
   columnName: string;
   explanation: string;
+  possibleValues?: string;
   matched: boolean;
   tableFound: boolean;
   columnFound: boolean;
@@ -44,7 +45,7 @@ export default function ImportExplanationsModal({
     const lines = inputText.trim().split('\n').filter(line => line.trim());
 
     if (lines.length === 0) {
-      setParseError('Please enter at least one line in the format: TABLE.COLUMN: explanation');
+      setParseError('Please enter at least one line in the format: TABLE.COLUMN: explanation  or  TABLE.COLUMN: explanation | possible values');
       return;
     }
 
@@ -59,10 +60,14 @@ export default function ImportExplanationsModal({
         return;
       }
 
-      const [, tableName, columnName, explanation] = match;
+      const [, tableName, columnName, valuesPart] = match;
       const tableNameTrimmed = tableName.trim().toUpperCase();
       const columnNameTrimmed = columnName.trim().toUpperCase();
-      const explanationTrimmed = explanation.trim();
+
+      // Split on | to separate explanation from possibleValues
+      const parts = valuesPart.split('|');
+      const explanationTrimmed = parts[0].trim();
+      const possibleValuesTrimmed = parts.length > 1 ? parts.slice(1).join('|').trim() : undefined;
 
       const allTables = [...script.data.targets, ...script.data.sources];
       const table = allTables.find(t =>
@@ -77,6 +82,7 @@ export default function ImportExplanationsModal({
         tableName: tableNameTrimmed,
         columnName: columnNameTrimmed,
         explanation: explanationTrimmed,
+        possibleValues: possibleValuesTrimmed,
         matched: !!column,
         tableFound: !!table,
         columnFound: !!column
@@ -107,7 +113,11 @@ export default function ImportExplanationsModal({
                    r.columnName === col.name.toUpperCase()
             );
             if (match) {
-              return { ...col, explanation: match.explanation };
+              return {
+                ...col,
+                explanation: match.explanation,
+                ...(match.possibleValues !== undefined ? { possibleValues: match.possibleValues } : {}),
+              };
             }
             return col;
           })
@@ -120,7 +130,11 @@ export default function ImportExplanationsModal({
                    r.columnName === col.name.toUpperCase()
             );
             if (match) {
-              return { ...col, explanation: match.explanation };
+              return {
+                ...col,
+                explanation: match.explanation,
+                ...(match.possibleValues !== undefined ? { possibleValues: match.possibleValues } : {}),
+              };
             }
             return col;
           })
@@ -217,6 +231,14 @@ export default function ImportExplanationsModal({
                   fontFamily: 'monospace',
                   fontSize: '11px',
                 }}>TABLE.COLUMN: explanation</code>
+                {' '}or{' '}
+                <code style={{
+                  backgroundColor: isDarkTheme ? '#334155' : '#e2e8f0',
+                  padding: '2px 6px',
+                  borderRadius: '4px',
+                  fontFamily: 'monospace',
+                  fontSize: '11px',
+                }}>TABLE.COLUMN: explanation | possible values</code>
               </div>
             </div>
             <textarea
@@ -227,7 +249,8 @@ export default function ImportExplanationsModal({
                 setParseError(null);
               }}
               placeholder="USERS.ID: Primary key for user identification
-USERS.EMAIL: User email address
+USERS.EMAIL: User email address | valid email format
+USERS.STATUS: Account status flag | Active, Inactive, Suspended
 ORDERS.AMOUNT: Total order amount in USD"
               style={{
                 width: '100%',
@@ -365,6 +388,18 @@ ORDERS.AMOUNT: Total order amount in USD"
                       marginLeft: '22px',
                     }}>
                       {result.explanation}
+                      {result.possibleValues && (
+                        <span style={{
+                          marginLeft: '8px',
+                          fontSize: '11px',
+                          color: isDarkTheme ? '#93c5fd' : '#2563eb',
+                          backgroundColor: isDarkTheme ? '#1e3a5f' : '#eff6ff',
+                          padding: '1px 6px',
+                          borderRadius: '4px',
+                        }}>
+                          Values: {result.possibleValues}
+                        </span>
+                      )}
                     </div>
                   </div>
                 ))}

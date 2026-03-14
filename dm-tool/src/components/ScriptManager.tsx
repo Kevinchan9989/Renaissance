@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Script, ScriptType, FlowchartScript } from '../types';
-import { parseScript, parsePUML } from '../utils/parsers';
+import { reparseScript, parsePUML } from '../utils/parsers';
 import {
   createScriptVersion,
   migrateScriptToVersioning,
@@ -174,7 +174,7 @@ export default function ScriptManager({
   const handleSaveEdit = () => {
     if (!selectedScript) return;
 
-    const data = parseScript(editContent, selectedScript.type);
+    const data = reparseScript(editContent, selectedScript.type, selectedScript.data);
 
     // Migrate script to versioning if not already enabled
     let scriptToUpdate = selectedScript;
@@ -368,31 +368,46 @@ export default function ScriptManager({
     });
   };
 
-  // Search functionality
+  // Search functionality (debounced to avoid expensive regex + DOM work on every keystroke)
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useEffect(() => {
+    if (searchTimerRef.current) {
+      clearTimeout(searchTimerRef.current);
+    }
+
     if (!searchText || !selectedScript) {
       setSearchMatches([]);
       setCurrentMatchIndex(0);
       return;
     }
 
-    const content = isEditing ? editContent : selectedScript.rawContent;
-    const matches: Array<{ start: number; end: number }> = [];
+    searchTimerRef.current = setTimeout(() => {
+      const content = isEditing ? editContent : selectedScript.rawContent;
+      const matches: Array<{ start: number; end: number }> = [];
+      const MAX_MATCHES = 1000;
 
-    const flags = caseSensitive ? 'g' : 'gi';
-    const escapedSearch = searchText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const regex = new RegExp(escapedSearch, flags);
+      const flags = caseSensitive ? 'g' : 'gi';
+      const escapedSearch = searchText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(escapedSearch, flags);
 
-    let match;
-    while ((match = regex.exec(content)) !== null) {
-      matches.push({
-        start: match.index,
-        end: match.index + match[0].length
-      });
-    }
+      let match;
+      while ((match = regex.exec(content)) !== null && matches.length < MAX_MATCHES) {
+        matches.push({
+          start: match.index,
+          end: match.index + match[0].length
+        });
+      }
 
-    setSearchMatches(matches);
-    setCurrentMatchIndex(0);
+      setSearchMatches(matches);
+      setCurrentMatchIndex(0);
+    }, 200);
+
+    return () => {
+      if (searchTimerRef.current) {
+        clearTimeout(searchTimerRef.current);
+      }
+    };
   }, [searchText, caseSensitive, selectedScript, isEditing, editContent]);
 
   // Keyboard shortcuts

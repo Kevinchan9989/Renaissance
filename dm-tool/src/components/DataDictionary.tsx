@@ -1,17 +1,22 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Script, Table, Column } from '../types';
-import { downloadJson, loadMappingProjects } from '../utils/storage';
+import { downloadJson, loadMappingProjects, loadDDVisibleColumns, saveDDVisibleColumns, loadDDColumnWidths, saveDDColumnWidths } from '../utils/storage';
+import { generateTableDDL, replaceTableDDL } from '../utils/ddlGenerator';
 import CodeEditor from './CodeEditor';
-import { FileDown, Edit3, Save, X, Grid3X3, Table as TableIcon, Database, Rows3, List, Filter, ChevronDown, Settings2 } from 'lucide-react';
+import ImportExplanationsModal from './ImportExplanationsModal';
+import ImportTablesModal from './ImportTablesModal';
+import AttachSampleDataModal from './AttachSampleDataModal';
+import ExcelExportPreview from './ExcelExportPreview';
+import { FileDown, Edit3, Save, X, Grid3X3, Table as TableIcon, Database, Rows3, List, Filter, ChevronDown, Settings2, ClipboardCopy, Eye, FileText, Paperclip, FileCode, Upload } from 'lucide-react';
 
 // Cell coordinate type for Excel-like selection
 interface CellCoord {
   row: number;
-  col: number; // 0=name, 1=type, 2=nullable, 3=default, 4=explanation, 5=mapping, 6=sampleValues (read-only), 7=mappedTo (computed)
+  col: number; // 0=name, 1=type, 2=nullable, 3=default, 4=explanation, 5=mapping, 6=sampleValues (read-only), 7=possibleValues, 8=mappedTo (computed)
 }
 
-// Column fields for copy operations (6=sampleValues read-only, 7=mappedTo computed)
-const COLUMN_COUNT = 8;
+// Column fields for copy operations (6=sampleValues read-only, 7=possibleValues editable, 8=mappedTo computed)
+const COLUMN_COUNT = 9;
 
 interface DataDictionaryProps {
   script: Script;
@@ -19,6 +24,7 @@ interface DataDictionaryProps {
   onSelectTable: (id: number | null) => void;
   onUpdateTable: (tableId: number, updates: Partial<Table>, isSource?: boolean) => void;
   onUpdateScript: (rawContent: string) => void;
+  onUpdateScriptPartial?: (updates: Partial<Script>) => void;
   isDarkTheme?: boolean;
   darkThemeVariant?: 'slate' | 'vscode-gray';
 }
@@ -26,58 +32,293 @@ interface DataDictionaryProps {
 export default function DataDictionary({
   script,
   selectedTableId,
-  onSelectTable: _onSelectTable,
+  onSelectTable,
   onUpdateTable,
   onUpdateScript,
+  onUpdateScriptPartial,
   isDarkTheme = false,
   darkThemeVariant = 'slate'
 }: DataDictionaryProps) {
-  // _onSelectTable is available for future use (e.g., clicking related tables)
-  void _onSelectTable;
   const [editMode, setEditMode] = useState(false);
   const [editContent, setEditContent] = useState('');
 
-  // View mode: 'tableList' for all tables, 'dictionary' for column definitions, 'data' for sample data rows
-  const [viewMode, setViewMode] = useState<'tableList' | 'dictionary' | 'data'>('dictionary');
+  // View mode: 'tableList' for all tables, 'dictionary' for column definitions, 'data' for sample data rows, 'code' for DDL code view
+  const [viewMode, setViewMode] = useState<'tableList' | 'dictionary' | 'data' | 'code'>('dictionary');
 
   // Table List filters
   // Multi-select filter state (arrays for Excel-like filtering)
   interface TableListFilters {
     tableName: string[];
+    _t: string[];
     domain: string[];
     purpose: string[];
+    explanationCompleted: string[]; // 'Y', 'N'
     toIgnore: string[]; // 'Y', 'N'
   }
   const [tableListFilters, setTableListFilters] = useState<TableListFilters>({
     tableName: [],
+    _t: [],
     domain: [],
     purpose: [],
+    explanationCompleted: [],
     toIgnore: [],
   });
   // Pending filters - only applied when user clicks Apply
   const [pendingFilters, setPendingFilters] = useState<TableListFilters>({
     tableName: [],
+    _t: [],
     domain: [],
     purpose: [],
+    explanationCompleted: [],
     toIgnore: [],
   });
+
+  // Extract table type prefix from table name (e.g., DIM_CUSTOMER → DIM)
+  const getTableTypePrefix = (tableName: string): string => {
+    const idx = tableName.indexOf('_');
+    return idx > 0 ? tableName.substring(0, idx) : tableName;
+  };
   const [activeFilterColumn, setActiveFilterColumn] = useState<string | null>(null);
   const [filterSearchText, setFilterSearchText] = useState('');
 
   // Column visibility for dictionary view
-  type ColumnKey = 'column' | 'type' | 'nullable' | 'default' | 'explanation' | 'mapping' | 'sampleValues' | 'mappedTo';
+  type ColumnKey = 'column' | 'type' | 'nullable' | 'default' | 'explanation' | 'mapping' | 'sampleValues' | 'possibleValues' | 'mappedTo';
   const allColumns: { key: ColumnKey; label: string; width: string }[] = [
-    { key: 'column', label: 'Column', width: '12%' },
-    { key: 'type', label: 'Type', width: '10%' },
-    { key: 'nullable', label: 'Nullable', width: '6%' },
-    { key: 'default', label: 'Default', width: '7%' },
-    { key: 'explanation', label: 'Explanation', width: '14%' },
-    { key: 'mapping', label: 'Mapping Logic', width: '14%' },
-    { key: 'sampleValues', label: 'Sample Values', width: '17%' },
-    { key: 'mappedTo', label: 'Mapped To', width: '20%' },
+    { key: 'column', label: 'Column', width: '11%' },
+    { key: 'type', label: 'Type', width: '9%' },
+    { key: 'nullable', label: 'Nullable', width: '5%' },
+    { key: 'default', label: 'Default', width: '6%' },
+    { key: 'explanation', label: 'Explanation', width: '13%' },
+    { key: 'mapping', label: 'Mapping Logic', width: '13%' },
+    { key: 'sampleValues', label: 'Sample Values', width: '13%' },
+    { key: 'possibleValues', label: 'Possible Values', width: '12%' },
+    { key: 'mappedTo', label: 'Mapped To', width: '18%' },
   ];
-  const [visibleColumns, setVisibleColumns] = useState<Set<ColumnKey>>(new Set(allColumns.map(c => c.key)));
+  // Persist visibleColumns in localStorage keyed by script.id
+  const allColumnKeys = allColumns.map(c => c.key);
+  const [visibleColumns, setVisibleColumns] = useState<Set<ColumnKey>>(() => {
+    const saved = loadDDVisibleColumns(script.id);
+    if (saved && saved.visible && saved.visible.length > 0) {
+      const validVisible = new Set(saved.visible.filter(k => allColumns.some(c => c.key === k)) as ColumnKey[]);
+      const knownCols = saved.knownColumns || saved.visible; // fallback for old format
+      // Only auto-include columns that are truly new (not in knownColumns at save time)
+      for (const col of allColumns) {
+        if (!knownCols.includes(col.key)) {
+          validVisible.add(col.key);
+        }
+      }
+      return validVisible;
+    }
+    return new Set(allColumnKeys);
+  });
+
+  // Save visibleColumns to localStorage whenever they change
+  useEffect(() => {
+    saveDDVisibleColumns(script.id, Array.from(visibleColumns), allColumnKeys);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleColumns, script.id]);
+
   const [showColumnSelector, setShowColumnSelector] = useState(false);
+  const [showExportPreview, setShowExportPreview] = useState(false);
+  const [showExcelPreview, setShowExcelPreview] = useState(false);
+  const [exportCopied, setExportCopied] = useState(false);
+  const [showImportExplanations, setShowImportExplanations] = useState(false);
+  const [showImportTables, setShowImportTables] = useState(false);
+  const [showAttachSampleData, setShowAttachSampleData] = useState(false);
+
+  // Code View state
+  const [codeViewEditing, setCodeViewEditing] = useState(false);
+  const [codeViewText, setCodeViewText] = useState('');
+
+  // Column resize state — load saved widths from storage
+  const [columnWidths, setColumnWidths] = useState<Record<string, number>>(() => {
+    return loadDDColumnWidths(script.id) || {};
+  });
+  const [isResizingColumn, setIsResizingColumn] = useState(false);
+  const colResizeRef = useRef<{ key: string; startX: number; startWidth: number } | null>(null);
+
+  // Initialize column widths from table element when it mounts (only if no saved widths)
+  const initColumnWidths = useCallback((tableEl: HTMLTableElement | null) => {
+    if (!tableEl || Object.keys(columnWidths).length > 0) return;
+    const ths = tableEl.querySelectorAll('thead th');
+    const widths: Record<string, number> = {};
+    const visibleCols = allColumns.filter(c => visibleColumns.has(c.key));
+    ths.forEach((th, i) => {
+      if (i < visibleCols.length) {
+        widths[visibleCols[i].key] = (th as HTMLElement).offsetWidth;
+      }
+    });
+    if (Object.keys(widths).length > 0) {
+      setColumnWidths(widths);
+    }
+  }, [visibleColumns, columnWidths]);
+
+  const handleColumnResizeStart = useCallback((e: React.MouseEvent, key: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const th = (e.target as HTMLElement).parentElement;
+    if (!th) return;
+    colResizeRef.current = { key, startX: e.clientX, startWidth: th.offsetWidth };
+    setIsResizingColumn(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isResizingColumn) return;
+
+    const handleResizeMove = (e: MouseEvent) => {
+      const ref = colResizeRef.current;
+      if (!ref) return;
+      const delta = e.clientX - ref.startX;
+      const newWidth = Math.max(ref.startWidth + delta, 50);
+      setColumnWidths(prev => ({ ...prev, [ref.key]: newWidth }));
+    };
+
+    const handleResizeEnd = () => {
+      setIsResizingColumn(false);
+      colResizeRef.current = null;
+      // Save widths after drag ends
+      setColumnWidths(prev => {
+        saveDDColumnWidths(script.id, prev);
+        return prev;
+      });
+    };
+
+    document.addEventListener('mousemove', handleResizeMove);
+    document.addEventListener('mouseup', handleResizeEnd);
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+
+    return () => {
+      document.removeEventListener('mousemove', handleResizeMove);
+      document.removeEventListener('mouseup', handleResizeEnd);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+  }, [isResizingColumn]);
+
+  // Reset column widths when visible columns change so they re-initialize from DOM
+  const prevVisibleRef = useRef(visibleColumns);
+  useEffect(() => {
+    if (prevVisibleRef.current !== visibleColumns) {
+      prevVisibleRef.current = visibleColumns;
+      setColumnWidths({});
+      saveDDColumnWidths(script.id, {});
+    }
+  }, [visibleColumns, script.id]);
+
+  // Reusable column selector dropdown renderer
+  const renderColumnSelector = (disabled = false) => (
+    <div style={{ position: 'relative', ...(disabled ? { opacity: 0.4, pointerEvents: 'none' as const } : {}) }}>
+      <button
+        className="btn"
+        onClick={() => setShowColumnSelector(!showColumnSelector)}
+        title={disabled ? 'Column selector is only available in Dictionary view' : 'Choose which columns to display'}
+      >
+        <Settings2 size={16} />
+        Columns
+      </button>
+      {showColumnSelector && !disabled && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '100%',
+            right: 0,
+            zIndex: 1000,
+            backgroundColor: isDarkTheme ? '#374151' : '#ffffff',
+            border: `1px solid ${isDarkTheme ? '#4b5563' : '#d1d5db'}`,
+            borderRadius: '8px',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+            padding: '12px',
+            minWidth: '200px',
+            marginTop: '4px',
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div style={{ marginBottom: '8px', paddingBottom: '8px', borderBottom: `1px solid ${isDarkTheme ? '#4b5563' : '#e5e7eb'}` }}>
+            <button
+              onClick={() => {
+                if (visibleColumns.size === allColumns.length) {
+                  setVisibleColumns(new Set(['column']));
+                } else {
+                  setVisibleColumns(new Set(allColumns.map(c => c.key)));
+                }
+              }}
+              style={{
+                width: '100%',
+                padding: '4px 8px',
+                fontSize: '11px',
+                border: `1px solid ${isDarkTheme ? '#6b7280' : '#d1d5db'}`,
+                borderRadius: '4px',
+                backgroundColor: isDarkTheme ? '#4b5563' : '#e5e7eb',
+                color: isDarkTheme ? '#e4e4e7' : '#374151',
+                cursor: 'pointer',
+              }}
+            >
+              {visibleColumns.size === allColumns.length ? 'Hide All' : 'Show All'}
+            </button>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            {allColumns.map(col => (
+              <label
+                key={col.key}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '6px 8px',
+                  cursor: 'pointer',
+                  borderRadius: '4px',
+                  backgroundColor: visibleColumns.has(col.key) ? (isDarkTheme ? '#4b5563' : '#e5e7eb') : 'transparent',
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={visibleColumns.has(col.key)}
+                  onChange={() => {
+                    const newVisible = new Set(visibleColumns);
+                    if (newVisible.has(col.key)) {
+                      if (newVisible.size > 1) {
+                        newVisible.delete(col.key);
+                      }
+                    } else {
+                      newVisible.add(col.key);
+                    }
+                    setVisibleColumns(newVisible);
+                  }}
+                  style={{
+                    width: '14px',
+                    height: '14px',
+                    accentColor: isDarkTheme ? '#9ca3af' : '#6b7280',
+                  }}
+                />
+                <span style={{ fontSize: '12px', color: isDarkTheme ? '#e4e4e7' : '#374151' }}>
+                  {col.label}
+                </span>
+              </label>
+            ))}
+          </div>
+          <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: `1px solid ${isDarkTheme ? '#4b5563' : '#e5e7eb'}` }}>
+            <button
+              onClick={() => setShowColumnSelector(false)}
+              style={{
+                width: '100%',
+                padding: '6px 12px',
+                fontSize: '12px',
+                border: 'none',
+                borderRadius: '4px',
+                backgroundColor: isDarkTheme ? '#6b7280' : '#6b7280',
+                color: '#ffffff',
+                cursor: 'pointer',
+                fontWeight: 500,
+              }}
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 
   // Excel-like editing mode
   const [excelMode, setExcelMode] = useState(false);
@@ -154,6 +395,41 @@ export default function DataDictionary({
     return tags;
   };
 
+  // Build all tables list for Excel export
+  const allTablesForExcel = useMemo(() => [
+    ...script.data.targets.map(t => ({ ...t, isSource: false })),
+    ...script.data.sources.map(t => ({ ...t, isSource: true })),
+  ], [script.data.targets, script.data.sources]);
+
+  // Generate export text for visible columns of selected table
+  // Generate export in import-compatible format: TABLE.COLUMN: explanation | possible values
+  const generateExportText = useCallback(() => {
+    if (!selectedTable) return '';
+
+    const lines = selectedTable.columns.map(col => {
+      const explanation = (col.explanation || '').replace(/\n/g, ' ').trim();
+      const possibleValues = (col.possibleValues || '').replace(/\n/g, ' ').trim();
+
+      let value = explanation;
+      if (possibleValues) {
+        value = value ? `${value} | ${possibleValues}` : `| ${possibleValues}`;
+      }
+
+      return `${selectedTable.tableName}.${col.name}: ${value || '(empty)'}`;
+    });
+
+    return lines.join('\n');
+  }, [selectedTable]);
+
+  const handleCopyExport = useCallback(() => {
+    const text = generateExportText();
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(() => {
+      setExportCopied(true);
+      setTimeout(() => setExportCopied(false), 2000);
+    });
+  }, [generateExportText]);
+
   // Update column field
   const updateColumnField = (colName: string, field: keyof Column, value: string) => {
     if (!selectedTable) return;
@@ -191,7 +467,8 @@ export default function DataDictionary({
         }
         return '-';
       }
-      case 7: {
+      case 7: return column.possibleValues || '';
+      case 8: {
         // Computed "Mapped To" column
         const mappingInfo = getMappingInfo(selectedTable.tableName, column.name);
         const migrationNeeded = column.migrationNeeded !== false;
@@ -211,6 +488,7 @@ export default function DataDictionary({
     3: 'default',
     4: 'explanation',
     5: 'mapping',
+    7: 'possibleValues',
   };
 
   // Push current column state to undo stack before making changes
@@ -225,11 +503,11 @@ export default function DataDictionary({
     redoStackRef.current = [];
   }, [selectedTable]);
 
-  // Update a single cell value by coordinates (only for editable columns 0-5)
+  // Update a single cell value by coordinates (only for editable columns 0-5 and 7=possibleValues)
   // skipUndo: used by debounced auto-save to avoid pushing undo on every keystroke
   const updateCellValue = useCallback((row: number, col: number, value: string, skipUndo = false) => {
     if (!selectedTable || row < 0 || row >= selectedTable.columns.length) return;
-    if (col >= 6) return; // "Mapped To" is read-only
+    if (col === 6 || col >= 8) return; // sampleValues(6) and mappedTo(8) are read-only
     const column = selectedTable.columns[row];
 
     const field = fieldMap[col];
@@ -250,7 +528,7 @@ export default function DataDictionary({
     const updatedColumns = [...selectedTable.columns.map(c => ({ ...c }))];
 
     for (const { row, col, value } of updates) {
-      if (row < 0 || row >= updatedColumns.length || col >= 6) continue;
+      if (row < 0 || row >= updatedColumns.length || col === 6 || col >= 8) continue;
       const field = fieldMap[col];
       if (field) {
         updatedColumns[row] = { ...updatedColumns[row], [field]: value };
@@ -345,7 +623,7 @@ export default function DataDictionary({
   // Handle cell double click to enter edit mode
   const handleCellDoubleClick = useCallback((row: number, col: number) => {
     if (!excelMode) return;
-    if (col >= 6) return; // Can't edit read-only columns (sample values, mapped to)
+    if (col === 6 || col >= 8) return; // Can't edit read-only columns (sample values=6, mapped to=8)
 
     pushUndo(); // Save state before editing starts
     setEditingCell({ row, col });
@@ -794,6 +1072,41 @@ export default function DataDictionary({
   // END EXCEL-LIKE EDITING FUNCTIONS
   // ============================================
 
+  // ============================================
+  // CODE VIEW: Generate DDL and handle save
+  // ============================================
+  const generatedDDL = useMemo(() => {
+    if (!selectedTable) return '';
+    return generateTableDDL(selectedTable, script.type);
+  }, [selectedTable, script.type]);
+
+  const handleCodeViewEdit = useCallback(() => {
+    setCodeViewText(generatedDDL);
+    setCodeViewEditing(true);
+  }, [generatedDDL]);
+
+  const handleCodeViewSave = useCallback(() => {
+    if (!selectedTable) return;
+    // Replace the table's DDL block in the raw script content
+    const updatedRawContent = replaceTableDDL(script.rawContent, selectedTable, codeViewText, script.type);
+    // onUpdateScript in App.tsx already does reparseScript + updateScript in a single call,
+    // preserving user metadata (explanations, mappings, etc.). Do NOT also call
+    // onUpdateScriptPartial — that would read stale state and revert the rawContent change.
+    onUpdateScript(updatedRawContent);
+    setCodeViewEditing(false);
+  }, [selectedTable, codeViewText, script, onUpdateScript]);
+
+  const handleCodeViewCancel = useCallback(() => {
+    setCodeViewEditing(false);
+    setCodeViewText('');
+  }, []);
+
+  // Reset code view editing when switching tables
+  useEffect(() => {
+    setCodeViewEditing(false);
+    setCodeViewText('');
+  }, [selectedTableId]);
+
   // Toggle edit mode
   const handleEditMode = () => {
     if (editMode) {
@@ -836,9 +1149,10 @@ export default function DataDictionary({
   }
 
   if (!selectedTable && viewMode !== 'tableList') {
-    // In this block, viewMode is narrowed to 'dictionary' | 'data'
+    // In this block, viewMode is narrowed to 'dictionary' | 'data' | 'code'
     const isDict = viewMode === 'dictionary';
     const isData = viewMode === 'data';
+    const isCode = viewMode === 'code';
 
     return (
       <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -900,7 +1214,36 @@ export default function DataDictionary({
                 <Rows3 size={16} />
                 Data View
               </button>
+              <button
+                className="btn"
+                onClick={() => setViewMode('code')}
+                style={{
+                  borderRadius: 0,
+                  border: 'none',
+                  borderLeft: `1px solid ${isDarkTheme ? '#4b5563' : '#d1d5db'}`,
+                  backgroundColor: isCode
+                    ? (isDarkTheme ? '#3b82f6' : '#2563eb')
+                    : 'transparent',
+                  color: isCode ? '#fff' : undefined,
+                }}
+                title="DDL code view — edit and sync"
+              >
+                <FileCode size={16} />
+                Code View
+              </button>
             </div>
+            {/* Excel Mode - disabled when data/code view, enabled otherwise */}
+            <button
+              className={`btn ${excelMode ? 'btn-success' : ''}`}
+              onClick={(isData || isCode) ? undefined : toggleExcelMode}
+              title={(isData || isCode) ? 'Excel Mode is not available in this view' : (excelMode ? 'Switch to normal view' : 'Switch to Excel-like edit mode (multi-select, copy/paste)')}
+              style={(isData || isCode) ? { opacity: 0.4, pointerEvents: 'none' as const } : undefined}
+            >
+              {excelMode ? <TableIcon size={16} /> : <Grid3X3 size={16} />}
+              {excelMode ? 'Normal Mode' : 'Excel Mode'}
+            </button>
+            {/* Columns selector - only enabled in dictionary view */}
+            {renderColumnSelector(!isDict)}
             <button className="btn" onClick={handleEditMode}>
               <Edit3 size={16} />
               Edit Source
@@ -908,6 +1251,10 @@ export default function DataDictionary({
             <button className="btn" onClick={() => downloadJson(script.data, `${script.name}.json`)}>
               <FileDown size={16} />
               Export JSON
+            </button>
+            <button className="btn" onClick={() => setShowExcelPreview(true)}>
+              <FileDown size={16} />
+              Export Excel
             </button>
           </div>
         </div>
@@ -935,11 +1282,20 @@ export default function DataDictionary({
       if (tableListFilters.tableName.length > 0 && !tableListFilters.tableName.includes(table.tableName)) {
         return false;
       }
+      if (tableListFilters._t.length > 0 && !tableListFilters._t.includes(getTableTypePrefix(table.tableName))) {
+        return false;
+      }
       if (tableListFilters.domain.length > 0 && !tableListFilters.domain.includes(table.schema || '')) {
         return false;
       }
       if (tableListFilters.purpose.length > 0 && !tableListFilters.purpose.includes(table.description || '')) {
         return false;
+      }
+      if (tableListFilters.explanationCompleted.length > 0) {
+        const tableExplCompletedValue = table.explanationCompleted ? 'Y' : 'N';
+        if (!tableListFilters.explanationCompleted.includes(tableExplCompletedValue)) {
+          return false;
+        }
       }
       if (tableListFilters.toIgnore.length > 0) {
         const tableIgnoreValue = table.toIgnore ? 'Y' : 'N';
@@ -951,19 +1307,21 @@ export default function DataDictionary({
     });
 
     // Get unique values for filter dropdown
-    const getUniqueValues = (field: 'tableName' | 'domain' | 'purpose' | 'toIgnore') => {
+    const getUniqueValues = (field: 'tableName' | '_t' | 'domain' | 'purpose' | 'explanationCompleted' | 'toIgnore') => {
       const values = new Set<string>();
       allTables.forEach(table => {
         if (field === 'tableName') values.add(table.tableName);
+        else if (field === '_t') values.add(getTableTypePrefix(table.tableName));
         else if (field === 'domain') values.add(table.schema || '');
         else if (field === 'purpose') values.add(table.description || '');
+        else if (field === 'explanationCompleted') values.add(table.explanationCompleted ? 'Y' : 'N');
         else if (field === 'toIgnore') values.add(table.toIgnore ? 'Y' : 'N');
       });
       return Array.from(values).filter(v => v).sort();
     };
 
     // Filter header component with multi-select like Excel
-    const FilterHeader = ({ column, label, width }: { column: 'tableName' | 'domain' | 'purpose' | 'toIgnore'; label: string; width: string }) => {
+    const FilterHeader = ({ column, label, width }: { column: 'tableName' | '_t' | 'domain' | 'purpose' | 'explanationCompleted' | 'toIgnore'; label: string; width: string }) => {
       const isActive = activeFilterColumn === column;
       const appliedValues = tableListFilters[column];
       const pendingValues = pendingFilters[column];
@@ -1217,9 +1575,9 @@ export default function DataDictionary({
       );
     };
 
-    // Table List columns: 0=#(readonly), 1=TableName(readonly), 2=Domain, 3=Purpose, 4=ToIgnore
-    const TABLE_LIST_COL_COUNT = 5;
-    const EDITABLE_COLS = [2, 3, 4]; // Domain, Purpose, To Ignore
+    // Table List columns: 0=#(readonly), 1=TableName(readonly), 2=_t(readonly), 3=Domain, 4=Explanation, 5=ExplCompleted, 6=ToIgnore
+    const TABLE_LIST_COL_COUNT = 7;
+    const EDITABLE_COLS = [2, 3, 4, 5, 6]; // _t, Domain, Explanation, Expl Completed, To Ignore
 
     // Get cell value for table list
     const getTableListCellValue = (rowIdx: number, colIdx: number): string => {
@@ -1228,9 +1586,11 @@ export default function DataDictionary({
       switch (colIdx) {
         case 0: return String(rowIdx + 1);
         case 1: return table.tableName;
-        case 2: return table.schema || '';
-        case 3: return table.description || '';
-        case 4: return table.toIgnore ? 'Y' : 'N';
+        case 2: return getTableTypePrefix(table.tableName);
+        case 3: return table.schema || '';
+        case 4: return table.description || '';
+        case 5: return table.explanationCompleted ? 'Y' : 'N';
+        case 6: return table.toIgnore ? 'Y' : 'N';
         default: return '';
       }
     };
@@ -1240,10 +1600,16 @@ export default function DataDictionary({
       const table = filteredTables[rowIdx];
       if (!table) return;
       if (colIdx === 2) {
-        onUpdateTable(table.id, { schema: value }, table.isSource);
+        const boolValue = value.toUpperCase() === 'Y';
+        onUpdateTable(table.id, { _tChecked: boolValue }, table.isSource);
       } else if (colIdx === 3) {
-        onUpdateTable(table.id, { description: value }, table.isSource);
+        onUpdateTable(table.id, { schema: value }, table.isSource);
       } else if (colIdx === 4) {
+        onUpdateTable(table.id, { description: value }, table.isSource);
+      } else if (colIdx === 5) {
+        const boolValue = value.toUpperCase() === 'Y';
+        onUpdateTable(table.id, { explanationCompleted: boolValue }, table.isSource);
+      } else if (colIdx === 6) {
         const boolValue = value.toUpperCase() === 'Y';
         onUpdateTable(table.id, { toIgnore: boolValue }, table.isSource);
       }
@@ -1261,14 +1627,15 @@ export default function DataDictionary({
 
       if (isActive) {
         return {
-          outline: '2px solid #2563eb',
-          outlineOffset: '-2px',
-          backgroundColor: isDarkTheme ? 'rgba(30, 58, 95, 0.5)' : 'rgba(219, 234, 254, 0.7)',
+          boxShadow: isDarkTheme
+            ? 'inset 0 0 0 1.5px #60a5fa, 0 0 0 1px rgba(96, 165, 250, 0.25)'
+            : 'inset 0 0 0 1.5px #3b82f6, 0 0 0 1px rgba(59, 130, 246, 0.2)',
+          backgroundColor: isDarkTheme ? 'rgba(30, 58, 95, 0.35)' : 'rgba(219, 234, 254, 0.5)',
         };
       }
       if (isSelected) {
         return {
-          backgroundColor: isDarkTheme ? 'rgba(30, 58, 95, 0.3)' : 'rgba(191, 219, 254, 0.5)',
+          backgroundColor: isDarkTheme ? 'rgba(30, 58, 95, 0.2)' : 'rgba(191, 219, 254, 0.35)',
         };
       }
       return {};
@@ -1412,7 +1779,7 @@ export default function DataDictionary({
           e.preventDefault();
           selectedCells.forEach(cell => {
             if (isEditableCol(cell.col)) {
-              updateTableListCell(cell.row, cell.col, cell.col === 4 ? 'N' : '');
+              updateTableListCell(cell.row, cell.col, (cell.col === 5 || cell.col === 6) ? 'N' : '');
             }
           });
           return;
@@ -1500,7 +1867,23 @@ export default function DataDictionary({
                 <Rows3 size={16} />
                 Data View
               </button>
+              <button
+                className="btn"
+                onClick={() => setViewMode('code')}
+                style={{
+                  borderRadius: 0,
+                  border: 'none',
+                  borderLeft: `1px solid ${isDarkTheme ? '#4b5563' : '#d1d5db'}`,
+                  backgroundColor: 'transparent',
+                  color: undefined,
+                }}
+                title="DDL code view — edit and sync"
+              >
+                <FileCode size={16} />
+                Code View
+              </button>
             </div>
+            {/* Excel Mode - always enabled in tableList */}
             <button
               className={`btn ${excelMode ? 'btn-success' : ''}`}
               onClick={toggleExcelMode}
@@ -1509,116 +1892,8 @@ export default function DataDictionary({
               {excelMode ? <TableIcon size={16} /> : <Grid3X3 size={16} />}
               {excelMode ? 'Normal Mode' : 'Excel Mode'}
             </button>
-            <div style={{ position: 'relative' }}>
-              <button
-                className="btn"
-                onClick={() => setShowColumnSelector(!showColumnSelector)}
-                title="Choose which columns to display"
-              >
-                <Settings2 size={16} />
-                Columns
-              </button>
-              {showColumnSelector && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: '100%',
-                    right: 0,
-                    zIndex: 1000,
-                    backgroundColor: isDarkTheme ? '#374151' : '#ffffff',
-                    border: `1px solid ${isDarkTheme ? '#4b5563' : '#d1d5db'}`,
-                    borderRadius: '8px',
-                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-                    padding: '12px',
-                    minWidth: '200px',
-                    marginTop: '4px',
-                  }}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <div style={{ marginBottom: '8px', paddingBottom: '8px', borderBottom: `1px solid ${isDarkTheme ? '#4b5563' : '#e5e7eb'}` }}>
-                    <button
-                      onClick={() => {
-                        if (visibleColumns.size === allColumns.length) {
-                          setVisibleColumns(new Set(['column']));
-                        } else {
-                          setVisibleColumns(new Set(allColumns.map(c => c.key)));
-                        }
-                      }}
-                      style={{
-                        width: '100%',
-                        padding: '4px 8px',
-                        fontSize: '11px',
-                        border: `1px solid ${isDarkTheme ? '#6b7280' : '#d1d5db'}`,
-                        borderRadius: '4px',
-                        backgroundColor: isDarkTheme ? '#4b5563' : '#e5e7eb',
-                        color: isDarkTheme ? '#e4e4e7' : '#374151',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      {visibleColumns.size === allColumns.length ? 'Hide All' : 'Show All'}
-                    </button>
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    {allColumns.map(col => (
-                      <label
-                        key={col.key}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '8px',
-                          padding: '6px 8px',
-                          cursor: 'pointer',
-                          borderRadius: '4px',
-                          backgroundColor: visibleColumns.has(col.key) ? (isDarkTheme ? '#4b5563' : '#e5e7eb') : 'transparent',
-                        }}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={visibleColumns.has(col.key)}
-                          onChange={() => {
-                            const newVisible = new Set(visibleColumns);
-                            if (newVisible.has(col.key)) {
-                              if (newVisible.size > 1) {
-                                newVisible.delete(col.key);
-                              }
-                            } else {
-                              newVisible.add(col.key);
-                            }
-                            setVisibleColumns(newVisible);
-                          }}
-                          style={{
-                            width: '14px',
-                            height: '14px',
-                            accentColor: isDarkTheme ? '#9ca3af' : '#6b7280',
-                          }}
-                        />
-                        <span style={{ fontSize: '12px', color: isDarkTheme ? '#e4e4e7' : '#374151' }}>
-                          {col.label}
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                  <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: `1px solid ${isDarkTheme ? '#4b5563' : '#e5e7eb'}` }}>
-                    <button
-                      onClick={() => setShowColumnSelector(false)}
-                      style={{
-                        width: '100%',
-                        padding: '6px 12px',
-                        fontSize: '12px',
-                        border: 'none',
-                        borderRadius: '4px',
-                        backgroundColor: isDarkTheme ? '#6b7280' : '#6b7280',
-                        color: '#ffffff',
-                        cursor: 'pointer',
-                        fontWeight: 500,
-                      }}
-                    >
-                      Done
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
+            {/* Columns selector - disabled in tableList view */}
+            {renderColumnSelector(true)}
             <button className="btn" onClick={handleEditMode}>
               <Edit3 size={16} />
               Edit Source
@@ -1626,6 +1901,10 @@ export default function DataDictionary({
             <button className="btn" onClick={() => downloadJson(script.data, `${script.name}.json`)}>
               <FileDown size={16} />
               Export JSON
+            </button>
+            <button className="btn" onClick={() => setShowExcelPreview(true)}>
+              <FileDown size={16} />
+              Export Excel
             </button>
           </div>
         </div>
@@ -1658,7 +1937,7 @@ export default function DataDictionary({
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                setTableListFilters({ tableName: [], domain: [], purpose: [], toIgnore: [] });
+                setTableListFilters({ tableName: [], _t: [], domain: [], purpose: [], explanationCompleted: [], toIgnore: [] });
               }}
               style={{
                 background: 'none',
@@ -1684,15 +1963,22 @@ export default function DataDictionary({
             <thead>
               <tr>
                 <th style={{ width: '50px', textAlign: 'center' }}>#</th>
-                <FilterHeader column="tableName" label="Table Name" width="25%" />
-                <FilterHeader column="domain" label="Domain" width="15%" />
-                <FilterHeader column="purpose" label="Purpose" width="45%" />
+                <FilterHeader column="tableName" label="Table Name" width="22%" />
+                <FilterHeader column="_t" label="_t" width="70px" />
+                <FilterHeader column="domain" label="Domain" width="12%" />
+                <FilterHeader column="purpose" label="Explanation" width="35%" />
+                <FilterHeader column="explanationCompleted" label="Expl. Done?" width="90px" />
                 <FilterHeader column="toIgnore" label="To Ignore?" width="80px" />
               </tr>
             </thead>
             <tbody>
               {filteredTables.map((table, rowIdx) => (
-                <tr key={`${table.isSource ? 'src' : 'tgt'}-${table.id}`}>
+                <tr
+                  key={`${table.isSource ? 'src' : 'tgt'}-${table.id}`}
+                  style={table.explanationCompleted ? {
+                    backgroundColor: isDarkTheme ? 'rgba(34, 197, 94, 0.12)' : 'rgba(34, 197, 94, 0.08)',
+                  } : undefined}
+                >
                   {/* # column - readonly */}
                   <td
                     {...getTableListCellProps(rowIdx, 0)}
@@ -1706,7 +1992,7 @@ export default function DataDictionary({
                   >
                     {rowIdx + 1}
                   </td>
-                  {/* Table Name - readonly */}
+                  {/* Table Name - clickable link to dictionary view */}
                   <td
                     className="code-cell"
                     {...getTableListCellProps(rowIdx, 1)}
@@ -1717,7 +2003,26 @@ export default function DataDictionary({
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      {table.tableName}
+                      <a
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          if (!excelMode) {
+                            onSelectTable(table.id);
+                            setViewMode('dictionary');
+                          }
+                        }}
+                        style={{
+                          color: isDarkTheme ? '#60a5fa' : '#2563eb',
+                          textDecoration: 'none',
+                          cursor: excelMode ? 'cell' : 'pointer',
+                        }}
+                        onMouseEnter={(e) => { if (!excelMode) (e.target as HTMLElement).style.textDecoration = 'underline'; }}
+                        onMouseLeave={(e) => { (e.target as HTMLElement).style.textDecoration = 'none'; }}
+                      >
+                        {table.tableName}
+                      </a>
                       {table.isSource && (
                         <span style={{
                           fontSize: '10px',
@@ -1729,59 +2034,30 @@ export default function DataDictionary({
                       )}
                     </div>
                   </td>
-                  {/* Domain - editable */}
+                  {/* _t - checkbox, auto-checked if table name contains _t */}
                   <td
                     {...getTableListCellProps(rowIdx, 2)}
                     style={{
+                      textAlign: 'center',
                       ...getTableListSelectionStyle(rowIdx, 2),
                       ...(excelMode ? { cursor: 'cell', userSelect: 'none' } : {}),
                     }}
                   >
-                    {editingCell?.row === rowIdx && editingCell?.col === 2 ? (
-                      <input
-                        type="text"
-                        value={editValue}
-                        onChange={(e) => setEditValue(e.target.value)}
-                        onBlur={() => {
-                          updateTableListCell(rowIdx, 2, editValue);
-                          setEditingCell(null);
-                        }}
-                        onKeyDown={(e) => e.stopPropagation()}
-                        autoFocus
-                        style={{
-                          width: '100%',
-                          padding: '4px',
-                          fontSize: '13px',
-                          border: '2px solid #2563eb',
-                          borderRadius: '2px',
-                          backgroundColor: isDarkTheme ? '#1e293b' : '#ffffff',
-                          color: isDarkTheme ? '#e4e4e7' : '#18181b',
-                          outline: 'none',
-                        }}
-                      />
-                    ) : excelMode ? (
-                      <div style={{ padding: '4px', minHeight: '20px' }}>
-                        {table.schema || <span style={{ color: '#999', fontStyle: 'italic' }}>-</span>}
-                      </div>
-                    ) : (
-                      <div
-                        contentEditable
-                        suppressContentEditableWarning
-                        onBlur={(e) => onUpdateTable(table.id, { schema: e.currentTarget.textContent || '' }, table.isSource)}
-                        onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.currentTarget.blur(); } }}
-                        style={{
-                          cursor: 'text', whiteSpace: 'pre-wrap', wordBreak: 'break-word', minHeight: '20px', padding: '4px', borderRadius: '4px',
-                          border: '1px dashed transparent', color: table.schema ? (isDarkTheme ? '#e4e4e7' : '#18181b') : (isDarkTheme ? '#6b7280' : '#999'),
-                          fontStyle: table.schema ? 'normal' : 'italic', transition: 'border-color 0.2s',
-                        }}
-                        onMouseEnter={(e) => { e.currentTarget.style.borderColor = isDarkTheme ? '#4b5563' : '#ccc'; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'transparent'; }}
-                      >
-                        {table.schema || '(Click to add)'}
-                      </div>
-                    )}
+                    <input
+                      type="checkbox"
+                      checked={table._tChecked ?? table.tableName.toLowerCase().includes('_t')}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        onUpdateTable(table.id, { _tChecked: e.target.checked }, table.isSource);
+                      }}
+                      disabled={excelMode}
+                      style={{
+                        width: '15px', height: '15px', cursor: excelMode ? 'cell' : 'pointer',
+                        accentColor: isDarkTheme ? '#6b7280' : '#4b5563',
+                      }}
+                    />
                   </td>
-                  {/* Purpose - editable */}
+                  {/* Domain - editable */}
                   <td
                     {...getTableListCellProps(rowIdx, 3)}
                     style={{
@@ -1813,6 +2089,56 @@ export default function DataDictionary({
                       />
                     ) : excelMode ? (
                       <div style={{ padding: '4px', minHeight: '20px' }}>
+                        {table.schema || <span style={{ color: '#999', fontStyle: 'italic' }}>-</span>}
+                      </div>
+                    ) : (
+                      <div
+                        contentEditable
+                        suppressContentEditableWarning
+                        onBlur={(e) => onUpdateTable(table.id, { schema: e.currentTarget.textContent || '' }, table.isSource)}
+                        onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.currentTarget.blur(); } }}
+                        style={{
+                          cursor: 'text', whiteSpace: 'pre-wrap', wordBreak: 'break-word', minHeight: '20px',
+                          color: table.schema ? (isDarkTheme ? '#e4e4e7' : '#18181b') : (isDarkTheme ? '#6b7280' : '#999'),
+                          fontStyle: table.schema ? 'normal' : 'italic',
+                        }}
+                      >
+                        {table.schema || '(Click to add)'}
+                      </div>
+                    )}
+                  </td>
+                  {/* Explanation - editable */}
+                  <td
+                    {...getTableListCellProps(rowIdx, 4)}
+                    style={{
+                      ...getTableListSelectionStyle(rowIdx, 4),
+                      ...(excelMode ? { cursor: 'cell', userSelect: 'none' } : {}),
+                    }}
+                  >
+                    {editingCell?.row === rowIdx && editingCell?.col === 4 ? (
+                      <input
+                        type="text"
+                        value={editValue}
+                        onChange={(e) => setEditValue(e.target.value)}
+                        onBlur={() => {
+                          updateTableListCell(rowIdx, 4, editValue);
+                          setEditingCell(null);
+                        }}
+                        onKeyDown={(e) => e.stopPropagation()}
+                        autoFocus
+                        style={{
+                          width: '100%',
+                          padding: '4px',
+                          fontSize: '13px',
+                          border: '2px solid #2563eb',
+                          borderRadius: '2px',
+                          backgroundColor: isDarkTheme ? '#1e293b' : '#ffffff',
+                          color: isDarkTheme ? '#e4e4e7' : '#18181b',
+                          outline: 'none',
+                        }}
+                      />
+                    ) : excelMode ? (
+                      <div style={{ padding: '4px', minHeight: '20px' }}>
                         {table.description || <span style={{ color: '#999', fontStyle: 'italic' }}>-</span>}
                       </div>
                     ) : (
@@ -1822,74 +2148,60 @@ export default function DataDictionary({
                         onBlur={(e) => onUpdateTable(table.id, { description: e.currentTarget.textContent || '' }, table.isSource)}
                         onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.currentTarget.blur(); } }}
                         style={{
-                          cursor: 'text', whiteSpace: 'pre-wrap', wordBreak: 'break-word', minHeight: '20px', padding: '4px', borderRadius: '4px',
-                          border: '1px dashed transparent', color: table.description ? (isDarkTheme ? '#e4e4e7' : '#18181b') : (isDarkTheme ? '#6b7280' : '#999'),
-                          fontStyle: table.description ? 'normal' : 'italic', transition: 'border-color 0.2s',
+                          cursor: 'text', whiteSpace: 'pre-wrap', wordBreak: 'break-word', minHeight: '20px',
+                          color: table.description ? (isDarkTheme ? '#e4e4e7' : '#18181b') : (isDarkTheme ? '#6b7280' : '#999'),
+                          fontStyle: table.description ? 'normal' : 'italic',
                         }}
-                        onMouseEnter={(e) => { e.currentTarget.style.borderColor = isDarkTheme ? '#4b5563' : '#ccc'; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'transparent'; }}
                       >
                         {table.description || '(Click to add)'}
                       </div>
                     )}
                   </td>
-                  {/* To Ignore - editable Y/N */}
+                  {/* Explanation Completed - checkbox */}
                   <td
-                    {...getTableListCellProps(rowIdx, 4)}
+                    {...getTableListCellProps(rowIdx, 5)}
                     style={{
                       textAlign: 'center',
-                      ...getTableListSelectionStyle(rowIdx, 4),
+                      ...getTableListSelectionStyle(rowIdx, 5),
                       ...(excelMode ? { cursor: 'cell', userSelect: 'none' } : {}),
                     }}
                   >
-                    {editingCell?.row === rowIdx && editingCell?.col === 4 ? (
-                      <input
-                        type="text"
-                        value={editValue}
-                        onChange={(e) => setEditValue(e.target.value.toUpperCase())}
-                        onBlur={() => {
-                          updateTableListCell(rowIdx, 4, editValue);
-                          setEditingCell(null);
-                        }}
-                        onKeyDown={(e) => e.stopPropagation()}
-                        autoFocus
-                        style={{
-                          width: '40px',
-                          padding: '4px',
-                          fontSize: '13px',
-                          border: '2px solid #2563eb',
-                          borderRadius: '2px',
-                          backgroundColor: isDarkTheme ? '#1e293b' : '#ffffff',
-                          color: isDarkTheme ? '#e4e4e7' : '#18181b',
-                          outline: 'none',
-                          textAlign: 'center',
-                        }}
-                        maxLength={1}
-                      />
-                    ) : excelMode ? (
-                      <div style={{ padding: '4px', minHeight: '20px' }}>
-                        {table.toIgnore ? 'Y' : 'N'}
-                      </div>
-                    ) : (
-                      <div
-                        contentEditable
-                        suppressContentEditableWarning
-                        onBlur={(e) => {
-                          const val = e.currentTarget.textContent || 'N';
-                          const boolValue = val.toUpperCase() === 'Y';
-                          onUpdateTable(table.id, { toIgnore: boolValue }, table.isSource);
-                        }}
-                        onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.currentTarget.blur(); } }}
-                        style={{
-                          cursor: 'text', minHeight: '20px', padding: '4px', borderRadius: '4px',
-                          border: '1px dashed transparent', transition: 'border-color 0.2s',
-                        }}
-                        onMouseEnter={(e) => { e.currentTarget.style.borderColor = isDarkTheme ? '#4b5563' : '#ccc'; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'transparent'; }}
-                      >
-                        {table.toIgnore ? 'Y' : 'N'}
-                      </div>
-                    )}
+                    <input
+                      type="checkbox"
+                      checked={!!table.explanationCompleted}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        onUpdateTable(table.id, { explanationCompleted: e.target.checked }, table.isSource);
+                      }}
+                      disabled={excelMode}
+                      style={{
+                        width: '15px', height: '15px', cursor: excelMode ? 'cell' : 'pointer',
+                        accentColor: isDarkTheme ? '#6b7280' : '#4b5563',
+                      }}
+                    />
+                  </td>
+                  {/* To Ignore - checkbox */}
+                  <td
+                    {...getTableListCellProps(rowIdx, 6)}
+                    style={{
+                      textAlign: 'center',
+                      ...getTableListSelectionStyle(rowIdx, 6),
+                      ...(excelMode ? { cursor: 'cell', userSelect: 'none' } : {}),
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={!!table.toIgnore}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        onUpdateTable(table.id, { toIgnore: e.target.checked }, table.isSource);
+                      }}
+                      disabled={excelMode}
+                      style={{
+                        width: '15px', height: '15px', cursor: excelMode ? 'cell' : 'pointer',
+                        accentColor: isDarkTheme ? '#6b7280' : '#4b5563',
+                      }}
+                    />
                   </td>
                 </tr>
               ))}
@@ -1902,7 +2214,7 @@ export default function DataDictionary({
 
   return (
     <div
-      style={{ height: '100%', overflow: 'auto', outline: excelMode ? 'none' : undefined }}
+      style={{ height: '100%', outline: excelMode ? 'none' : undefined }}
       tabIndex={excelMode ? 0 : undefined}
       onKeyDown={excelMode ? handleKeyDown : undefined}
     >
@@ -1966,129 +2278,34 @@ export default function DataDictionary({
               <Rows3 size={16} />
               Data View
             </button>
-          </div>
-          {(viewMode === 'dictionary' || viewMode === 'tableList') && (
             <button
-              className={`btn ${excelMode ? 'btn-success' : ''}`}
-              onClick={toggleExcelMode}
-              title={excelMode ? 'Switch to normal view' : 'Switch to Excel-like edit mode (multi-select, copy/paste)'}
+              className="btn"
+              onClick={() => setViewMode('code')}
+              style={{
+                borderRadius: 0,
+                border: 'none',
+                borderLeft: `1px solid ${isDarkTheme ? '#4b5563' : '#d1d5db'}`,
+                backgroundColor: viewMode === 'code'
+                  ? (isDarkTheme ? '#3b82f6' : '#2563eb')
+                  : 'transparent',
+                color: viewMode === 'code' ? '#fff' : undefined,
+              }}
+              title="DDL code view — edit and sync"
             >
-              {excelMode ? <TableIcon size={16} /> : <Grid3X3 size={16} />}
-              {excelMode ? 'Normal Mode' : 'Excel Mode'}
+              <FileCode size={16} />
+              Code View
             </button>
-          )}
-          {viewMode === 'dictionary' && (
-            <div style={{ position: 'relative' }}>
-              <button
-                className="btn"
-                onClick={() => setShowColumnSelector(!showColumnSelector)}
-                title="Choose which columns to display"
-              >
-                <Settings2 size={16} />
-                Columns
-              </button>
-              {showColumnSelector && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: '100%',
-                    right: 0,
-                    zIndex: 1000,
-                    backgroundColor: isDarkTheme ? '#374151' : '#ffffff',
-                    border: `1px solid ${isDarkTheme ? '#4b5563' : '#d1d5db'}`,
-                    borderRadius: '8px',
-                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-                    padding: '12px',
-                    minWidth: '200px',
-                    marginTop: '4px',
-                  }}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <div style={{ marginBottom: '8px', paddingBottom: '8px', borderBottom: `1px solid ${isDarkTheme ? '#4b5563' : '#e5e7eb'}` }}>
-                    <button
-                      onClick={() => {
-                        if (visibleColumns.size === allColumns.length) {
-                          setVisibleColumns(new Set(['column']));
-                        } else {
-                          setVisibleColumns(new Set(allColumns.map(c => c.key)));
-                        }
-                      }}
-                      style={{
-                        width: '100%',
-                        padding: '4px 8px',
-                        fontSize: '11px',
-                        border: `1px solid ${isDarkTheme ? '#6b7280' : '#d1d5db'}`,
-                        borderRadius: '4px',
-                        backgroundColor: isDarkTheme ? '#4b5563' : '#e5e7eb',
-                        color: isDarkTheme ? '#e4e4e7' : '#374151',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      {visibleColumns.size === allColumns.length ? 'Hide All' : 'Show All'}
-                    </button>
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    {allColumns.map(col => (
-                      <label
-                        key={col.key}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '8px',
-                          padding: '6px 8px',
-                          cursor: 'pointer',
-                          borderRadius: '4px',
-                          backgroundColor: visibleColumns.has(col.key) ? (isDarkTheme ? '#4b5563' : '#e5e7eb') : 'transparent',
-                        }}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={visibleColumns.has(col.key)}
-                          onChange={() => {
-                            const newVisible = new Set(visibleColumns);
-                            if (newVisible.has(col.key)) {
-                              if (newVisible.size > 1) {
-                                newVisible.delete(col.key);
-                              }
-                            } else {
-                              newVisible.add(col.key);
-                            }
-                            setVisibleColumns(newVisible);
-                          }}
-                          style={{
-                            width: '14px',
-                            height: '14px',
-                            accentColor: isDarkTheme ? '#9ca3af' : '#6b7280',
-                          }}
-                        />
-                        <span style={{ fontSize: '12px', color: isDarkTheme ? '#e4e4e7' : '#374151' }}>
-                          {col.label}
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                  <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: `1px solid ${isDarkTheme ? '#4b5563' : '#e5e7eb'}` }}>
-                    <button
-                      onClick={() => setShowColumnSelector(false)}
-                      style={{
-                        width: '100%',
-                        padding: '6px 12px',
-                        fontSize: '12px',
-                        border: 'none',
-                        borderRadius: '4px',
-                        backgroundColor: isDarkTheme ? '#6b7280' : '#6b7280',
-                        color: '#ffffff',
-                        cursor: 'pointer',
-                        fontWeight: 500,
-                      }}
-                    >
-                      Done
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
+          </div>
+          <button
+            className={`btn ${excelMode ? 'btn-success' : ''}`}
+            onClick={(viewMode === 'dictionary' || viewMode === 'tableList') ? toggleExcelMode : undefined}
+            title={(viewMode === 'data' || viewMode === 'code') ? 'Excel Mode is not available in this view' : (excelMode ? 'Switch to normal view' : 'Switch to Excel-like edit mode (multi-select, copy/paste)')}
+            style={(viewMode === 'data' || viewMode === 'code') ? { opacity: 0.4, pointerEvents: 'none' as const } : undefined}
+          >
+            {excelMode ? <TableIcon size={16} /> : <Grid3X3 size={16} />}
+            {excelMode ? 'Normal Mode' : 'Excel Mode'}
+          </button>
+          {renderColumnSelector(viewMode !== 'dictionary')}
           <button className="btn" onClick={handleEditMode}>
             <Edit3 size={16} />
             Edit Source
@@ -2097,6 +2314,124 @@ export default function DataDictionary({
             <FileDown size={16} />
             Export JSON
           </button>
+          <button className="btn" onClick={() => setShowExcelPreview(true)}>
+            <FileDown size={16} />
+            Export Excel
+          </button>
+          <button
+            className="btn"
+            onClick={() => setShowAttachSampleData(true)}
+            title="Attach sample data from CSV"
+          >
+            <Paperclip size={16} />
+            Sample Data
+            {(script.sampleDataAttachments?.length || 0) > 0 && (
+              <span style={{
+                marginLeft: '4px',
+                backgroundColor: '#22c55e',
+                color: 'white',
+                borderRadius: '10px',
+                padding: '0 6px',
+                fontSize: '11px',
+                fontWeight: 600
+              }}>
+                {script.sampleDataAttachments?.length}
+              </span>
+            )}
+          </button>
+          <button
+            className="btn"
+            onClick={() => setShowImportTables(true)}
+            title="Insert or replace CREATE TABLE statements into the script"
+          >
+            <Upload size={16} />
+            Import Tables
+          </button>
+          <button
+            className="btn"
+            onClick={() => setShowImportExplanations(true)}
+            title="Import column explanations & possible values"
+          >
+            <FileText size={16} />
+            Import Explanations
+          </button>
+          {/* Preview / Copy Table Data */}
+          <div style={{ position: 'relative' }}>
+            <button
+              className="btn"
+              onClick={() => { setShowExportPreview(!showExportPreview); setExportCopied(false); }}
+              disabled={!selectedTable}
+              style={!selectedTable ? { opacity: 0.4, pointerEvents: 'none' as const } : undefined}
+              title="Preview & copy visible column data for the selected table"
+            >
+              <Eye size={16} />
+              Preview / Copy
+            </button>
+            {showExportPreview && selectedTable && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '100%',
+                  right: 0,
+                  marginTop: '4px',
+                  width: '520px',
+                  maxHeight: '400px',
+                  backgroundColor: isDarkTheme ? '#1e293b' : '#ffffff',
+                  border: `1px solid ${isDarkTheme ? '#334155' : '#d1d5db'}`,
+                  borderRadius: '8px',
+                  boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
+                  zIndex: 200,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  overflow: 'hidden',
+                }}
+              >
+                <div style={{
+                  padding: '10px 14px',
+                  borderBottom: `1px solid ${isDarkTheme ? '#334155' : '#e5e7eb'}`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                }}>
+                  <span style={{ fontSize: '13px', fontWeight: 600, color: isDarkTheme ? '#e4e4e7' : '#18181b' }}>
+                    {selectedTable.tableName} — Visible Columns
+                  </span>
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <button
+                      className="btn btn-sm"
+                      onClick={handleCopyExport}
+                      title="Copy to clipboard"
+                      style={{ fontSize: '12px' }}
+                    >
+                      <ClipboardCopy size={14} />
+                      {exportCopied ? 'Copied!' : 'Copy'}
+                    </button>
+                    <button
+                      className="btn btn-sm"
+                      onClick={() => setShowExportPreview(false)}
+                      style={{ padding: '4px 6px' }}
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                </div>
+                <pre style={{
+                  margin: 0,
+                  padding: '12px 14px',
+                  fontSize: '11px',
+                  fontFamily: 'ui-monospace, monospace',
+                  whiteSpace: 'pre',
+                  overflowX: 'auto',
+                  overflowY: 'auto',
+                  maxHeight: '340px',
+                  color: isDarkTheme ? '#cbd5e1' : '#374151',
+                  backgroundColor: isDarkTheme ? '#0f172a' : '#f9fafb',
+                }}>
+                  {generateExportText()}
+                </pre>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -2114,11 +2449,20 @@ export default function DataDictionary({
             if (tableListFilters.tableName.length > 0 && !tableListFilters.tableName.includes(table.tableName)) {
               return false;
             }
+            if (tableListFilters._t.length > 0 && !tableListFilters._t.includes((table._tChecked ?? table.tableName.toLowerCase().includes('_t')) ? 'Y' : 'N')) {
+              return false;
+            }
             if (tableListFilters.domain.length > 0 && !tableListFilters.domain.includes(table.schema)) {
               return false;
             }
             if (tableListFilters.purpose.length > 0 && !tableListFilters.purpose.includes(table.description || '')) {
               return false;
+            }
+            if (tableListFilters.explanationCompleted.length > 0) {
+              const tableExplCompletedValue = table.explanationCompleted ? 'Y' : 'N';
+              if (!tableListFilters.explanationCompleted.includes(tableExplCompletedValue)) {
+                return false;
+              }
             }
             if (tableListFilters.toIgnore.length > 0) {
               const tableIgnoreValue = table.toIgnore ? 'Y' : 'N';
@@ -2129,9 +2473,9 @@ export default function DataDictionary({
             return true;
           });
 
-          // Table List columns: 0=#(readonly), 1=TableName(readonly), 2=Domain, 3=Purpose, 4=ToIgnore
-          const TABLE_LIST_COL_COUNT = 5;
-          const EDITABLE_COLS = [2, 3, 4]; // Domain, Purpose, To Ignore
+          // Table List columns: 0=#(readonly), 1=TableName(readonly), 2=_t(readonly), 3=Domain, 4=Explanation, 5=ExplCompleted, 6=ToIgnore
+          const TABLE_LIST_COL_COUNT = 7;
+          const EDITABLE_COLS = [2, 3, 4, 5, 6]; // _t, Domain, Explanation, Expl Completed, To Ignore
 
           // Get cell value for table list
           const getTableListCellValue = (rowIdx: number, colIdx: number): string => {
@@ -2140,9 +2484,11 @@ export default function DataDictionary({
             switch (colIdx) {
               case 0: return String(rowIdx + 1);
               case 1: return table.tableName;
-              case 2: return table.schema || '';
-              case 3: return table.description || '';
-              case 4: return table.toIgnore ? 'Y' : 'N';
+              case 2: return (table._tChecked ?? table.tableName.toLowerCase().includes('_t')) ? 'Y' : 'N';
+              case 3: return table.schema || '';
+              case 4: return table.description || '';
+              case 5: return table.explanationCompleted ? 'Y' : 'N';
+              case 6: return table.toIgnore ? 'Y' : 'N';
               default: return '';
             }
           };
@@ -2151,11 +2497,14 @@ export default function DataDictionary({
           const updateTableListCell = (rowIdx: number, colIdx: number, value: string) => {
             const table = filteredTables[rowIdx];
             if (!table) return;
-            if (colIdx === 2) {
+            if (colIdx === 3) {
               onUpdateTable(table.id, { schema: value }, table.isSource);
-            } else if (colIdx === 3) {
-              onUpdateTable(table.id, { description: value }, table.isSource);
             } else if (colIdx === 4) {
+              onUpdateTable(table.id, { description: value }, table.isSource);
+            } else if (colIdx === 5) {
+              const boolValue = value.toUpperCase() === 'Y';
+              onUpdateTable(table.id, { explanationCompleted: boolValue }, table.isSource);
+            } else if (colIdx === 6) {
               const boolValue = value.toUpperCase() === 'Y';
               onUpdateTable(table.id, { toIgnore: boolValue }, table.isSource);
             }
@@ -2165,19 +2514,21 @@ export default function DataDictionary({
           const isEditableCol = (colIdx: number) => EDITABLE_COLS.includes(colIdx);
 
           // Get unique values for filter dropdown
-          const getUniqueValues = (field: 'tableName' | 'domain' | 'purpose' | 'toIgnore') => {
+          const getUniqueValues = (field: 'tableName' | '_t' | 'domain' | 'purpose' | 'explanationCompleted' | 'toIgnore') => {
             const values = new Set<string>();
             allTables.forEach(table => {
               if (field === 'tableName') values.add(table.tableName);
+              else if (field === '_t') values.add((table._tChecked ?? table.tableName.toLowerCase().includes('_t')) ? 'Y' : 'N');
               else if (field === 'domain') values.add(table.schema || '');
               else if (field === 'purpose') values.add(table.description || '');
+              else if (field === 'explanationCompleted') values.add(table.explanationCompleted ? 'Y' : 'N');
               else if (field === 'toIgnore') values.add(table.toIgnore ? 'Y' : 'N');
             });
             return Array.from(values).filter(v => v).sort();
           };
 
           // Filter header component with multi-select like Excel
-          const FilterHeader = ({ column, label, width }: { column: 'tableName' | 'domain' | 'purpose' | 'toIgnore'; label: string; width: string }) => {
+          const FilterHeader = ({ column, label, width }: { column: 'tableName' | '_t' | 'domain' | 'purpose' | 'explanationCompleted' | 'toIgnore'; label: string; width: string }) => {
             const isActive = activeFilterColumn === column;
             const appliedValues = tableListFilters[column];
             const pendingValues = pendingFilters[column];
@@ -2591,7 +2942,7 @@ export default function DataDictionary({
                 e.preventDefault();
                 selectedCells.forEach(cell => {
                   if (isEditableCol(cell.col)) {
-                    updateTableListCell(cell.row, cell.col, cell.col === 4 ? 'N' : '');
+                    updateTableListCell(cell.row, cell.col, (cell.col === 5 || cell.col === 6) ? 'N' : '');
                   }
                 });
                 return;
@@ -2653,7 +3004,7 @@ export default function DataDictionary({
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      setTableListFilters({ tableName: [], domain: [], purpose: [], toIgnore: [] });
+                      setTableListFilters({ tableName: [], _t: [], domain: [], purpose: [], explanationCompleted: [], toIgnore: [] });
                     }}
                     style={{
                       background: 'none',
@@ -2679,15 +3030,22 @@ export default function DataDictionary({
                   <thead>
                     <tr>
                       <th style={{ width: '50px', textAlign: 'center' }}>#</th>
-                      <FilterHeader column="tableName" label="Table Name" width="25%" />
-                      <FilterHeader column="domain" label="Domain" width="15%" />
-                      <FilterHeader column="purpose" label="Purpose" width="45%" />
+                      <FilterHeader column="tableName" label="Table Name" width="22%" />
+                      <FilterHeader column="_t" label="_t" width="70px" />
+                      <FilterHeader column="domain" label="Domain" width="12%" />
+                      <FilterHeader column="purpose" label="Explanation" width="35%" />
+                      <FilterHeader column="explanationCompleted" label="Expl. Done?" width="90px" />
                       <FilterHeader column="toIgnore" label="To Ignore?" width="80px" />
                     </tr>
                   </thead>
                   <tbody>
                     {filteredTables.map((table, rowIdx) => (
-                      <tr key={`${table.isSource ? 'src' : 'tgt'}-${table.id}`}>
+                      <tr
+                        key={`${table.isSource ? 'src' : 'tgt'}-${table.id}`}
+                        style={table.explanationCompleted ? {
+                          backgroundColor: isDarkTheme ? 'rgba(34, 197, 94, 0.12)' : 'rgba(34, 197, 94, 0.08)',
+                        } : undefined}
+                      >
                         {/* # column - readonly */}
                         <td
                           {...getTableListCellProps(rowIdx, 0)}
@@ -2724,59 +3082,30 @@ export default function DataDictionary({
                             )}
                           </div>
                         </td>
-                        {/* Domain - editable */}
+                        {/* _t - checkbox, auto-checked if table name contains _t */}
                         <td
                           {...getTableListCellProps(rowIdx, 2)}
                           style={{
+                            textAlign: 'center',
                             ...getTableListSelectionStyle(rowIdx, 2),
                             ...(excelMode ? { cursor: 'cell', userSelect: 'none' } : {}),
                           }}
                         >
-                          {editingCell?.row === rowIdx && editingCell?.col === 2 ? (
-                            <input
-                              type="text"
-                              value={editValue}
-                              onChange={(e) => setEditValue(e.target.value)}
-                              onBlur={() => {
-                                updateTableListCell(rowIdx, 2, editValue);
-                                setEditingCell(null);
-                              }}
-                              onKeyDown={(e) => e.stopPropagation()}
-                              autoFocus
-                              style={{
-                                width: '100%',
-                                padding: '4px',
-                                fontSize: '13px',
-                                border: '2px solid #2563eb',
-                                borderRadius: '2px',
-                                backgroundColor: isDarkTheme ? '#1e293b' : '#ffffff',
-                                color: isDarkTheme ? '#e4e4e7' : '#18181b',
-                                outline: 'none',
-                              }}
-                            />
-                          ) : excelMode ? (
-                            <div style={{ padding: '4px', minHeight: '20px' }}>
-                              {table.schema || <span style={{ color: '#999', fontStyle: 'italic' }}>-</span>}
-                            </div>
-                          ) : (
-                            <div
-                              contentEditable
-                              suppressContentEditableWarning
-                              onBlur={(e) => onUpdateTable(table.id, { schema: e.currentTarget.textContent || '' }, table.isSource)}
-                              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.currentTarget.blur(); } }}
-                              style={{
-                                cursor: 'text', whiteSpace: 'pre-wrap', wordBreak: 'break-word', minHeight: '20px', padding: '4px', borderRadius: '4px',
-                                border: '1px dashed transparent', color: table.schema ? (isDarkTheme ? '#e4e4e7' : '#18181b') : (isDarkTheme ? '#6b7280' : '#999'),
-                                fontStyle: table.schema ? 'normal' : 'italic', transition: 'border-color 0.2s',
-                              }}
-                              onMouseEnter={(e) => { e.currentTarget.style.borderColor = isDarkTheme ? '#4b5563' : '#ccc'; }}
-                              onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'transparent'; }}
-                            >
-                              {table.schema || '(Click to add)'}
-                            </div>
-                          )}
+                          <input
+                            type="checkbox"
+                            checked={table._tChecked ?? table.tableName.toLowerCase().includes('_t')}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              onUpdateTable(table.id, { _tChecked: e.target.checked }, table.isSource);
+                            }}
+                            disabled={excelMode}
+                            style={{
+                              width: '15px', height: '15px', cursor: excelMode ? 'cell' : 'pointer',
+                              accentColor: isDarkTheme ? '#6b7280' : '#4b5563',
+                            }}
+                          />
                         </td>
-                        {/* Purpose - editable */}
+                        {/* Domain - editable */}
                         <td
                           {...getTableListCellProps(rowIdx, 3)}
                           style={{
@@ -2808,6 +3137,56 @@ export default function DataDictionary({
                             />
                           ) : excelMode ? (
                             <div style={{ padding: '4px', minHeight: '20px' }}>
+                              {table.schema || <span style={{ color: '#999', fontStyle: 'italic' }}>-</span>}
+                            </div>
+                          ) : (
+                            <div
+                              contentEditable
+                              suppressContentEditableWarning
+                              onBlur={(e) => onUpdateTable(table.id, { schema: e.currentTarget.textContent || '' }, table.isSource)}
+                              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.currentTarget.blur(); } }}
+                              style={{
+                                cursor: 'text', whiteSpace: 'pre-wrap', wordBreak: 'break-word', minHeight: '20px',
+                                color: table.schema ? (isDarkTheme ? '#e4e4e7' : '#18181b') : (isDarkTheme ? '#6b7280' : '#999'),
+                                fontStyle: table.schema ? 'normal' : 'italic',
+                              }}
+                            >
+                              {table.schema || '(Click to add)'}
+                            </div>
+                          )}
+                        </td>
+                        {/* Explanation - editable */}
+                        <td
+                          {...getTableListCellProps(rowIdx, 4)}
+                          style={{
+                            ...getTableListSelectionStyle(rowIdx, 4),
+                            ...(excelMode ? { cursor: 'cell', userSelect: 'none' } : {}),
+                          }}
+                        >
+                          {editingCell?.row === rowIdx && editingCell?.col === 4 ? (
+                            <input
+                              type="text"
+                              value={editValue}
+                              onChange={(e) => setEditValue(e.target.value)}
+                              onBlur={() => {
+                                updateTableListCell(rowIdx, 4, editValue);
+                                setEditingCell(null);
+                              }}
+                              onKeyDown={(e) => e.stopPropagation()}
+                              autoFocus
+                              style={{
+                                width: '100%',
+                                padding: '4px',
+                                fontSize: '13px',
+                                border: '2px solid #2563eb',
+                                borderRadius: '2px',
+                                backgroundColor: isDarkTheme ? '#1e293b' : '#ffffff',
+                                color: isDarkTheme ? '#e4e4e7' : '#18181b',
+                                outline: 'none',
+                              }}
+                            />
+                          ) : excelMode ? (
+                            <div style={{ padding: '4px', minHeight: '20px' }}>
                               {table.description || <span style={{ color: '#999', fontStyle: 'italic' }}>-</span>}
                             </div>
                           ) : (
@@ -2817,74 +3196,60 @@ export default function DataDictionary({
                               onBlur={(e) => onUpdateTable(table.id, { description: e.currentTarget.textContent || '' }, table.isSource)}
                               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.currentTarget.blur(); } }}
                               style={{
-                                cursor: 'text', whiteSpace: 'pre-wrap', wordBreak: 'break-word', minHeight: '20px', padding: '4px', borderRadius: '4px',
-                                border: '1px dashed transparent', color: table.description ? (isDarkTheme ? '#e4e4e7' : '#18181b') : (isDarkTheme ? '#6b7280' : '#999'),
-                                fontStyle: table.description ? 'normal' : 'italic', transition: 'border-color 0.2s',
+                                cursor: 'text', whiteSpace: 'pre-wrap', wordBreak: 'break-word', minHeight: '20px',
+                                color: table.description ? (isDarkTheme ? '#e4e4e7' : '#18181b') : (isDarkTheme ? '#6b7280' : '#999'),
+                                fontStyle: table.description ? 'normal' : 'italic',
                               }}
-                              onMouseEnter={(e) => { e.currentTarget.style.borderColor = isDarkTheme ? '#4b5563' : '#ccc'; }}
-                              onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'transparent'; }}
                             >
                               {table.description || '(Click to add)'}
                             </div>
                           )}
                         </td>
-                        {/* To Ignore - editable Y/N */}
+                        {/* Explanation Completed - checkbox */}
                         <td
-                          {...getTableListCellProps(rowIdx, 4)}
+                          {...getTableListCellProps(rowIdx, 5)}
                           style={{
                             textAlign: 'center',
-                            ...getTableListSelectionStyle(rowIdx, 4),
+                            ...getTableListSelectionStyle(rowIdx, 5),
                             ...(excelMode ? { cursor: 'cell', userSelect: 'none' } : {}),
                           }}
                         >
-                          {editingCell?.row === rowIdx && editingCell?.col === 4 ? (
-                            <input
-                              type="text"
-                              value={editValue}
-                              onChange={(e) => setEditValue(e.target.value.toUpperCase())}
-                              onBlur={() => {
-                                updateTableListCell(rowIdx, 4, editValue);
-                                setEditingCell(null);
-                              }}
-                              onKeyDown={(e) => e.stopPropagation()}
-                              autoFocus
-                              maxLength={1}
-                              style={{
-                                width: '40px',
-                                padding: '4px',
-                                fontSize: '13px',
-                                border: '2px solid #2563eb',
-                                borderRadius: '2px',
-                                backgroundColor: isDarkTheme ? '#1e293b' : '#ffffff',
-                                color: isDarkTheme ? '#e4e4e7' : '#18181b',
-                                outline: 'none',
-                                textAlign: 'center',
-                              }}
-                            />
-                          ) : excelMode ? (
-                            <div style={{ padding: '4px' }}>
-                              {table.toIgnore ? 'Y' : 'N'}
-                            </div>
-                          ) : (
-                            <div
-                              contentEditable
-                              suppressContentEditableWarning
-                              onBlur={(e) => {
-                                const val = e.currentTarget.textContent?.trim().toUpperCase() || 'N';
-                                onUpdateTable(table.id, { toIgnore: val === 'Y' }, table.isSource);
-                                e.currentTarget.textContent = val === 'Y' ? 'Y' : 'N';
-                              }}
-                              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); } }}
-                              style={{
-                                cursor: 'text', padding: '4px', borderRadius: '4px', border: '1px dashed transparent',
-                                transition: 'border-color 0.2s',
-                              }}
-                              onMouseEnter={(e) => { e.currentTarget.style.borderColor = isDarkTheme ? '#4b5563' : '#ccc'; }}
-                              onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'transparent'; }}
-                            >
-                              {table.toIgnore ? 'Y' : 'N'}
-                            </div>
-                          )}
+                          <input
+                            type="checkbox"
+                            checked={!!table.explanationCompleted}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              onUpdateTable(table.id, { explanationCompleted: e.target.checked }, table.isSource);
+                            }}
+                            disabled={excelMode}
+                            style={{
+                              width: '15px', height: '15px', cursor: excelMode ? 'cell' : 'pointer',
+                              accentColor: isDarkTheme ? '#6b7280' : '#4b5563',
+                            }}
+                          />
+                        </td>
+                        {/* To Ignore - checkbox */}
+                        <td
+                          {...getTableListCellProps(rowIdx, 6)}
+                          style={{
+                            textAlign: 'center',
+                            ...getTableListSelectionStyle(rowIdx, 6),
+                            ...(excelMode ? { cursor: 'cell', userSelect: 'none' } : {}),
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={!!table.toIgnore}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              onUpdateTable(table.id, { toIgnore: e.target.checked }, table.isSource);
+                            }}
+                            disabled={excelMode}
+                            style={{
+                              width: '15px', height: '15px', cursor: excelMode ? 'cell' : 'pointer',
+                              accentColor: isDarkTheme ? '#6b7280' : '#4b5563',
+                            }}
+                          />
                         </td>
                       </tr>
                     ))}
@@ -2982,6 +3347,68 @@ export default function DataDictionary({
         })()
       )}
 
+      {/* Code View Mode */}
+      {viewMode === 'code' && selectedTable && (
+        <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 200px)' }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: '12px',
+            borderBottom: `2px solid ${isDarkTheme ? '#334155' : '#eee'}`,
+            paddingBottom: '8px',
+          }}>
+            <h3 style={{ fontSize: '14px', color: isDarkTheme ? '#e4e4e7' : '#2c3e50', margin: 0 }}>
+              {selectedTable.schema ? `${selectedTable.schema}.` : ''}{selectedTable.tableName}
+              <span style={{ fontWeight: 'normal', fontSize: '12px', color: isDarkTheme ? '#a1a1aa' : '#6b7280', marginLeft: '8px' }}>
+                — DDL ({script.type.toUpperCase()})
+              </span>
+            </h3>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              {codeViewEditing ? (
+                <>
+                  <button className="btn" onClick={handleCodeViewCancel}>
+                    <X size={16} />
+                    Cancel
+                  </button>
+                  <button className="btn btn-success" onClick={handleCodeViewSave}>
+                    <Save size={16} />
+                    Save & Sync
+                  </button>
+                </>
+              ) : (
+                <button className="btn" onClick={handleCodeViewEdit}>
+                  <Edit3 size={16} />
+                  Edit DDL
+                </button>
+              )}
+            </div>
+          </div>
+          <div style={{ flex: 1, minHeight: 0 }}>
+            {codeViewEditing ? (
+              <CodeEditor
+                value={codeViewText}
+                onChange={setCodeViewText}
+                language={script.type}
+                isDarkTheme={isDarkTheme}
+                darkThemeVariant={darkThemeVariant}
+                minHeight="100%"
+              />
+            ) : (
+              <CodeEditor
+                value={generatedDDL}
+                onChange={() => {}}
+                language={script.type}
+                isDarkTheme={isDarkTheme}
+                darkThemeVariant={darkThemeVariant}
+                minHeight="100%"
+                readOnly
+              />
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Dictionary View Mode */}
       {viewMode === 'dictionary' && selectedTable && (
         <>
@@ -3002,7 +3429,7 @@ export default function DataDictionary({
           )}
 
           {/* Table Metadata */}
-      <h3 style={{ fontSize: '14px', color: '#2c3e50', marginBottom: '12px', borderBottom: '2px solid #eee', paddingBottom: '8px' }}>
+      <h3 style={{ fontSize: '14px', color: isDarkTheme ? '#e4e4e7' : '#2c3e50', marginBottom: '12px', borderBottom: `2px solid ${isDarkTheme ? '#334155' : '#eee'}`, paddingBottom: '8px' }}>
         Table Information
       </h3>
       <table className="data-table" style={{ marginBottom: '24px' }}>
@@ -3032,7 +3459,7 @@ export default function DataDictionary({
       {/* Constraints */}
       {selectedTable.constraints.length > 0 && (
         <>
-          <h3 style={{ fontSize: '14px', color: '#2c3e50', marginBottom: '12px', borderBottom: '2px solid #eee', paddingBottom: '8px' }}>
+          <h3 style={{ fontSize: '14px', color: isDarkTheme ? '#e4e4e7' : '#2c3e50', marginBottom: '12px', borderBottom: `2px solid ${isDarkTheme ? '#334155' : '#eee'}`, paddingBottom: '8px' }}>
             Constraints
           </h3>
           <table className="data-table" style={{ marginBottom: '24px' }}>
@@ -3059,27 +3486,53 @@ export default function DataDictionary({
       )}
 
       {/* Columns */}
-      <h3 style={{ fontSize: '14px', color: isDarkTheme ? '#e4e4e7' : '#2c3e50', marginBottom: '12px', borderBottom: '2px solid #eee', paddingBottom: '8px' }}>
+      <h3 style={{ fontSize: '14px', color: isDarkTheme ? '#e4e4e7' : '#2c3e50', marginBottom: '12px', borderBottom: `2px solid ${isDarkTheme ? '#334155' : '#eee'}`, paddingBottom: '8px' }}>
         Column Details {excelMode && `(${selectedCells.length} cell${selectedCells.length !== 1 ? 's' : ''} selected)`}
       </h3>
 
       {/* Single table with optional Excel mode selection overlay */}
-      <div style={{ position: 'relative' }}>
+      <div style={{ position: 'relative', overflowX: 'auto' }}>
       <table
-        ref={tableRef}
+        ref={(el) => {
+          // Merge refs: assign to tableRef and initialize column widths
+          (tableRef as React.MutableRefObject<HTMLTableElement | null>).current = el;
+          initColumnWidths(el);
+        }}
         className={`data-table ${excelMode ? 'excel-mode' : ''}`}
-        style={{ tableLayout: 'fixed', width: '100%' }}
+        style={{
+          tableLayout: 'fixed',
+          ...(Object.keys(columnWidths).length > 0
+            ? { minWidth: '100%', width: 'auto' }
+            : { width: '100%' }),
+        }}
       >
         <thead>
           <tr>
-            {visibleColumns.has('column') && <th style={{ width: allColumns.find(c => c.key === 'column')?.width }}>Column</th>}
-            {visibleColumns.has('type') && <th style={{ width: allColumns.find(c => c.key === 'type')?.width }}>Type</th>}
-            {visibleColumns.has('nullable') && <th style={{ width: allColumns.find(c => c.key === 'nullable')?.width }}>Nullable</th>}
-            {visibleColumns.has('default') && <th style={{ width: allColumns.find(c => c.key === 'default')?.width }}>Default</th>}
-            {visibleColumns.has('explanation') && <th style={{ width: allColumns.find(c => c.key === 'explanation')?.width }}>Explanation</th>}
-            {visibleColumns.has('mapping') && <th style={{ width: allColumns.find(c => c.key === 'mapping')?.width }}>Mapping Logic</th>}
-            {visibleColumns.has('sampleValues') && <th style={{ width: allColumns.find(c => c.key === 'sampleValues')?.width }}>Sample Values</th>}
-            {visibleColumns.has('mappedTo') && <th style={{ width: allColumns.find(c => c.key === 'mappedTo')?.width }}>Mapped To</th>}
+            {allColumns.filter(c => visibleColumns.has(c.key)).map(c => (
+              <th
+                key={c.key}
+                style={{
+                  width: columnWidths[c.key] ? `${columnWidths[c.key]}px` : c.width,
+                  position: 'relative',
+                }}
+              >
+                {c.label}
+                <div
+                  onMouseDown={(e) => handleColumnResizeStart(e, c.key)}
+                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(37, 99, 235, 0.3)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                  style={{
+                    position: 'absolute',
+                    right: 0,
+                    top: 0,
+                    bottom: 0,
+                    width: '4px',
+                    cursor: 'col-resize',
+                    zIndex: 10,
+                  }}
+                />
+              </th>
+            ))}
           </tr>
         </thead>
         <tbody>
@@ -3107,9 +3560,10 @@ export default function DataDictionary({
 
               if (isActive) {
                 return {
-                  outline: '2px solid #2563eb',
-                  outlineOffset: '-2px',
-                  backgroundColor: isDarkTheme ? 'rgba(30, 58, 95, 0.5)' : 'rgba(219, 234, 254, 0.7)',
+                  boxShadow: isDarkTheme
+                    ? 'inset 0 0 0 1.5px #60a5fa, 0 0 0 1px rgba(96, 165, 250, 0.25)'
+                    : 'inset 0 0 0 1.5px #3b82f6, 0 0 0 1px rgba(59, 130, 246, 0.2)',
+                  backgroundColor: isDarkTheme ? 'rgba(30, 58, 95, 0.35)' : 'rgba(219, 234, 254, 0.5)',
                 };
               }
               if (isSelected) {
@@ -3172,6 +3626,7 @@ export default function DataDictionary({
                 {/* Nullable */}
                 {visibleColumns.has('nullable') && (
                 <td
+                  className="code-cell"
                   {...excelCellProps(2)}
                   style={{
                     ...getSelectionStyle(2),
@@ -3243,18 +3698,6 @@ export default function DataDictionary({
                         wordBreak: 'break-word',
                         overflowWrap: 'break-word',
                         minHeight: '20px',
-                        padding: '4px',
-                        borderRadius: '4px',
-                        border: '1px dashed transparent',
-                        transition: 'border-color 0.2s, background-color 0.2s',
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.borderColor = '#ccc';
-                        e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.02)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.borderColor = 'transparent';
-                        e.currentTarget.style.backgroundColor = 'transparent';
                       }}
                     />
                   )}
@@ -3305,18 +3748,6 @@ export default function DataDictionary({
                         wordBreak: 'break-word',
                         overflowWrap: 'break-word',
                         minHeight: '20px',
-                        padding: '4px',
-                        borderRadius: '4px',
-                        border: '1px dashed transparent',
-                        transition: 'border-color 0.2s, background-color 0.2s',
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.borderColor = '#ccc';
-                        e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.02)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.borderColor = 'transparent';
-                        e.currentTarget.style.backgroundColor = 'transparent';
                       }}
                     />
                   )}
@@ -3359,16 +3790,66 @@ export default function DataDictionary({
                 </td>
                 )}
 
+                {/* Possible Values (editable, user-entered) */}
+                {visibleColumns.has('possibleValues') && (
+                <td
+                  {...excelCellProps(7)}
+                  style={{
+                    ...getSelectionStyle(7),
+                    ...(excelMode ? { cursor: 'cell', userSelect: 'none' } : {}),
+                  }}
+                >
+                  {excelMode ? (
+                    <div
+                      style={{
+                        whiteSpace: 'pre-wrap',
+                        wordBreak: 'break-word',
+                        overflowWrap: 'break-word',
+                        minHeight: '20px',
+                        padding: '4px',
+                      }}
+                      dangerouslySetInnerHTML={{ __html: col.possibleValues || '<span style="color: #999; font-style: italic;">-</span>' }}
+                    />
+                  ) : (
+                    <div
+                      contentEditable
+                      suppressContentEditableWarning
+                      title="Click to edit possible values"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          e.currentTarget.blur();
+                        }
+                      }}
+                      onBlur={(e) => updateColumnField(col.name, 'possibleValues', e.currentTarget.textContent || '')}
+                      onFocus={(e) => {
+                        if (e.currentTarget.textContent === '(Click to add)') {
+                          e.currentTarget.textContent = '';
+                        }
+                      }}
+                      dangerouslySetInnerHTML={{ __html: col.possibleValues || '<span style="color: #999; font-style: italic;">(Click to add)</span>' }}
+                      style={{
+                        cursor: 'text',
+                        whiteSpace: 'pre-wrap',
+                        wordBreak: 'break-word',
+                        overflowWrap: 'break-word',
+                        minHeight: '20px',
+                      }}
+                    />
+                  )}
+                </td>
+                )}
+
                 {/* Mapped To (read-only, not selectable in Excel mode for editing but viewable) */}
                 {visibleColumns.has('mappedTo') && (
                 <td
                   {...(excelMode ? {
-                    onClick: (e: React.MouseEvent) => handleCellClick(rowIndex, 7, e),
-                    onMouseDown: (e: React.MouseEvent) => handleCellMouseDown(rowIndex, 7, e),
-                    onMouseMove: () => handleCellMouseMove(rowIndex, 7),
+                    onClick: (e: React.MouseEvent) => handleCellClick(rowIndex, 8, e),
+                    onMouseDown: (e: React.MouseEvent) => handleCellMouseDown(rowIndex, 8, e),
+                    onMouseMove: () => handleCellMouseMove(rowIndex, 8),
                   } : {})}
                   style={{
-                    ...getSelectionStyle(7),
+                    ...getSelectionStyle(8),
                     ...(excelMode ? { cursor: 'cell', userSelect: 'none' } : {}),
                   }}
                 >
@@ -3465,6 +3946,66 @@ export default function DataDictionary({
       )}
       </div>
         </>
+      )}
+
+      {/* Import Tables Modal */}
+      {showImportTables && (
+        <ImportTablesModal
+          script={script}
+          onClose={() => setShowImportTables(false)}
+          onImport={(newRawContent) => {
+            onUpdateScript(newRawContent);
+            setShowImportTables(false);
+          }}
+          isDarkTheme={isDarkTheme}
+          darkThemeVariant={darkThemeVariant}
+        />
+      )}
+
+      {/* Import Explanations Modal */}
+      {showImportExplanations && (
+        <ImportExplanationsModal
+          script={script}
+          onClose={() => setShowImportExplanations(false)}
+          onImport={(updatedScript) => {
+            if (onUpdateScriptPartial) {
+              onUpdateScriptPartial({ data: updatedScript.data });
+            }
+            setShowImportExplanations(false);
+          }}
+          isDarkTheme={isDarkTheme}
+          darkThemeVariant={darkThemeVariant}
+        />
+      )}
+
+      {/* Attach Sample Data Modal */}
+      {showAttachSampleData && (
+        <AttachSampleDataModal
+          script={script}
+          onClose={() => setShowAttachSampleData(false)}
+          onAttach={(updatedScript) => {
+            if (onUpdateScriptPartial) {
+              onUpdateScriptPartial({
+                data: updatedScript.data,
+                sampleDataAttachments: updatedScript.sampleDataAttachments,
+              });
+            }
+            setShowAttachSampleData(false);
+          }}
+          isDarkTheme={isDarkTheme}
+          darkThemeVariant={darkThemeVariant}
+        />
+      )}
+
+      {showExcelPreview && (
+        <ExcelExportPreview
+          scriptName={script.name}
+          tables={allTablesForExcel}
+          getMappingInfo={getMappingInfo}
+          getColumnTags={getColumnTags}
+          onClose={() => setShowExcelPreview(false)}
+          isDarkTheme={isDarkTheme}
+        />
       )}
     </div>
   );

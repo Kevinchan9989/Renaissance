@@ -14,6 +14,7 @@ export interface Column {
   migrationNeeded?: boolean;
   nonMigrationComment?: string;
   sampleValues?: string[];  // Sample values from attached CSV
+  possibleValues?: string;  // User-entered possible/allowed values (e.g. "Y/N", "Active, Inactive")
 }
 
 export interface Constraint {
@@ -31,6 +32,8 @@ export interface Table {
   constraints: Constraint[];
   columns: Column[];
   toIgnore?: boolean;  // Flag to mark table as ignored for migration
+  explanationCompleted?: boolean;  // Flag to mark table explanation as completed
+  _tChecked?: boolean;  // Flag for _t checkbox (auto-checked if table name contains _t)
 }
 
 export interface ScriptData {

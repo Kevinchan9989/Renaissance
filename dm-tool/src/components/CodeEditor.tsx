@@ -89,99 +89,122 @@ export default function CodeEditor({
     }
   }, [theme]);
 
-  // Apply search highlights using DOM manipulation
+  // Apply search highlights using DOM manipulation (optimized)
+  const lastHighlightKeyRef = useRef<string>('');
+
   useEffect(() => {
-    if (!containerRef.current || !searchText || searchMatches.length === 0) {
-      return;
-    }
+    if (!containerRef.current) return;
 
     const preElement = containerRef.current.querySelector('.code-editor-pre');
     if (!preElement) return;
 
-    // Remove existing highlights
+    // Build key from match data only (excludes searchText to avoid stale-match rebuilds during debounce)
+    const highlightKey = searchMatches.length > 0
+      ? `${searchMatches.length}:${searchMatches[0].start}:${searchMatches[0].end}:${searchMatches[searchMatches.length - 1].start}:${searchMatches[searchMatches.length - 1].end}`
+      : '';
+
     const existingMarks = preElement.querySelectorAll('mark.search-highlight');
+    const needsRebuild = lastHighlightKeyRef.current !== highlightKey ||
+      (searchMatches.length > 0 && existingMarks.length === 0);
+
+    if (!needsRebuild) {
+      // Just toggle active class — cheap DOM operation for prev/next navigation
+      existingMarks.forEach((mark, i) => {
+        mark.classList.toggle('active', i === currentMatchIndex);
+      });
+      return;
+    }
+
+    // Full rebuild: remove existing highlights
     existingMarks.forEach(mark => {
       const parent = mark.parentNode;
       if (parent) {
         parent.replaceChild(document.createTextNode(mark.textContent || ''), mark);
-        parent.normalize();
       }
     });
+    // Single normalize after all marks removed (instead of per-mark)
+    if (existingMarks.length > 0) {
+      preElement.normalize();
+    }
 
-    // Create a tree walker to find text nodes
-    const walker = document.createTreeWalker(
-      preElement,
-      NodeFilter.SHOW_TEXT,
-      null
-    );
+    lastHighlightKeyRef.current = highlightKey;
 
+    if (searchMatches.length === 0) {
+      return;
+    }
+
+    // Build text node map
+    const walker = document.createTreeWalker(preElement, NodeFilter.SHOW_TEXT, null);
     const textNodes: { node: Text; offset: number }[] = [];
     let currentOffset = 0;
-
     let node;
     while ((node = walker.nextNode() as Text)) {
       textNodes.push({ node, offset: currentOffset });
       currentOffset += node.textContent?.length || 0;
     }
 
-    // Apply highlights from end to start
+    // Apply highlights from end to start to preserve offsets
     const sortedMatches = [...searchMatches].sort((a, b) => b.start - a.start);
 
     sortedMatches.forEach((match, index) => {
       const matchIndex = searchMatches.length - 1 - index;
       const isActive = matchIndex === currentMatchIndex;
 
-      // Find which text node(s) contain this match
-      for (let i = textNodes.length - 1; i >= 0; i--) {
-        const { node, offset } = textNodes[i];
-        const nodeEnd = offset + (node.textContent?.length || 0);
-
-        if (match.start >= offset && match.start < nodeEnd) {
-          const startInNode = match.start - offset;
-          const endInNode = Math.min(match.end - offset, node.textContent?.length || 0);
-
-          // Split the text node if needed
-          if (endInNode < (node.textContent?.length || 0)) {
-            node.splitText(endInNode);
-          }
-
-          if (startInNode > 0) {
-            const remainingNode = node.splitText(startInNode);
-            // Create mark element
-            const mark = document.createElement('mark');
-            mark.className = isActive ? 'search-highlight active' : 'search-highlight';
-            mark.textContent = remainingNode.textContent;
-            remainingNode.parentNode?.replaceChild(mark, remainingNode);
-          } else {
-            // Wrap the entire node
-            const mark = document.createElement('mark');
-            mark.className = isActive ? 'search-highlight active' : 'search-highlight';
-            mark.textContent = node.textContent;
-            node.parentNode?.replaceChild(mark, node);
-          }
-
+      // Binary search for the text node containing this match
+      let lo = 0, hi = textNodes.length - 1, targetIdx = -1;
+      while (lo <= hi) {
+        const mid = (lo + hi) >> 1;
+        const nodeEnd = textNodes[mid].offset + (textNodes[mid].node.textContent?.length || 0);
+        if (match.start >= textNodes[mid].offset && match.start < nodeEnd) {
+          targetIdx = mid;
           break;
+        } else if (match.start < textNodes[mid].offset) {
+          hi = mid - 1;
+        } else {
+          lo = mid + 1;
         }
       }
+
+      if (targetIdx === -1) return;
+
+      const { node: targetNode, offset } = textNodes[targetIdx];
+      const startInNode = match.start - offset;
+      const endInNode = Math.min(match.end - offset, targetNode.textContent?.length || 0);
+
+      if (endInNode < (targetNode.textContent?.length || 0)) {
+        targetNode.splitText(endInNode);
+      }
+
+      if (startInNode > 0) {
+        const remainingNode = targetNode.splitText(startInNode);
+        const mark = document.createElement('mark');
+        mark.className = isActive ? 'search-highlight active' : 'search-highlight';
+        mark.textContent = remainingNode.textContent;
+        remainingNode.parentNode?.replaceChild(mark, remainingNode);
+      } else {
+        const mark = document.createElement('mark');
+        mark.className = isActive ? 'search-highlight active' : 'search-highlight';
+        mark.textContent = targetNode.textContent;
+        targetNode.parentNode?.replaceChild(mark, targetNode);
+      }
     });
-  }, [searchText, searchMatches, currentMatchIndex]);
+  }, [searchMatches, currentMatchIndex]);
 
   // Scroll to current match
   useEffect(() => {
     if (searchMatches.length > 0 && containerRef.current) {
-      // Wait for DOM update
-      setTimeout(() => {
+      requestAnimationFrame(() => {
         const activeHighlight = containerRef.current?.querySelector('.search-highlight.active') as HTMLElement;
         if (activeHighlight) {
           activeHighlight.scrollIntoView({
-            behavior: 'smooth',
+            behavior: 'auto',
             block: 'center',
             inline: 'nearest'
           });
         }
-      }, 100);
+      });
     }
-  }, [currentMatchIndex]);
+  }, [currentMatchIndex, searchMatches]);
 
   return (
     <div
