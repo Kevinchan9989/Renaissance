@@ -301,6 +301,7 @@ body {
   width: 100%;
   border-collapse: collapse;
   font-size: 13px;
+  margin-bottom: 40px;
 }
 
 .data-table th,
@@ -319,6 +320,30 @@ body {
 
 .data-table tr:hover {
   background-color: #f8f9fa;
+}
+
+/* Editable cells: remove padding from td, let the contenteditable fill the whole cell */
+.data-table td:has([contenteditable]) {
+  padding: 0;
+  cursor: text;
+}
+
+.data-table td [contenteditable] {
+  outline: none;
+  padding: 10px 12px;
+  min-height: 100%;
+}
+
+.data-table td:focus-within {
+  box-shadow: inset 0 0 0 2px #3b82f6;
+}
+
+body.dark-theme .data-table td:focus-within {
+  box-shadow: inset 0 0 0 2px #60a5fa;
+}
+
+body.dark-theme.vscode-gray .data-table td:focus-within {
+  box-shadow: inset 0 0 0 2px #569cd6;
 }
 
 .code-cell {
@@ -2534,10 +2559,14 @@ body.dark-theme .script-dropdown-arrow {
 .compare-details-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 12px;
   padding: 16px 20px;
   border-bottom: 1px solid #e0e0e0;
   flex-shrink: 0;
+}
+
+.compare-details-header .compare-status-badge {
+  margin-left: auto;
 }
 
 .compare-details-header h3 {
@@ -4719,4 +4748,350 @@ body.dark-theme.vscode-gray .code-editor-container mark.search-highlight.active 
   to {
     transform: rotate(360deg);
   }
+}
+
+/* =========================================
+   DDL View Toggle & Panels (Schema Compare)
+   ========================================= */
+
+.compare-view-toggle {
+  display: flex;
+  background-color: #f0f0f0;
+  border-radius: 6px;
+  padding: 3px;
+  flex-shrink: 0;
+}
+
+.compare-view-toggle .toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 12px;
+  border: none;
+  background: transparent;
+  color: #666;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.compare-view-toggle .toggle-btn:hover {
+  color: #333;
+}
+
+.compare-view-toggle .toggle-btn.active {
+  background-color: white;
+  color: #2c3e50;
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+/* DDL Diff Container */
+.ddl-diff-container {
+  display: flex;
+  gap: 16px;
+  height: 100%;
+  padding: 16px;
+}
+
+.ddl-panel {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.ddl-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  color: #fff;
+  font-weight: 600;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.ddl-panel-header.source {
+  background: #3b82f6;
+}
+
+.ddl-panel-header.target {
+  background: #22c55e;
+}
+
+.ddl-panel-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.ddl-panel-actions button {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border: 1px solid rgba(255,255,255,0.3);
+  background: rgba(255,255,255,0.15);
+  color: #fff;
+  font-size: 11px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.ddl-panel-actions button:hover {
+  background: rgba(255,255,255,0.25);
+}
+
+.ddl-panel-body {
+  flex: 1;
+  overflow: auto;
+  background: #fafafa;
+}
+
+.ddl-lines-container {
+  font-family: Consolas, 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.ddl-line {
+  display: flex;
+  min-height: 21px;
+}
+
+.ddl-line-number {
+  width: 44px;
+  flex-shrink: 0;
+  text-align: right;
+  padding-right: 12px;
+  color: #9ca3af;
+  user-select: none;
+  border-right: 1px solid #e5e7eb;
+  font-size: 12px;
+}
+
+.ddl-line-text {
+  flex: 1;
+  padding-left: 12px;
+  white-space: pre;
+  color: #374151;
+}
+
+.ddl-line.highlight-modified {
+  background: rgba(234, 179, 8, 0.15);
+}
+
+.ddl-line.highlight-added {
+  background: rgba(34, 197, 94, 0.12);
+}
+
+.ddl-line.highlight-deleted {
+  background: rgba(239, 68, 68, 0.12);
+}
+
+.ddl-empty-panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 200px;
+  color: #9ca3af;
+  font-style: italic;
+  padding: 20px;
+  text-align: center;
+  font-size: 13px;
+}
+
+/* DDL Syntax Highlighting (Prism tokens) - Light */
+.ddl-lines-container .token.comment,
+.ddl-lines-container .token.prolog,
+.ddl-lines-container .token.doctype,
+.ddl-lines-container .token.cdata {
+  color: #008000;
+}
+
+.ddl-lines-container .token.keyword,
+.ddl-lines-container .token.builtin {
+  color: #0000ff;
+  font-weight: bold;
+}
+
+.ddl-lines-container .token.string,
+.ddl-lines-container .token.char {
+  color: #a31515;
+}
+
+.ddl-lines-container .token.number,
+.ddl-lines-container .token.boolean {
+  color: #098658;
+}
+
+.ddl-lines-container .token.function,
+.ddl-lines-container .token.function-name {
+  color: #795e26;
+}
+
+.ddl-lines-container .token.operator,
+.ddl-lines-container .token.entity,
+.ddl-lines-container .token.url {
+  color: #000000;
+  background: none;
+}
+
+.ddl-lines-container .token.punctuation {
+  color: #000000;
+}
+
+.ddl-lines-container .token.class-name,
+.ddl-lines-container .token.type-class-name {
+  color: #267f99;
+}
+
+.ddl-lines-container .token.variable {
+  color: #001080;
+}
+
+/* Dark theme */
+body.dark-theme .compare-view-toggle {
+  background-color: #1f2937;
+}
+
+body.dark-theme .compare-view-toggle .toggle-btn {
+  color: #9ca3af;
+}
+
+body.dark-theme .compare-view-toggle .toggle-btn:hover {
+  color: #e5e7eb;
+}
+
+body.dark-theme .compare-view-toggle .toggle-btn.active {
+  background-color: #374151;
+  color: #e5e7eb;
+}
+
+body.dark-theme .ddl-panel {
+  border-color: #374151;
+}
+
+body.dark-theme .ddl-panel-body {
+  background: #111827;
+}
+
+body.dark-theme .ddl-line-number {
+  color: #6b7280;
+  border-color: #1f2937;
+}
+
+body.dark-theme .ddl-line-text {
+  color: #e5e7eb;
+}
+
+body.dark-theme .ddl-line.highlight-modified {
+  background: rgba(234, 179, 8, 0.1);
+}
+
+body.dark-theme .ddl-line.highlight-added {
+  background: rgba(34, 197, 94, 0.08);
+}
+
+body.dark-theme .ddl-line.highlight-deleted {
+  background: rgba(239, 68, 68, 0.08);
+}
+
+body.dark-theme .ddl-empty-panel {
+  color: #6b7280;
+}
+
+/* DDL Syntax Highlighting - Dark */
+body.dark-theme .ddl-lines-container .token.comment,
+body.dark-theme .ddl-lines-container .token.prolog,
+body.dark-theme .ddl-lines-container .token.doctype,
+body.dark-theme .ddl-lines-container .token.cdata {
+  color: #6a9955;
+}
+
+body.dark-theme .ddl-lines-container .token.keyword,
+body.dark-theme .ddl-lines-container .token.builtin {
+  color: #569cd6;
+}
+
+body.dark-theme .ddl-lines-container .token.string,
+body.dark-theme .ddl-lines-container .token.char {
+  color: #ce9178;
+}
+
+body.dark-theme .ddl-lines-container .token.number,
+body.dark-theme .ddl-lines-container .token.boolean {
+  color: #b5cea8;
+}
+
+body.dark-theme .ddl-lines-container .token.function,
+body.dark-theme .ddl-lines-container .token.function-name {
+  color: #dcdcaa;
+}
+
+body.dark-theme .ddl-lines-container .token.operator,
+body.dark-theme .ddl-lines-container .token.entity,
+body.dark-theme .ddl-lines-container .token.url {
+  color: #d4d4d4;
+  background: none;
+}
+
+body.dark-theme .ddl-lines-container .token.punctuation {
+  color: #d4d4d4;
+}
+
+body.dark-theme .ddl-lines-container .token.class-name,
+body.dark-theme .ddl-lines-container .token.type-class-name {
+  color: #4ec9b0;
+}
+
+body.dark-theme .ddl-lines-container .token.variable {
+  color: #9cdcfe;
+}
+
+/* VSCode Gray theme */
+body.dark-theme.vscode-gray .compare-view-toggle {
+  background-color: #252526;
+}
+
+body.dark-theme.vscode-gray .compare-view-toggle .toggle-btn {
+  color: #858585;
+}
+
+body.dark-theme.vscode-gray .compare-view-toggle .toggle-btn:hover {
+  color: #d4d4d4;
+}
+
+body.dark-theme.vscode-gray .compare-view-toggle .toggle-btn.active {
+  background-color: #3c3c3c;
+  color: #d4d4d4;
+}
+
+body.dark-theme.vscode-gray .ddl-panel {
+  border-color: #3c3c3c;
+}
+
+body.dark-theme.vscode-gray .ddl-panel-body {
+  background: #1e1e1e;
+}
+
+body.dark-theme.vscode-gray .ddl-line-number {
+  color: #858585;
+  border-color: #2d2d30;
+}
+
+body.dark-theme.vscode-gray .ddl-line-text {
+  color: #d4d4d4;
+}
+
+body.dark-theme.vscode-gray .ddl-empty-panel {
+  color: #858585;
 }

@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Script, ScriptType, AppView, Table, MappingProject, FlowchartScript } from './types';
 import { loadScripts, saveScripts, generateId, loadTheme, saveTheme, saveMappingProject, loadDarkThemeVariant, saveDarkThemeVariant, DarkThemeVariant, loadWorkspaceFromElectron, getSortedScripts, loadFlowchartScripts, saveFlowchartScripts } from './utils/storage';
-import { parseScript, parsePUML } from './utils/parsers';
+import { parseScript, reparseScript, parsePUML } from './utils/parsers';
 import Sidebar from './components/Sidebar';
 import DataDictionary from './components/DataDictionary';
-import SchemaCompare from './components/SchemaCompare';
+import SchemaCompare, { SchemaCompareCache } from './components/SchemaCompare';
 import ERDViewer from './components/ERDViewer';
 import ScriptManager from './components/ScriptManager';
 import ColumnMapper, { MappingStateForSidebar } from './components/ColumnMapper';
@@ -42,6 +42,7 @@ export default function App() {
   const [sidebarWidth, setSidebarWidth] = useState(280);
   const [isResizing, setIsResizing] = useState(false);
   const resizeRef = useRef<{ startX: number; startWidth: number } | null>(null);
+  const compareCacheRef = useRef<SchemaCompareCache | null>(null);
 
   // Mapping state for sidebar integration
   const [mappingState, setMappingState] = useState<MappingState | null>(null);
@@ -433,15 +434,28 @@ export default function App() {
             onSelectTable={setSelectedTableId}
             onUpdateTable={updateTable}
             onUpdateScript={(rawContent) => {
-              const data = parseScript(rawContent, activeScript.type);
+              const data = reparseScript(rawContent, activeScript.type, activeScript.data);
               updateScript(activeScript.id, { rawContent, data });
             }}
+            onUpdateScriptPartial={(updates) => updateScript(activeScript.id, updates)}
             isDarkTheme={theme === 'dark'}
             darkThemeVariant={darkThemeVariant}
           />
         );
       case 'compare':
-        return <SchemaCompare scripts={scripts} activeScript={activeScript} />;
+        return (
+          <SchemaCompare
+            scripts={scripts}
+            activeScript={activeScript}
+            onUpdateScript={(scriptId, rawContent) => {
+              const script = scripts.find(s => s.id === scriptId);
+              if (!script) return;
+              const data = reparseScript(rawContent, script.type, script.data);
+              updateScript(scriptId, { rawContent, data });
+            }}
+            cache={compareCacheRef}
+          />
+        );
       case 'erd':
         return (
           <ERDViewer
@@ -451,7 +465,7 @@ export default function App() {
             scriptId={activeScript.id}
             scriptName={activeScript.name}
             onRefresh={() => {
-              const data = parseScript(activeScript.rawContent, activeScript.type);
+              const data = reparseScript(activeScript.rawContent, activeScript.type, activeScript.data);
               updateScript(activeScript.id, { data });
             }}
           />

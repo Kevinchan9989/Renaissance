@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { X, FileText, Printer } from 'lucide-react';
+import { X, FileText, Printer, Search, ChevronDown, ChevronRight, Check, Minus } from 'lucide-react';
 import { Table } from '../types';
 import { TABLE_COLORS, SIZING, FONTS, LIGHT_THEME, getDarkTheme, ThemeColors, DarkThemeVariant } from '../constants/erd';
 
@@ -158,15 +158,25 @@ export default function ERDExportPreview({
   const [previewScale, setPreviewScale] = useState(1);
   const theme = getTheme(isDarkTheme, darkThemeVariant);
 
+  // Table selection state
+  const [selectedTableIds, setSelectedTableIds] = useState<Set<string>>(() => new Set(nodes.map(n => n.id)));
+  const [tableFilterText, setTableFilterText] = useState('');
+  const [collapsedSchemas, setCollapsedSchemas] = useState<Set<string>>(new Set());
+
+  // Filtered data based on table selection
+  const filteredNodes = useMemo(() => nodes.filter(n => selectedTableIds.has(n.id)), [nodes, selectedTableIds]);
+  const filteredEdges = useMemo(() => edges.filter(e => selectedTableIds.has(e.sourceTable) && selectedTableIds.has(e.targetTable)), [edges, selectedTableIds]);
+  const filteredTables = useMemo(() => filteredNodes.map(n => n.table), [filteredNodes]);
+
   // Calculate bounding box of all nodes with tight padding
   const PREVIEW_PADDING = 30;
   const bounds = useMemo(() => {
-    if (nodes.length === 0) return { minX: 0, minY: 0, maxX: 800, maxY: 600, width: 800, height: 600 };
+    if (filteredNodes.length === 0) return { minX: 0, minY: 0, maxX: 800, maxY: 600, width: 800, height: 600 };
 
-    const minX = Math.min(...nodes.map(n => n.x)) - PREVIEW_PADDING;
-    const minY = Math.min(...nodes.map(n => n.y)) - PREVIEW_PADDING;
-    const maxX = Math.max(...nodes.map(n => n.x + n.width)) + PREVIEW_PADDING;
-    const maxY = Math.max(...nodes.map(n => n.y + n.height)) + PREVIEW_PADDING;
+    const minX = Math.min(...filteredNodes.map(n => n.x)) - PREVIEW_PADDING;
+    const minY = Math.min(...filteredNodes.map(n => n.y)) - PREVIEW_PADDING;
+    const maxX = Math.max(...filteredNodes.map(n => n.x + n.width)) + PREVIEW_PADDING;
+    const maxY = Math.max(...filteredNodes.map(n => n.y + n.height)) + PREVIEW_PADDING;
 
     return {
       minX,
@@ -176,7 +186,7 @@ export default function ERDExportPreview({
       width: maxX - minX,
       height: maxY - minY
     };
-  }, [nodes]);
+  }, [filteredNodes]);
 
   // Update preview scale based on container size
   useEffect(() => {
@@ -213,9 +223,9 @@ export default function ERDExportPreview({
 
   // Generate SVG paths for edges
   const edgePaths = useMemo(() => {
-    return edges.map(edge => {
-      const sourceNode = nodes.find(n => n.id === edge.sourceTable);
-      const targetNode = nodes.find(n => n.id === edge.targetTable);
+    return filteredEdges.map(edge => {
+      const sourceNode = filteredNodes.find(n => n.id === edge.sourceTable);
+      const targetNode = filteredNodes.find(n => n.id === edge.targetTable);
       if (!sourceNode || !targetNode) return null;
 
       const sourceY = getColumnY(sourceNode, edge.sourceColumn);
@@ -241,12 +251,12 @@ export default function ERDExportPreview({
         color: theme.connection.default
       };
     }).filter(Boolean);
-  }, [edges, nodes, theme]);
+  }, [filteredEdges, filteredNodes, theme]);
 
   // Generate the HTML content for export
   const generateHTML = () => {
     // Generate search data for JavaScript
-    const searchData = nodes.map(node => ({
+    const searchData = filteredNodes.map(node => ({
       id: node.id,
       tableName: node.table.tableName,
       columns: node.table.columns.map(c => c.name)
@@ -544,14 +554,21 @@ export default function ERDExportPreview({
       .erd-canvas-wrapper {
         flex: 1;
         height: 100%;
-        overflow: hidden;
+        overflow: auto;
         position: relative;
       }
+      /* When JS loads, it adds .js-active to switch to transform-based panning */
+      .erd-canvas-wrapper.js-active {
+        overflow: hidden;
+      }
       .erd-canvas {
-        position: absolute;
+        position: relative;
         width: ${tightBounds.width}px;
         height: ${tightBounds.height}px;
         transform-origin: 0 0;
+      }
+      .erd-canvas-wrapper.js-active .erd-canvas {
+        position: absolute;
       }
       .erd-svg {
         position: absolute;
@@ -805,28 +822,39 @@ export default function ERDExportPreview({
 
     // Generate JavaScript for search and zoom functionality
     const searchScript = `
-      const searchData = ${JSON.stringify(searchData)};
-      const searchInput = document.getElementById('erd-search-input');
-      const searchDropdown = document.getElementById('erd-search-dropdown');
-      const canvas = document.getElementById('erd-canvas');
-      const canvasWrapper = document.getElementById('erd-canvas-wrapper');
-      const zoomDisplay = document.getElementById('zoom-display');
+      console.log('[ERD] Script loaded successfully - starting initialization');
+      try {
 
-      const canvasWidth = ${tightBounds.width};
-      const canvasHeight = ${tightBounds.height};
-      const MIN_SCALE = 0.1;
-      const MAX_SCALE = 3;
-      const ZOOM_SENSITIVITY = 0.002;
+      var searchData = ${JSON.stringify(searchData)};
+      var searchInput = document.getElementById('erd-search-input');
+      var searchDropdown = document.getElementById('erd-search-dropdown');
+      var canvas = document.getElementById('erd-canvas');
+      var canvasWrapper = document.getElementById('erd-canvas-wrapper');
+      var zoomDisplay = document.getElementById('zoom-display');
 
-      let currentScale = 1;
-      let translateX = 0;
-      let translateY = 0;
-      let isDragging = false;
-      let lastMouseX = 0;
-      let lastMouseY = 0;
-      let highlightedNode = null;
-      let highlightedColumn = null;
-      let activeSidebarItem = null;
+      console.log('[ERD] DOM elements found:', {
+        searchInput: !!searchInput,
+        searchDropdown: !!searchDropdown,
+        canvas: !!canvas,
+        canvasWrapper: !!canvasWrapper,
+        zoomDisplay: !!zoomDisplay
+      });
+
+      var canvasWidth = ${tightBounds.width};
+      var canvasHeight = ${tightBounds.height};
+      var MIN_SCALE = 0.1;
+      var MAX_SCALE = 3;
+      var ZOOM_SENSITIVITY = 0.002;
+
+      var currentScale = 1;
+      var translateX = 0;
+      var translateY = 0;
+      var isDragging = false;
+      var lastMouseX = 0;
+      var lastMouseY = 0;
+      var highlightedNode = null;
+      var highlightedColumn = null;
+      var activeSidebarItem = null;
 
       function calculateFitScale() {
         const sidebar = document.getElementById('erd-sidebar');
@@ -955,11 +983,11 @@ export default function ERDExportPreview({
         } else {
           searchDropdown.innerHTML = limitedResults.map(r => {
             if (r.type === 'table') {
-              return '<div class="erd-search-result" onclick="navigateToTable(\\'' + r.tableId + '\\')">' +
+              return '<div class="erd-search-result" data-nav-table="' + r.tableId + '">' +
                 '<div class="erd-search-result-table">' + escapeHtml(r.tableName) + '<span class="erd-search-result-type">Table</span></div>' +
                 '</div>';
             } else {
-              return '<div class="erd-search-result" onclick="navigateToTable(\\'' + r.tableId + '\\', \\'' + r.columnName + '\\')">' +
+              return '<div class="erd-search-result" data-nav-table="' + r.tableId + '" data-nav-column="' + r.columnName + '">' +
                 '<div class="erd-search-result-table">' + escapeHtml(r.tableName) + '</div>' +
                 '<div class="erd-search-result-column">' + escapeHtml(r.columnName) + '<span class="erd-search-result-type">Column</span></div>' +
                 '</div>';
@@ -977,23 +1005,21 @@ export default function ERDExportPreview({
       }
 
       // Ctrl+scroll zoom
-      canvasWrapper.addEventListener('wheel', (e) => {
+      canvasWrapper.addEventListener('wheel', function(e) {
         if (e.ctrlKey || e.metaKey) {
           e.preventDefault();
+          console.log('[ERD] Wheel zoom event fired');
 
-          const rect = canvasWrapper.getBoundingClientRect();
-          const mouseX = e.clientX - rect.left;
-          const mouseY = e.clientY - rect.top;
+          var rect = canvasWrapper.getBoundingClientRect();
+          var mouseX = e.clientX - rect.left;
+          var mouseY = e.clientY - rect.top;
 
-          // Calculate point under mouse in canvas coordinates
-          const canvasX = (mouseX - translateX) / currentScale;
-          const canvasY = (mouseY - translateY) / currentScale;
+          var canvasX = (mouseX - translateX) / currentScale;
+          var canvasY = (mouseY - translateY) / currentScale;
 
-          // Apply zoom
-          const delta = -e.deltaY * ZOOM_SENSITIVITY;
-          const newScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, currentScale * (1 + delta)));
+          var delta = -e.deltaY * ZOOM_SENSITIVITY;
+          var newScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, currentScale * (1 + delta)));
 
-          // Adjust translation to zoom towards mouse position
           translateX = mouseX - canvasX * newScale;
           translateY = mouseY - canvasY * newScale;
           currentScale = newScale;
@@ -1001,47 +1027,66 @@ export default function ERDExportPreview({
           updateTransform();
         }
       }, { passive: false });
+      console.log('[ERD] Wheel zoom listener registered');
 
       // Pan with mouse drag
-      canvasWrapper.addEventListener('mousedown', (e) => {
+      canvasWrapper.addEventListener('mousedown', function(e) {
         if (e.target.closest('.erd-floating-bar') || e.target.closest('.erd-search-container')) return;
         isDragging = true;
         lastMouseX = e.clientX;
         lastMouseY = e.clientY;
         canvasWrapper.style.cursor = 'grabbing';
+        console.log('[ERD] Drag started at', e.clientX, e.clientY);
       });
+      console.log('[ERD] Mousedown listener registered on canvasWrapper');
 
-      document.addEventListener('mousemove', (e) => {
+      document.addEventListener('mousemove', function(e) {
         if (!isDragging) return;
-        const deltaX = e.clientX - lastMouseX;
-        const deltaY = e.clientY - lastMouseY;
+        var deltaX = e.clientX - lastMouseX;
+        var deltaY = e.clientY - lastMouseY;
         translateX += deltaX;
         translateY += deltaY;
         lastMouseX = e.clientX;
         lastMouseY = e.clientY;
         updateTransform();
       });
+      console.log('[ERD] Mousemove listener registered on document');
 
-      document.addEventListener('mouseup', () => {
+      document.addEventListener('mouseup', function() {
+        if (isDragging) console.log('[ERD] Drag ended');
         isDragging = false;
         canvasWrapper.style.cursor = 'grab';
       });
+      console.log('[ERD] Mouseup listener registered on document');
 
       canvasWrapper.style.cursor = 'grab';
 
       // Search event listeners
-      searchInput.addEventListener('input', (e) => performSearch(e.target.value));
-      searchInput.addEventListener('focus', () => {
+      searchInput.addEventListener('input', function(e) { performSearch(e.target.value); });
+      searchInput.addEventListener('focus', function() {
         if (searchInput.value.length >= 2) performSearch(searchInput.value);
       });
+      console.log('[ERD] Search input listeners registered');
 
-      document.addEventListener('click', (e) => {
+      // Event delegation for search result clicks (avoids inline onclick handlers blocked by CSP)
+      searchDropdown.addEventListener('click', function(e) {
+        var resultEl = e.target.closest('.erd-search-result');
+        if (resultEl) {
+          var tableId = resultEl.getAttribute('data-nav-table');
+          var columnName = resultEl.getAttribute('data-nav-column');
+          console.log('[ERD] Search result clicked:', tableId, columnName);
+          if (tableId) navigateToTable(tableId, columnName || undefined);
+        }
+      });
+
+      document.addEventListener('click', function(e) {
         if (!e.target.closest('.erd-search-container')) {
           searchDropdown.classList.remove('show');
         }
       });
 
       window.addEventListener('resize', fitToView);
+      console.log('[ERD] All event listeners registered successfully');
 
       // ==========================================
       // SIDEBAR FUNCTIONALITY
@@ -1248,8 +1293,16 @@ export default function ERDExportPreview({
         filterSidebarTables(e.target.value);
       });
 
+      // Switch to JS-based panning mode
+      canvasWrapper.classList.add('js-active');
+
       // Initialize with fit view
       fitToView();
+      console.log('[ERD] Initialization complete - fitToView applied, scale:', currentScale);
+
+      } catch(err) {
+        console.error('[ERD] SCRIPT ERROR:', err.message, err.stack);
+      }
     `;
 
     // Calculate offset for tight bounds (remove original diagram padding, add our padding)
@@ -1257,7 +1310,7 @@ export default function ERDExportPreview({
     const offsetY = bounds.minY + SIZING.DIAGRAM_PADDING - PADDING;
 
     // Generate table HTML
-    const tablesHTML = nodes.map(node => {
+    const tablesHTML = filteredNodes.map(node => {
       const { table, x, y, width, height, colorIndex } = node;
       const color = TABLE_COLORS[colorIndex];
 
@@ -1330,7 +1383,7 @@ export default function ERDExportPreview({
 
     // Group tables by schema
     const tablesBySchema: Record<string, typeof nodes> = {};
-    nodes.forEach(node => {
+    filteredNodes.forEach(node => {
       const schema = node.table.schema || 'DEFAULT';
       if (!tablesBySchema[schema]) {
         tablesBySchema[schema] = [];
@@ -1421,7 +1474,7 @@ export default function ERDExportPreview({
         ${sidebarItemsHTML}
       </div>
       <div id="erd-sidebar-count" class="erd-sidebar-count">
-        ${tables.length} table${tables.length !== 1 ? 's' : ''}
+        ${filteredTables.length} table${filteredTables.length !== 1 ? 's' : ''}
       </div>
     </div>
 
@@ -1439,11 +1492,11 @@ export default function ERDExportPreview({
       <div class="erd-stats">
         <span class="erd-stat">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
-          ${tables.length} tables
+          ${filteredTables.length} tables
         </span>
         <span class="erd-stat">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-          ${edges.length} relations
+          ${filteredEdges.length} relations
         </span>
       </div>
       <div class="erd-divider"></div>
@@ -1457,7 +1510,31 @@ export default function ERDExportPreview({
       </div>
     </div>
   </div>
-  <script>${searchScript}</script>
+  <div id="erd-diag" style="position:fixed;bottom:8px;right:8px;background:rgba(0,0,0,0.8);color:#ff6b6b;font-size:11px;padding:6px 12px;border-radius:4px;z-index:9999;font-family:monospace;">JS: not loaded - use scrollbars to navigate</div>
+  <script>
+    try {
+      ${searchScript}
+      document.getElementById('erd-diag').textContent = 'JS: inline OK';
+      document.getElementById('erd-diag').style.color = '#4ade80';
+    } catch(e) {
+      console.error('[ERD] Inline script error:', e);
+      document.getElementById('erd-diag').textContent = 'JS: inline error - ' + e.message;
+    }
+  </script>
+  <script>
+    if (typeof fitToView === 'undefined') {
+      document.getElementById('erd-diag').textContent = 'JS: inline blocked, trying data URI...';
+      document.getElementById('erd-diag').style.color = '#fbbf24';
+    }
+  </script>
+  <script src="data:text/javascript;base64,${btoa(unescape(encodeURIComponent('if(typeof fitToView==="undefined"){try{' + searchScript + 'document.getElementById("erd-diag").textContent="JS: data URI OK";document.getElementById("erd-diag").style.color="#4ade80";}catch(e){console.error("[ERD] Data URI script error:",e);document.getElementById("erd-diag").textContent="JS: data URI error - "+e.message;}}')))}"></script>
+  <script>
+    if (typeof fitToView === 'undefined') {
+      document.getElementById('erd-diag').textContent = 'JS: ALL BLOCKED - scripts cannot run in this environment';
+      document.getElementById('erd-diag').style.color = '#ff6b6b';
+      console.error('[ERD] Both inline and data URI scripts blocked. Check browser CSP/security settings.');
+    }
+  </script>
 </body>
 </html>`;
 
@@ -1474,7 +1551,186 @@ export default function ERDExportPreview({
       .replace(/'/g, '&#039;');
   };
 
-  // Handle HTML download
+  // Table selection handlers
+  const toggleTable = (id: string) => {
+    setSelectedTableIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAllTables = () => {
+    // If filter is active, only affect visible tables
+    if (tableFilterText.trim()) {
+      const q = tableFilterText.toLowerCase().trim();
+      const visibleIds = nodes
+        .filter(n => n.table.tableName.toLowerCase().includes(q) || (n.table.schema || 'DEFAULT').toLowerCase().includes(q))
+        .map(n => n.id);
+      const allVisibleSelected = visibleIds.every(id => selectedTableIds.has(id));
+      setSelectedTableIds(prev => {
+        const next = new Set(prev);
+        if (allVisibleSelected) {
+          visibleIds.forEach(id => next.delete(id));
+        } else {
+          visibleIds.forEach(id => next.add(id));
+        }
+        return next;
+      });
+    } else {
+      // Toggle all
+      if (selectedTableIds.size === nodes.length) {
+        setSelectedTableIds(new Set());
+      } else {
+        setSelectedTableIds(new Set(nodes.map(n => n.id)));
+      }
+    }
+  };
+
+  const toggleSchema = (schema: string) => {
+    const schemaNodes = nodes.filter(n => (n.table.schema || 'DEFAULT') === schema);
+    const allSelected = schemaNodes.every(n => selectedTableIds.has(n.id));
+    setSelectedTableIds(prev => {
+      const next = new Set(prev);
+      if (allSelected) {
+        schemaNodes.forEach(n => next.delete(n.id));
+      } else {
+        schemaNodes.forEach(n => next.add(n.id));
+      }
+      return next;
+    });
+  };
+
+  const toggleSchemaCollapse = (schema: string) => {
+    setCollapsedSchemas(prev => {
+      const next = new Set(prev);
+      if (next.has(schema)) next.delete(schema);
+      else next.add(schema);
+      return next;
+    });
+  };
+
+  // Group nodes by schema for sidebar
+  const nodesBySchema = useMemo(() => {
+    const grouped: Record<string, typeof nodes> = {};
+    nodes.forEach(node => {
+      const schema = node.table.schema || 'DEFAULT';
+      if (!grouped[schema]) grouped[schema] = [];
+      grouped[schema].push(node);
+    });
+    // Sort tables within each schema
+    Object.values(grouped).forEach(arr => arr.sort((a, b) => a.table.tableName.localeCompare(b.table.tableName)));
+    return grouped;
+  }, [nodes]);
+
+  const sortedSchemaNames = useMemo(() => Object.keys(nodesBySchema).sort(), [nodesBySchema]);
+
+  // Filter nodes for the sidebar list
+  const sidebarFilteredNodes = useMemo(() => {
+    if (!tableFilterText.trim()) return null; // null = show all
+    const q = tableFilterText.toLowerCase().trim();
+    return new Set(
+      nodes.filter(n =>
+        n.table.tableName.toLowerCase().includes(q) ||
+        (n.table.schema || 'DEFAULT').toLowerCase().includes(q)
+      ).map(n => n.id)
+    );
+  }, [nodes, tableFilterText]);
+
+  // Compute select-all state
+  const selectAllState = useMemo(() => {
+    const relevantIds = sidebarFilteredNodes
+      ? Array.from(sidebarFilteredNodes)
+      : nodes.map(n => n.id);
+    if (relevantIds.length === 0) return 'none';
+    const selectedCount = relevantIds.filter(id => selectedTableIds.has(id)).length;
+    if (selectedCount === 0) return 'none';
+    if (selectedCount === relevantIds.length) return 'all';
+    return 'partial';
+  }, [selectedTableIds, sidebarFilteredNodes, nodes]);
+
+  // Generate pure HTML (no JS) — static scrollable page
+  const generateStaticHTML = () => {
+    const PADDING = 30;
+    const tightBounds = {
+      width: bounds.width - (2 * SIZING.DIAGRAM_PADDING) + (2 * PADDING),
+      height: bounds.height - (2 * SIZING.DIAGRAM_PADDING) + (2 * PADDING)
+    };
+    const offsetX = bounds.minX + SIZING.DIAGRAM_PADDING - PADDING;
+    const offsetY = bounds.minY + SIZING.DIAGRAM_PADDING - PADDING;
+
+    const tablesHTML = filteredNodes.map(node => {
+      const { table, x, y, width, height, colorIndex } = node;
+      const color = TABLE_COLORS[colorIndex];
+      const pkCols = new Set<string>();
+      const fkCols = new Set<string>();
+      table.constraints.forEach(c => {
+        const cols = c.localCols.split(',').map(s => s.trim().toUpperCase());
+        if (c.type === 'Primary Key') cols.forEach(col => pkCols.add(col));
+        if (c.type === 'Foreign Key') cols.forEach(col => fkCols.add(col));
+      });
+      const columnsHTML = table.columns.map(col => {
+        const isPk = pkCols.has(col.name.toUpperCase());
+        const isFk = fkCols.has(col.name.toUpperCase());
+        const rowClass = isPk ? 'column-row pk-row' : (isFk ? 'column-row fk-row' : 'column-row');
+        const nameClass = isPk ? 'column-name pk' : 'column-name';
+        const keyIcon = isPk ? '<span class="column-key">&#128273;</span>' : (isFk ? '<span class="column-key">&#128279;</span>' : '');
+        return `<div class="${rowClass}"><div class="column-left">${keyIcon}<span class="${nameClass}" style="${isPk ? `color: ${color.regular}` : ''}">${escapeHtml(col.name)}</span></div><span class="column-type">${escapeHtml(col.type)}</span></div>`;
+      }).join('');
+      return `<div class="table-node" style="left:${x - offsetX}px;top:${y - offsetY}px;width:${width}px;height:${height}px;"><div class="table-color-strip" style="background:${color.regular}"></div><div class="table-header"><span class="table-name">${escapeHtml(table.tableName)}</span></div><div class="table-columns">${columnsHTML}</div></div>`;
+    }).join('');
+
+    const edgesHTML = edgePaths.length > 0 ? `<svg class="erd-svg" viewBox="0 0 ${tightBounds.width} ${tightBounds.height}" preserveAspectRatio="xMidYMid meet">${edgePaths.map(ep => ep ? `<path d="${ep.path.split(' ').map(segment => segment.replace(/(-?\d+\.?\d*),(-?\d+\.?\d*)/g, (_, px, py) => `${parseFloat(px) - offsetX},${parseFloat(py) - offsetY}`)).join(' ')}" fill="none" stroke="${ep.color}" stroke-width="${SIZING.CONNECTION_STROKE_WIDTH}" stroke-linecap="round" stroke-linejoin="round" opacity="0.7"/>` : '').join('')}</svg>` : '';
+
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${escapeHtml(scriptName)} - ERD</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{width:100%;height:100%;font-family:${FONTS.FAMILY};background:${theme.canvas.background};overflow:auto;}
+.erd-wrapper{position:relative;width:${tightBounds.width}px;height:${tightBounds.height}px;margin:0 auto;}
+.erd-title-bar{position:sticky;top:0;left:0;z-index:10;background:${theme.table.headerBackground};border-bottom:1px solid ${theme.table.border};padding:10px 20px;display:flex;align-items:center;gap:16px;}
+.erd-title-bar h1{font-size:16px;font-weight:600;color:${theme.text.primary};margin:0;}
+.erd-title-bar span{font-size:12px;color:${theme.text.secondary};}
+.erd-svg{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;}
+.table-node{position:absolute;background:${theme.table.background};border:1px solid ${theme.table.border};border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.3);}
+.table-color-strip{height:${SIZING.TABLE_COLOR_HEIGHT}px;width:100%;}
+.table-header{height:${SIZING.TABLE_HEADER_HEIGHT}px;padding:0 ${SIZING.PADDING + 6}px;display:flex;align-items:center;border-bottom:1px solid ${theme.table.border};}
+.table-name{font-size:${FONTS.SIZE_TABLE_TITLE}px;font-weight:bold;color:${theme.text.primary};}
+.table-columns{padding:${SIZING.PADDING}px 0;}
+.column-row{height:${SIZING.COLUMN_HEIGHT}px;padding:0 ${SIZING.PADDING + 6}px;display:flex;align-items:center;justify-content:space-between;}
+.column-row.pk-row{background:rgba(99,102,241,0.1);}
+.column-row.fk-row{background:rgba(240,249,255,0.3);}
+.column-left{display:flex;align-items:center;gap:6px;flex:1;min-width:0;overflow:hidden;}
+.column-name{font-size:${FONTS.SIZE_SM}px;color:${theme.text.primary};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.column-name.pk{font-weight:bold;}
+.column-type{font-size:${FONTS.SIZE_SM - 1}px;color:${theme.text.secondary};text-align:right;white-space:nowrap;margin-left:12px;}
+.column-key{font-size:12px;flex-shrink:0;}
+@media print{
+  body{overflow:visible;background:#fff !important;}
+  .erd-title-bar{position:relative;}
+  .table-node{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+}
+</style>
+</head>
+<body>
+<div class="erd-title-bar">
+  <h1>${escapeHtml(scriptName)}</h1>
+  <span>${filteredTables.length} tables &bull; ${filteredEdges.length} relations</span>
+</div>
+<div class="erd-wrapper">
+  ${edgesHTML}
+  ${tablesHTML}
+</div>
+</body>
+</html>`;
+  };
+
+  // Handle HTML download (full interactive)
   const handleDownloadHTML = () => {
     const html = generateHTML();
     const blob = new Blob([html], { type: 'text/html' });
@@ -1486,7 +1742,20 @@ export default function ERDExportPreview({
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-    onClose();
+  };
+
+  // Handle static HTML download (pure HTML+CSS, no JS — works in GSIB)
+  const handleDownloadStaticHTML = () => {
+    const html = generateStaticHTML();
+    const blob = new Blob([html], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${scriptName.replace(/[^a-zA-Z0-9]/g, '_')}_ERD_static.html`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   // Handle print
@@ -1555,7 +1824,7 @@ export default function ERDExportPreview({
               color: theme.text.secondary,
               margin: '4px 0 0 0'
             }}>
-              {tables.length} tables &bull; {edges.length} relationships &bull;
+              {filteredTables.length}/{tables.length} tables selected &bull; {filteredEdges.length} relationships &bull;
               Dimensions: {Math.round(bounds.width)} x {Math.round(bounds.height)}px
             </p>
           </div>
@@ -1579,175 +1848,428 @@ export default function ERDExportPreview({
           </button>
         </div>
 
-        {/* Preview Area */}
-        <div
-          ref={previewRef}
-          style={{
-            flex: 1,
-            overflow: 'auto',
-            padding: '20px',
-            background: theme.canvas.background,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}
-        >
+        {/* Content area: sidebar + preview */}
+        <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+          {/* Table Selection Sidebar */}
           <div style={{
-            transform: `scale(${previewScale})`,
-            transformOrigin: 'center center',
-            position: 'relative',
-            width: bounds.width,
-            height: bounds.height,
-            background: theme.canvas.background,
-            border: `2px dashed ${theme.table.border}`,
-            borderRadius: '8px'
+            width: 280,
+            flexShrink: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            borderRight: `1px solid ${theme.table.border}`,
+            background: theme.table.headerBackground
           }}>
-            {/* SVG for edges */}
-            <svg
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '100%',
-                height: '100%',
-                pointerEvents: 'none'
-              }}
-              viewBox={`0 0 ${bounds.width} ${bounds.height}`}
-              preserveAspectRatio="xMidYMid meet"
-            >
-              {edgePaths.map(ep => ep && (
-                <path
-                  key={ep.id}
-                  d={ep.path.split(' ').map(segment => {
-                    return segment.replace(/(-?\d+\.?\d*),(-?\d+\.?\d*)/g, (_, x, y) => {
-                      return `${parseFloat(x) - bounds.minX},${parseFloat(y) - bounds.minY}`;
-                    });
-                  }).join(' ')}
-                  fill="none"
-                  stroke={ep.color}
-                  strokeWidth={SIZING.CONNECTION_STROKE_WIDTH}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  opacity={0.7}
-                />
-              ))}
-            </svg>
+            {/* Sidebar title + counter */}
+            <div style={{
+              padding: '12px 16px',
+              borderBottom: `1px solid ${theme.table.border}`
+            }}>
+              <div style={{ fontSize: '13px', fontWeight: 600, color: theme.text.primary }}>
+                Include Tables
+              </div>
+              <div style={{ fontSize: '11px', color: theme.text.secondary, marginTop: '2px' }}>
+                {selectedTableIds.size}/{nodes.length} selected
+              </div>
+            </div>
 
-            {/* Table nodes */}
-            {nodes.map(node => {
-              const { table, x, y, width, height, colorIndex } = node;
-              const color = TABLE_COLORS[colorIndex];
-
-              // Get PK and FK columns
-              const pkCols = new Set<string>();
-              const fkCols = new Set<string>();
-              table.constraints.forEach(c => {
-                const cols = c.localCols.split(',').map(s => s.trim().toUpperCase());
-                if (c.type === 'Primary Key') cols.forEach(col => pkCols.add(col));
-                if (c.type === 'Foreign Key') cols.forEach(col => fkCols.add(col));
-              });
-
-              return (
-                <div
-                  key={node.id}
+            {/* Filter input */}
+            <div style={{ padding: '8px 12px', borderBottom: `1px solid ${theme.table.border}` }}>
+              <div style={{ position: 'relative' }}>
+                <Search size={14} style={{
+                  position: 'absolute',
+                  left: 8,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  color: theme.text.secondary,
+                  pointerEvents: 'none'
+                }} />
+                <input
+                  type="text"
+                  value={tableFilterText}
+                  onChange={(e) => setTableFilterText(e.target.value)}
+                  placeholder="Filter tables..."
                   style={{
-                    position: 'absolute',
-                    left: x - bounds.minX,
-                    top: y - bounds.minY,
-                    width,
-                    height,
-                    background: theme.table.background,
+                    width: '100%',
+                    padding: '6px 8px 6px 28px',
                     border: `1px solid ${theme.table.border}`,
-                    borderRadius: '6px',
-                    boxShadow: `3px 3px 6px ${theme.table.shadow}`,
-                    overflow: 'hidden'
+                    borderRadius: '4px',
+                    fontSize: '12px',
+                    background: theme.table.background,
+                    color: theme.text.primary,
+                    outline: 'none'
                   }}
-                >
-                  {/* Color strip */}
-                  <div style={{
-                    height: SIZING.TABLE_COLOR_HEIGHT,
-                    background: color.regular
-                  }} />
+                />
+              </div>
+            </div>
 
-                  {/* Header */}
-                  <div style={{
-                    height: SIZING.TABLE_HEADER_HEIGHT,
-                    padding: `0 ${SIZING.PADDING + 6}px`,
-                    background: theme.table.headerBackground,
-                    borderBottom: `1px solid ${theme.table.border}`,
-                    display: 'flex',
-                    alignItems: 'center'
-                  }}>
-                    <span style={{
-                      fontSize: FONTS.SIZE_TABLE_TITLE,
-                      fontWeight: 'bold',
-                      color: theme.text.primary,
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis'
-                    }}>
-                      {table.tableName}
-                    </span>
-                  </div>
+            {/* Select All row */}
+            <div
+              onClick={toggleAllTables}
+              style={{
+                padding: '8px 16px',
+                borderBottom: `1px solid ${theme.table.border}`,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                cursor: 'pointer',
+                background: theme.table.background
+              }}
+              onMouseOver={(e) => e.currentTarget.style.background = isDarkTheme ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)'}
+              onMouseOut={(e) => e.currentTarget.style.background = theme.table.background}
+            >
+              <div style={{
+                width: 16,
+                height: 16,
+                borderRadius: '3px',
+                border: `1.5px solid ${selectAllState === 'none' ? theme.text.secondary : '#3b82f6'}`,
+                background: selectAllState !== 'none' ? '#3b82f6' : 'transparent',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0
+              }}>
+                {selectAllState === 'all' && <Check size={12} color="#fff" strokeWidth={3} />}
+                {selectAllState === 'partial' && <Minus size={12} color="#fff" strokeWidth={3} />}
+              </div>
+              <span style={{ fontSize: '12px', fontWeight: 500, color: theme.text.primary }}>
+                Select All
+              </span>
+            </div>
 
-                  {/* Columns */}
-                  <div style={{ padding: `${SIZING.PADDING}px 0` }}>
-                    {table.columns.map(col => {
-                      const isPk = pkCols.has(col.name.toUpperCase());
-                      const isFk = fkCols.has(col.name.toUpperCase());
+            {/* Schema groups with table checkboxes */}
+            <div style={{ flex: 1, overflowY: 'auto' }}>
+              {sortedSchemaNames.map(schema => {
+                const schemaTables = nodesBySchema[schema];
+                const visibleTables = sidebarFilteredNodes
+                  ? schemaTables.filter(n => sidebarFilteredNodes.has(n.id))
+                  : schemaTables;
+                if (visibleTables.length === 0) return null;
 
+                const isCollapsed = collapsedSchemas.has(schema);
+                const schemaSelectedCount = schemaTables.filter(n => selectedTableIds.has(n.id)).length;
+                const schemaAllSelected = schemaSelectedCount === schemaTables.length;
+                const schemaPartial = schemaSelectedCount > 0 && !schemaAllSelected;
+
+                return (
+                  <div key={schema} style={{ borderBottom: `1px solid ${theme.table.border}` }}>
+                    {/* Schema header */}
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        padding: '8px 16px',
+                        cursor: 'pointer',
+                        background: theme.table.background,
+                        gap: '8px',
+                        position: 'sticky',
+                        top: 0,
+                        zIndex: 1
+                      }}
+                      onMouseOver={(e) => e.currentTarget.style.background = isDarkTheme ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)'}
+                      onMouseOut={(e) => e.currentTarget.style.background = theme.table.background}
+                    >
+                      {/* Schema checkbox */}
+                      <div
+                        onClick={(e) => { e.stopPropagation(); toggleSchema(schema); }}
+                        style={{
+                          width: 16,
+                          height: 16,
+                          borderRadius: '3px',
+                          border: `1.5px solid ${schemaSelectedCount === 0 ? theme.text.secondary : '#3b82f6'}`,
+                          background: schemaSelectedCount > 0 ? '#3b82f6' : 'transparent',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0,
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {schemaAllSelected && <Check size={12} color="#fff" strokeWidth={3} />}
+                        {schemaPartial && <Minus size={12} color="#fff" strokeWidth={3} />}
+                      </div>
+                      <div
+                        onClick={(e) => { e.stopPropagation(); toggleSchemaCollapse(schema); }}
+                        style={{ display: 'flex', alignItems: 'center', flex: 1, gap: '6px', cursor: 'pointer' }}
+                      >
+                        {isCollapsed ? <ChevronRight size={14} color={theme.text.secondary} /> : <ChevronDown size={14} color={theme.text.secondary} />}
+                        <span style={{
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          color: theme.text.secondary,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.5px'
+                        }}>
+                          {schema}
+                        </span>
+                        <span style={{
+                          fontSize: '10px',
+                          color: theme.text.secondary,
+                          marginLeft: 'auto'
+                        }}>
+                          {schemaSelectedCount}/{schemaTables.length}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Table items */}
+                    {!isCollapsed && visibleTables.map(node => {
+                      const color = TABLE_COLORS[node.colorIndex];
+                      const isSelected = selectedTableIds.has(node.id);
                       return (
                         <div
-                          key={col.name}
+                          key={node.id}
+                          onClick={() => toggleTable(node.id)}
                           style={{
-                            height: SIZING.COLUMN_HEIGHT,
-                            padding: `0 ${SIZING.PADDING + 6}px`,
+                            padding: '6px 16px 6px 24px',
                             display: 'flex',
                             alignItems: 'center',
-                            justifyContent: 'space-between',
-                            background: isPk ? color.lighter + '4D' : (isFk ? 'rgba(240, 249, 255, 0.3)' : 'transparent')
+                            gap: '8px',
+                            cursor: 'pointer',
+                            opacity: isSelected ? 1 : 0.5
                           }}
+                          onMouseOver={(e) => e.currentTarget.style.background = isDarkTheme ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)'}
+                          onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
                         >
+                          {/* Checkbox */}
                           <div style={{
+                            width: 14,
+                            height: 14,
+                            borderRadius: '3px',
+                            border: `1.5px solid ${isSelected ? '#3b82f6' : theme.text.secondary}`,
+                            background: isSelected ? '#3b82f6' : 'transparent',
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '4px',
-                            maxWidth: '55%'
+                            justifyContent: 'center',
+                            flexShrink: 0
                           }}>
-                            {(isPk || isFk) && (
-                              <span style={{ fontSize: '10px', flexShrink: 0 }}>
-                                {isPk ? '🔑' : '🔗'}
-                              </span>
-                            )}
-                            <span style={{
-                              fontSize: FONTS.SIZE_SM,
-                              fontWeight: isPk ? 'bold' : 'normal',
-                              color: isPk ? color.regular : theme.text.primary,
-                              whiteSpace: 'nowrap',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis'
-                            }}>
-                              {col.name}
-                            </span>
+                            {isSelected && <Check size={10} color="#fff" strokeWidth={3} />}
                           </div>
+                          {/* Color dot */}
+                          <div style={{
+                            width: 4,
+                            height: 16,
+                            borderRadius: '2px',
+                            background: color.regular,
+                            flexShrink: 0
+                          }} />
+                          {/* Table name */}
                           <span style={{
-                            fontSize: FONTS.SIZE_SM - 1,
-                            color: theme.text.secondary,
-                            textAlign: 'right',
+                            fontSize: '12px',
+                            color: theme.text.primary,
                             whiteSpace: 'nowrap',
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
-                            maxWidth: '40%'
+                            flex: 1
                           }}>
-                            {col.type}
+                            {node.table.tableName}
+                          </span>
+                          {/* Column count badge */}
+                          <span style={{
+                            fontSize: '10px',
+                            color: theme.text.secondary,
+                            background: isDarkTheme ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)',
+                            padding: '1px 6px',
+                            borderRadius: '10px',
+                            flexShrink: 0
+                          }}>
+                            {node.table.columns.length}
                           </span>
                         </div>
                       );
                     })}
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Preview Area */}
+          <div
+            ref={previewRef}
+            style={{
+              flex: 1,
+              overflow: 'auto',
+              padding: '20px',
+              background: theme.canvas.background,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            {filteredNodes.length === 0 ? (
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '12px',
+                color: theme.text.secondary
+              }}>
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2"/>
+                  <path d="M3 9h18M9 21V9"/>
+                </svg>
+                <span style={{ fontSize: '14px' }}>No tables selected</span>
+                <span style={{ fontSize: '12px', opacity: 0.7 }}>Select tables from the panel on the left</span>
+              </div>
+            ) : (
+              <div style={{
+                transform: `scale(${previewScale})`,
+                transformOrigin: 'center center',
+                position: 'relative',
+                width: bounds.width,
+                height: bounds.height,
+                background: theme.canvas.background,
+                border: `2px dashed ${theme.table.border}`,
+                borderRadius: '8px'
+              }}>
+                {/* SVG for edges */}
+                <svg
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: '100%',
+                    pointerEvents: 'none'
+                  }}
+                  viewBox={`0 0 ${bounds.width} ${bounds.height}`}
+                  preserveAspectRatio="xMidYMid meet"
+                >
+                  {edgePaths.map(ep => ep && (
+                    <path
+                      key={ep.id}
+                      d={ep.path.split(' ').map(segment => {
+                        return segment.replace(/(-?\d+\.?\d*),(-?\d+\.?\d*)/g, (_, x, y) => {
+                          return `${parseFloat(x) - bounds.minX},${parseFloat(y) - bounds.minY}`;
+                        });
+                      }).join(' ')}
+                      fill="none"
+                      stroke={ep.color}
+                      strokeWidth={SIZING.CONNECTION_STROKE_WIDTH}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      opacity={0.7}
+                    />
+                  ))}
+                </svg>
+
+                {/* Table nodes */}
+                {filteredNodes.map(node => {
+                  const { table, x, y, width, height, colorIndex } = node;
+                  const color = TABLE_COLORS[colorIndex];
+
+                  // Get PK and FK columns
+                  const pkCols = new Set<string>();
+                  const fkCols = new Set<string>();
+                  table.constraints.forEach(c => {
+                    const cols = c.localCols.split(',').map(s => s.trim().toUpperCase());
+                    if (c.type === 'Primary Key') cols.forEach(col => pkCols.add(col));
+                    if (c.type === 'Foreign Key') cols.forEach(col => fkCols.add(col));
+                  });
+
+                  return (
+                    <div
+                      key={node.id}
+                      style={{
+                        position: 'absolute',
+                        left: x - bounds.minX,
+                        top: y - bounds.minY,
+                        width,
+                        height,
+                        background: theme.table.background,
+                        border: `1px solid ${theme.table.border}`,
+                        borderRadius: '6px',
+                        boxShadow: `3px 3px 6px ${theme.table.shadow}`,
+                        overflow: 'hidden'
+                      }}
+                    >
+                      {/* Color strip */}
+                      <div style={{
+                        height: SIZING.TABLE_COLOR_HEIGHT,
+                        background: color.regular
+                      }} />
+
+                      {/* Header */}
+                      <div style={{
+                        height: SIZING.TABLE_HEADER_HEIGHT,
+                        padding: `0 ${SIZING.PADDING + 6}px`,
+                        background: theme.table.headerBackground,
+                        borderBottom: `1px solid ${theme.table.border}`,
+                        display: 'flex',
+                        alignItems: 'center'
+                      }}>
+                        <span style={{
+                          fontSize: FONTS.SIZE_TABLE_TITLE,
+                          fontWeight: 'bold',
+                          color: theme.text.primary,
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis'
+                        }}>
+                          {table.tableName}
+                        </span>
+                      </div>
+
+                      {/* Columns */}
+                      <div style={{ padding: `${SIZING.PADDING}px 0` }}>
+                        {table.columns.map(col => {
+                          const isPk = pkCols.has(col.name.toUpperCase());
+                          const isFk = fkCols.has(col.name.toUpperCase());
+
+                          return (
+                            <div
+                              key={col.name}
+                              style={{
+                                height: SIZING.COLUMN_HEIGHT,
+                                padding: `0 ${SIZING.PADDING + 6}px`,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                background: isPk ? color.lighter + '4D' : (isFk ? 'rgba(240, 249, 255, 0.3)' : 'transparent')
+                              }}
+                            >
+                              <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                maxWidth: '55%'
+                              }}>
+                                {(isPk || isFk) && (
+                                  <span style={{ fontSize: '10px', flexShrink: 0 }}>
+                                    {isPk ? '🔑' : '🔗'}
+                                  </span>
+                                )}
+                                <span style={{
+                                  fontSize: FONTS.SIZE_SM,
+                                  fontWeight: isPk ? 'bold' : 'normal',
+                                  color: isPk ? color.regular : theme.text.primary,
+                                  whiteSpace: 'nowrap',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis'
+                                }}>
+                                  {col.name}
+                                </span>
+                              </div>
+                              <span style={{
+                                fontSize: FONTS.SIZE_SM - 1,
+                                color: theme.text.secondary,
+                                textAlign: 'right',
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                maxWidth: '40%'
+                              }}>
+                                {col.type}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
 
@@ -1765,32 +2287,60 @@ export default function ERDExportPreview({
             fontSize: '13px',
             color: theme.text.secondary
           }}>
-            Preview shows how the exported HTML will appear. All tables and columns will be included.
+            {filteredTables.length === tables.length
+              ? 'All tables will be included in the export.'
+              : `${filteredTables.length} of ${tables.length} tables will be included in the export.`
+            }
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
             <button
               onClick={handlePrint}
+              disabled={filteredNodes.length === 0}
               className="btn btn-sm"
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '6px'
+                gap: '6px',
+                opacity: filteredNodes.length === 0 ? 0.5 : 1,
+                cursor: filteredNodes.length === 0 ? 'not-allowed' : 'pointer'
               }}
             >
               <Printer size={16} />
               Print
             </button>
             <button
+              onClick={handleDownloadStaticHTML}
+              disabled={filteredNodes.length === 0}
+              className="btn btn-sm"
+              title="Pure HTML+CSS, no JavaScript — scroll to navigate. Works in restricted environments (GSIB)"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                opacity: filteredNodes.length === 0 ? 0.5 : 1,
+                cursor: filteredNodes.length === 0 ? 'not-allowed' : 'pointer',
+                backgroundColor: '#22c55e',
+                color: '#fff',
+                border: 'none',
+              }}
+            >
+              <FileText size={16} />
+              Static HTML
+            </button>
+            <button
               onClick={handleDownloadHTML}
+              disabled={filteredNodes.length === 0}
               className="btn btn-sm btn-primary"
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '6px'
+                gap: '6px',
+                opacity: filteredNodes.length === 0 ? 0.5 : 1,
+                cursor: filteredNodes.length === 0 ? 'not-allowed' : 'pointer'
               }}
             >
               <FileText size={16} />
-              Download HTML
+              Interactive HTML
             </button>
           </div>
         </div>

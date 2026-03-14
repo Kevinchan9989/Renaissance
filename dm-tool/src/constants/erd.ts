@@ -25,11 +25,11 @@ export const TABLE_COLORS = [
 
 // Sizing Constants
 export const SIZING = {
-  TABLE_MIN_WIDTH: 220,
-  TABLE_MAX_WIDTH: 400,
-  COLUMN_HEIGHT: 30,
+  TABLE_MIN_WIDTH: 250,
+  TABLE_MAX_WIDTH: 440,
+  COLUMN_HEIGHT: 34,
   TABLE_COLOR_HEIGHT: 6,
-  TABLE_HEADER_HEIGHT: 36,
+  TABLE_HEADER_HEIGHT: 40,
   LINE_HEIGHT: 25,
   PADDING: 5,
   TABLES_GAP_X: 80,
@@ -46,10 +46,10 @@ export const SIZING = {
 // Font Sizes
 export const FONTS = {
   FAMILY: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-  SIZE_SM: 12,
-  SIZE_MD: 14,
-  SIZE_LG: 16,
-  SIZE_TABLE_TITLE: 14,
+  SIZE_SM: 14,
+  SIZE_MD: 16,
+  SIZE_LG: 18,
+  SIZE_TABLE_TITLE: 16,
 };
 
 // Light Theme

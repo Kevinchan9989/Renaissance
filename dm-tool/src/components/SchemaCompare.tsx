@@ -1,7 +1,9 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { Script, Table, TableDiff, ColumnDiff } from '../types';
 import { compareTables, tablesToMap } from '../utils/compare';
 import { parseScript } from '../utils/parsers';
+import { replaceTableDDL } from '../utils/ddlGenerator';
+import DDLDiffView from './DDLDiffView';
 import {
   Play,
   ChevronDown,
@@ -19,25 +21,80 @@ import {
   FileCode
 } from 'lucide-react';
 
+export interface SchemaCompareCache {
+  sourceId: string;
+  targetId: string;
+  targetContent: string;
+  useCustomTarget: boolean;
+  results: Record<string, TableDiff> | null;
+  selectedTable: string | null;
+  searchTerm: string;
+  expandedSchemas: string[];
+  statusFilter: FilterType;
+  detailView: 'diff' | 'ddl';
+}
+
 interface SchemaCompareProps {
   scripts: Script[];
   activeScript: Script;
+  onUpdateScript?: (scriptId: string, rawContent: string) => void;
+  cache?: React.MutableRefObject<SchemaCompareCache | null>;
 }
 
 type FilterType = 'all' | 'modified' | 'added' | 'deleted' | 'identical';
 
-export default function SchemaCompare({ scripts, activeScript }: SchemaCompareProps) {
-  const [sourceId, setSourceId] = useState<string>(activeScript.id);
-  const [targetId, setTargetId] = useState<string>('');
-  const [targetContent, setTargetContent] = useState('');
-  const [useCustomTarget, setUseCustomTarget] = useState(true);
-  const [results, setResults] = useState<Record<string, TableDiff> | null>(null);
-  const [selectedTable, setSelectedTable] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [expandedSchemas, setExpandedSchemas] = useState<Set<string>>(new Set());
-  const [statusFilter, setStatusFilter] = useState<FilterType>('all');
+export default function SchemaCompare({ scripts, activeScript, onUpdateScript, cache }: SchemaCompareProps) {
+  const cached = cache?.current;
+  const [sourceId, setSourceId] = useState<string>(cached?.sourceId ?? activeScript.id);
+  const [targetId, setTargetId] = useState<string>(cached?.targetId ?? '');
+  const [targetContent, setTargetContent] = useState(cached?.targetContent ?? '');
+  const [useCustomTarget, setUseCustomTarget] = useState(cached?.useCustomTarget ?? true);
+  const [results, setResults] = useState<Record<string, TableDiff> | null>(cached?.results ?? null);
+  const [selectedTable, setSelectedTable] = useState<string | null>(cached?.selectedTable ?? null);
+  const [searchTerm, setSearchTerm] = useState(cached?.searchTerm ?? '');
+  const [expandedSchemas, setExpandedSchemas] = useState<Set<string>>(new Set(cached?.expandedSchemas ?? []));
+  const [statusFilter, setStatusFilter] = useState<FilterType>(cached?.statusFilter ?? 'all');
   const [sourceDropdownOpen, setSourceDropdownOpen] = useState(false);
   const [targetDropdownOpen, setTargetDropdownOpen] = useState(false);
+  const [detailView, setDetailView] = useState<'diff' | 'ddl'>(cached?.detailView ?? 'diff');
+  const [ddlVersion, setDdlVersion] = useState(0);
+
+  // Keep a ref of latest state for saving to cache on unmount
+  const stateRef = useRef({
+    sourceId, targetId, targetContent, useCustomTarget,
+    results, selectedTable, searchTerm, expandedSchemas, statusFilter, detailView
+  });
+  stateRef.current = {
+    sourceId, targetId, targetContent, useCustomTarget,
+    results, selectedTable, searchTerm, expandedSchemas, statusFilter, detailView
+  };
+
+  // Save state to cache on unmount
+  useEffect(() => {
+    return () => {
+      if (cache) {
+        const s = stateRef.current;
+        cache.current = {
+          sourceId: s.sourceId,
+          targetId: s.targetId,
+          targetContent: s.targetContent,
+          useCustomTarget: s.useCustomTarget,
+          results: s.results,
+          selectedTable: s.selectedTable,
+          searchTerm: s.searchTerm,
+          expandedSchemas: Array.from(s.expandedSchemas),
+          statusFilter: s.statusFilter,
+          detailView: s.detailView,
+        };
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Reset detail view when selected table changes
+  useEffect(() => {
+    setDetailView('diff');
+  }, [selectedTable]);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -56,30 +113,41 @@ export default function SchemaCompare({ scripts, activeScript }: SchemaComparePr
   const sourceScript = scripts.find(s => s.id === sourceId);
   const targetScript = scripts.find(s => s.id === targetId);
 
-  // Run comparison
-  const runCompare = () => {
-    if (!sourceScript) return;
+  // Core comparison logic — returns diff or null
+  const computeComparison = (): Record<string, TableDiff> | null => {
+    if (!sourceScript) return null;
 
     let targetTables: Table[];
 
     if (useCustomTarget) {
-      if (!targetContent.trim()) {
-        alert('Please enter target DDL/DBML');
-        return;
-      }
+      if (!targetContent.trim()) return null;
       const parsed = parseScript(targetContent, sourceScript.type);
       targetTables = parsed.targets;
     } else {
-      if (!targetScript) {
-        alert('Please select a target script');
-        return;
-      }
+      if (!targetScript) return null;
       targetTables = targetScript.data.targets;
     }
 
     const sourceMap = tablesToMap(sourceScript.data.targets);
     const targetMap = tablesToMap(targetTables);
-    const diff = compareTables(sourceMap, targetMap);
+    return compareTables(sourceMap, targetMap);
+  };
+
+  // Run comparison (user-initiated — resets selection)
+  const runCompare = () => {
+    if (!sourceScript) return;
+
+    if (useCustomTarget && !targetContent.trim()) {
+      alert('Please enter target DDL/DBML');
+      return;
+    }
+    if (!useCustomTarget && !targetScript) {
+      alert('Please select a target script');
+      return;
+    }
+
+    const diff = computeComparison();
+    if (!diff) return;
 
     setResults(diff);
     setSelectedTable(null);
@@ -92,6 +160,19 @@ export default function SchemaCompare({ scripts, activeScript }: SchemaComparePr
     }
     setExpandedSchemas(schemas);
   };
+
+  // Auto-recompare when script data changes (after DDL edit/save) — preserves selection
+  const sourceRaw = sourceScript?.rawContent;
+  const targetRaw = targetScript?.rawContent;
+  useEffect(() => {
+    if (!results) return; // only recompare if a comparison was already run
+    const diff = computeComparison();
+    if (diff) {
+      setResults(diff);
+      // Keep selectedTable — don't reset it
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sourceRaw, targetRaw]);
 
   // Summary stats
   const stats = useMemo(() => {
@@ -189,6 +270,55 @@ export default function SchemaCompare({ scripts, activeScript }: SchemaComparePr
     }
   };
 
+  // DDL save handlers — recompare synchronously so preview updates immediately
+  const handleSaveSourceDDL = (newDDL: string) => {
+    if (!sourceScript || !selectedTable || !results) return;
+    const table = results[selectedTable]?.src;
+    if (!table) return;
+    const updatedRawContent = replaceTableDDL(sourceScript.rawContent, table, newDDL, sourceScript.type);
+
+    // Parse the updated content and recompare immediately
+    const newData = parseScript(updatedRawContent, sourceScript.type);
+    const sourceMap = tablesToMap(newData.targets);
+    let targetTables: Table[];
+    if (useCustomTarget) {
+      if (!targetContent.trim()) return;
+      targetTables = parseScript(targetContent, sourceScript.type).targets;
+    } else {
+      if (!targetScript) return;
+      targetTables = targetScript.data.targets;
+    }
+    const targetMap = tablesToMap(targetTables);
+    const diff = compareTables(sourceMap, targetMap);
+    setResults(diff);
+    setDdlVersion(v => v + 1);
+
+    // Persist the change
+    if (onUpdateScript) {
+      onUpdateScript(sourceScript.id, updatedRawContent);
+    }
+  };
+
+  const handleSaveTargetDDL = (newDDL: string) => {
+    if (!targetScript || useCustomTarget || !selectedTable || !results) return;
+    const table = results[selectedTable]?.tgt;
+    if (!table) return;
+    const updatedRawContent = replaceTableDDL(targetScript.rawContent, table, newDDL, targetScript.type);
+
+    // Parse the updated content and recompare immediately
+    const newData = parseScript(updatedRawContent, targetScript.type);
+    const sourceMap = tablesToMap(sourceScript?.data.targets || []);
+    const targetMap = tablesToMap(newData.targets);
+    const diff = compareTables(sourceMap, targetMap);
+    setResults(diff);
+    setDdlVersion(v => v + 1);
+
+    // Persist the change
+    if (onUpdateScript) {
+      onUpdateScript(targetScript.id, updatedRawContent);
+    }
+  };
+
   // Render selected table details
   const renderDetails = () => {
     if (!selectedTable || !results) return null;
@@ -202,6 +332,23 @@ export default function SchemaCompare({ scripts, activeScript }: SchemaComparePr
       <div className="compare-details">
         <div className="compare-details-header">
           <h3>{selectedTable}</h3>
+          {/* View Toggle */}
+          <div className="compare-view-toggle">
+            <button
+              className={`toggle-btn ${detailView === 'diff' ? 'active' : ''}`}
+              onClick={() => setDetailView('diff')}
+            >
+              <GitCompare size={14} />
+              Diff View
+            </button>
+            <button
+              className={`toggle-btn ${detailView === 'ddl' ? 'active' : ''}`}
+              onClick={() => setDetailView('ddl')}
+            >
+              <FileCode size={14} />
+              DDL View
+            </button>
+          </div>
           <span className={`compare-status-badge status-${status.toLowerCase()}`}>
             {getStatusIcon(status)}
             {getStatusLabel(status)}
@@ -209,47 +356,77 @@ export default function SchemaCompare({ scripts, activeScript }: SchemaComparePr
         </div>
 
         <div className="compare-details-content">
-          {status === 'IDENTICAL' && (
-            <div className="compare-message compare-message-info">
-              <CheckCircle size={18} />
-              <span>Tables are identical. No differences found.</span>
-            </div>
-          )}
-
-          {status === 'MISSING' && (
+          {detailView === 'diff' ? (
             <>
-              <div className="compare-message compare-message-error">
-                <MinusCircle size={18} />
-                <span>This table exists in Source but was deleted in Target.</span>
-              </div>
-              {src && renderTableStructure(src, 'Source Structure')}
-            </>
-          )}
-
-          {status === 'ADDED' && (
-            <>
-              <div className="compare-message compare-message-success">
-                <PlusCircle size={18} />
-                <span>This table is new in Target (not in Source).</span>
-              </div>
-              {tgt && renderTableStructure(tgt, 'Target Structure')}
-            </>
-          )}
-
-          {(status === 'MODIFIED' || status === 'SOFT_MATCH') && details && (
-            <>
-              {details.pkDiff && (
-                <div className="compare-message compare-message-warning">
-                  <AlertCircle size={18} />
-                  <span>
-                    <strong>Primary Key Mismatch:</strong>{' '}
-                    Source [{src?.constraints.find(c => c.type === 'Primary Key')?.localCols || 'none'}] vs{' '}
-                    Target [{tgt?.constraints.find(c => c.type === 'Primary Key')?.localCols || 'none'}]
-                  </span>
-                </div>
+              {status === 'IDENTICAL' && (
+                <>
+                  <div className="compare-message compare-message-info">
+                    <CheckCircle size={18} />
+                    <span>Tables are identical. No differences found.</span>
+                  </div>
+                  {src && renderDiffTable(
+                    src.columns.map(col => ({ col: col.name, type: 'SAME' as const, s: col, t: col })),
+                    src, tgt
+                  )}
+                </>
               )}
-              {renderDiffTable(details.changes, src, tgt)}
+
+              {status === 'MISSING' && (
+                <>
+                  <div className="compare-message compare-message-error">
+                    <MinusCircle size={18} />
+                    <span>This table exists in Source but was deleted in Target.</span>
+                  </div>
+                  {src && renderDiffTable(
+                    src.columns.map(col => ({ col: col.name, type: 'SAME' as const, s: col, t: null })),
+                    src, null
+                  )}
+                </>
+              )}
+
+              {status === 'ADDED' && (
+                <>
+                  <div className="compare-message compare-message-success">
+                    <PlusCircle size={18} />
+                    <span>This table is new in Target (not in Source).</span>
+                  </div>
+                  {tgt && renderDiffTable(
+                    tgt.columns.map(col => ({ col: col.name, type: 'SAME' as const, s: null, t: col })),
+                    null, tgt
+                  )}
+                </>
+              )}
+
+              {(status === 'MODIFIED' || status === 'SOFT_MATCH') && details && (
+                <>
+                  {details.pkDiff && (
+                    <div className="compare-message compare-message-warning">
+                      <AlertCircle size={18} />
+                      <span>
+                        <strong>Primary Key Mismatch:</strong>{' '}
+                        Source [{src?.constraints.find(c => c.type === 'Primary Key')?.localCols || 'none'}] vs{' '}
+                        Target [{tgt?.constraints.find(c => c.type === 'Primary Key')?.localCols || 'none'}]
+                      </span>
+                    </div>
+                  )}
+                  {renderDiffTable(details.changes, src, tgt)}
+                </>
+              )}
             </>
+          ) : (
+            <DDLDiffView
+              key={ddlVersion}
+              sourceTable={src || null}
+              targetTable={tgt || null}
+              scriptType={sourceScript?.type || 'postgresql'}
+              targetScriptType={useCustomTarget ? (sourceScript?.type || 'postgresql') : (targetScript?.type || 'postgresql')}
+              changes={details?.changes || []}
+              pkDiff={details?.pkDiff || false}
+              canEditSource={!!onUpdateScript && !!sourceScript}
+              canEditTarget={!!onUpdateScript && !useCustomTarget && !!targetScript}
+              onSaveSource={handleSaveSourceDDL}
+              onSaveTarget={handleSaveTargetDDL}
+            />
           )}
         </div>
       </div>
