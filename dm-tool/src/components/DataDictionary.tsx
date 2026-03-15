@@ -4,10 +4,11 @@ import { downloadJson, loadMappingProjects, loadDDVisibleColumns, saveDDVisibleC
 import { generateTableDDL, replaceTableDDL } from '../utils/ddlGenerator';
 import CodeEditor from './CodeEditor';
 import ImportExplanationsModal from './ImportExplanationsModal';
+import ImportTableDescriptionsModal from './ImportTableDescriptionsModal';
 import ImportTablesModal from './ImportTablesModal';
 import AttachSampleDataModal from './AttachSampleDataModal';
 import ExcelExportPreview from './ExcelExportPreview';
-import { FileDown, Edit3, Save, X, Grid3X3, Table as TableIcon, Database, Rows3, List, Filter, ChevronDown, Settings2, ClipboardCopy, Eye, FileText, Paperclip, FileCode, Upload } from 'lucide-react';
+import { FileDown, Edit3, Save, X, Grid3X3, Table as TableIcon, Database, Rows3, List, Filter, ChevronDown, Settings2, ClipboardCopy, Eye, FileText, Paperclip, FileCode, Upload, MoreVertical } from 'lucide-react';
 
 // Cell coordinate type for Excel-like selection
 interface CellCoord {
@@ -73,13 +74,10 @@ export default function DataDictionary({
     toIgnore: [],
   });
 
-  // Extract table type prefix from table name (e.g., DIM_CUSTOMER → DIM)
-  const getTableTypePrefix = (tableName: string): string => {
-    const idx = tableName.indexOf('_');
-    return idx > 0 ? tableName.substring(0, idx) : tableName;
-  };
   const [activeFilterColumn, setActiveFilterColumn] = useState<string | null>(null);
   const [filterSearchText, setFilterSearchText] = useState('');
+  const [showActionsDropdown, setShowActionsDropdown] = useState(false);
+  const actionsDropdownRef = useRef<HTMLDivElement>(null);
 
   // Column visibility for dictionary view
   type ColumnKey = 'column' | 'type' | 'nullable' | 'default' | 'explanation' | 'mapping' | 'sampleValues' | 'possibleValues' | 'mappedTo';
@@ -118,11 +116,24 @@ export default function DataDictionary({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visibleColumns, script.id]);
 
+  // Close actions dropdown on click outside
+  useEffect(() => {
+    if (!showActionsDropdown) return;
+    const handler = (e: MouseEvent) => {
+      if (actionsDropdownRef.current && !actionsDropdownRef.current.contains(e.target as Node)) {
+        setShowActionsDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showActionsDropdown]);
+
   const [showColumnSelector, setShowColumnSelector] = useState(false);
   const [showExportPreview, setShowExportPreview] = useState(false);
   const [showExcelPreview, setShowExcelPreview] = useState(false);
   const [exportCopied, setExportCopied] = useState(false);
   const [showImportExplanations, setShowImportExplanations] = useState(false);
+  const [showImportTableDescriptions, setShowImportTableDescriptions] = useState(false);
   const [showImportTables, setShowImportTables] = useState(false);
   const [showAttachSampleData, setShowAttachSampleData] = useState(false);
 
@@ -346,6 +357,42 @@ export default function DataDictionary({
   const selectedTableFromSources = script.data.sources?.find(t => t.id === selectedTableId);
   const selectedTable = selectedTableFromTargets || selectedTableFromSources;
   const isSourceTable = !selectedTableFromTargets && !!selectedTableFromSources;
+
+  // Memoize the combined and filtered table list for table view
+  const allTablesCombined = useMemo(() => [
+    ...script.data.targets.map(t => ({ ...t, isSource: false })),
+    ...script.data.sources.map(t => ({ ...t, isSource: true })),
+  ], [script.data.targets, script.data.sources]);
+
+  const filteredTablesCached = useMemo(() => {
+    return allTablesCombined.filter(table => {
+      if (tableListFilters.tableName.length > 0 && !tableListFilters.tableName.includes(table.tableName)) {
+        return false;
+      }
+      if (tableListFilters._t.length > 0 && !tableListFilters._t.includes((table._tChecked ?? table.tableName.toLowerCase().includes('_t')) ? 'Y' : 'N')) {
+        return false;
+      }
+      if (tableListFilters.domain.length > 0 && !tableListFilters.domain.includes(table.schema || '')) {
+        return false;
+      }
+      if (tableListFilters.purpose.length > 0 && !tableListFilters.purpose.includes(table.description || '')) {
+        return false;
+      }
+      if (tableListFilters.explanationCompleted.length > 0) {
+        const tableExplCompletedValue = table.explanationCompleted ? 'Y' : 'N';
+        if (!tableListFilters.explanationCompleted.includes(tableExplCompletedValue)) {
+          return false;
+        }
+      }
+      if (tableListFilters.toIgnore.length > 0) {
+        const tableIgnoreValue = table.toIgnore ? 'Y' : 'N';
+        if (!tableListFilters.toIgnore.includes(tableIgnoreValue)) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [allTablesCombined, tableListFilters]);
 
   // Load mapping projects to show mapping info
   const mappingProjects = loadMappingProjects();
@@ -1244,18 +1291,45 @@ export default function DataDictionary({
             </button>
             {/* Columns selector - only enabled in dictionary view */}
             {renderColumnSelector(!isDict)}
-            <button className="btn" onClick={handleEditMode}>
-              <Edit3 size={16} />
-              Edit Source
-            </button>
-            <button className="btn" onClick={() => downloadJson(script.data, `${script.name}.json`)}>
-              <FileDown size={16} />
-              Export JSON
-            </button>
-            <button className="btn" onClick={() => setShowExcelPreview(true)}>
-              <FileDown size={16} />
-              Export Excel
-            </button>
+            <div style={{ position: 'relative' }} ref={actionsDropdownRef}>
+              <button className="btn" onClick={() => setShowActionsDropdown(!showActionsDropdown)}>
+                <MoreVertical size={16} />
+                Actions
+                <ChevronDown size={14} />
+              </button>
+              {showActionsDropdown && (
+                <div style={{
+                  position: 'absolute',
+                  top: '100%',
+                  right: 0,
+                  marginTop: '4px',
+                  backgroundColor: isDarkTheme ? '#1e293b' : '#ffffff',
+                  border: `1px solid ${isDarkTheme ? '#334155' : '#d1d5db'}`,
+                  borderRadius: '6px',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                  zIndex: 200,
+                  minWidth: '180px',
+                  overflow: 'hidden',
+                }}>
+                  <button className="btn" style={{ width: '100%', justifyContent: 'flex-start', borderRadius: 0, border: 'none', borderBottom: `1px solid ${isDarkTheme ? '#334155' : '#e5e7eb'}` }} onClick={() => { handleEditMode(); setShowActionsDropdown(false); }}>
+                    <Edit3 size={16} />
+                    Edit Source
+                  </button>
+                  <button className="btn" style={{ width: '100%', justifyContent: 'flex-start', borderRadius: 0, border: 'none', borderBottom: `1px solid ${isDarkTheme ? '#334155' : '#e5e7eb'}` }} onClick={() => { downloadJson(script.data, `${script.name}.json`); setShowActionsDropdown(false); }}>
+                    <FileDown size={16} />
+                    Export JSON
+                  </button>
+                  <button className="btn" style={{ width: '100%', justifyContent: 'flex-start', borderRadius: 0, border: 'none', borderBottom: `1px solid ${isDarkTheme ? '#334155' : '#e5e7eb'}` }} onClick={() => { setShowExcelPreview(true); setShowActionsDropdown(false); }}>
+                    <FileDown size={16} />
+                    Export Excel
+                  </button>
+                  <button className="btn" style={{ width: '100%', justifyContent: 'flex-start', borderRadius: 0, border: 'none' }} onClick={() => { setShowImportTableDescriptions(true); setShowActionsDropdown(false); }}>
+                    <Upload size={16} />
+                    Import Descriptions
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -1271,47 +1345,15 @@ export default function DataDictionary({
 
   // For tableList view without selectedTable, we still render the main component
   if (!selectedTable && viewMode === 'tableList') {
-    // Combine targets and sources
-    const allTables = [
-      ...script.data.targets.map(t => ({ ...t, isSource: false })),
-      ...script.data.sources.map(t => ({ ...t, isSource: true })),
-    ];
-
-    // Apply filters (multi-select: if array is empty, no filter; otherwise value must be in array)
-    const filteredTables = allTables.filter(table => {
-      if (tableListFilters.tableName.length > 0 && !tableListFilters.tableName.includes(table.tableName)) {
-        return false;
-      }
-      if (tableListFilters._t.length > 0 && !tableListFilters._t.includes(getTableTypePrefix(table.tableName))) {
-        return false;
-      }
-      if (tableListFilters.domain.length > 0 && !tableListFilters.domain.includes(table.schema || '')) {
-        return false;
-      }
-      if (tableListFilters.purpose.length > 0 && !tableListFilters.purpose.includes(table.description || '')) {
-        return false;
-      }
-      if (tableListFilters.explanationCompleted.length > 0) {
-        const tableExplCompletedValue = table.explanationCompleted ? 'Y' : 'N';
-        if (!tableListFilters.explanationCompleted.includes(tableExplCompletedValue)) {
-          return false;
-        }
-      }
-      if (tableListFilters.toIgnore.length > 0) {
-        const tableIgnoreValue = table.toIgnore ? 'Y' : 'N';
-        if (!tableListFilters.toIgnore.includes(tableIgnoreValue)) {
-          return false;
-        }
-      }
-      return true;
-    });
+    const allTables = allTablesCombined;
+    const filteredTables = filteredTablesCached;
 
     // Get unique values for filter dropdown
     const getUniqueValues = (field: 'tableName' | '_t' | 'domain' | 'purpose' | 'explanationCompleted' | 'toIgnore') => {
       const values = new Set<string>();
       allTables.forEach(table => {
         if (field === 'tableName') values.add(table.tableName);
-        else if (field === '_t') values.add(getTableTypePrefix(table.tableName));
+        else if (field === '_t') values.add((table._tChecked ?? table.tableName.toLowerCase().includes('_t')) ? 'Y' : 'N');
         else if (field === 'domain') values.add(table.schema || '');
         else if (field === 'purpose') values.add(table.description || '');
         else if (field === 'explanationCompleted') values.add(table.explanationCompleted ? 'Y' : 'N');
@@ -1586,7 +1628,7 @@ export default function DataDictionary({
       switch (colIdx) {
         case 0: return String(rowIdx + 1);
         case 1: return table.tableName;
-        case 2: return getTableTypePrefix(table.tableName);
+        case 2: return (table._tChecked ?? table.tableName.toLowerCase().includes('_t')) ? 'Y' : 'N';
         case 3: return table.schema || '';
         case 4: return table.description || '';
         case 5: return table.explanationCompleted ? 'Y' : 'N';
@@ -1894,18 +1936,45 @@ export default function DataDictionary({
             </button>
             {/* Columns selector - disabled in tableList view */}
             {renderColumnSelector(true)}
-            <button className="btn" onClick={handleEditMode}>
-              <Edit3 size={16} />
-              Edit Source
-            </button>
-            <button className="btn" onClick={() => downloadJson(script.data, `${script.name}.json`)}>
-              <FileDown size={16} />
-              Export JSON
-            </button>
-            <button className="btn" onClick={() => setShowExcelPreview(true)}>
-              <FileDown size={16} />
-              Export Excel
-            </button>
+            <div style={{ position: 'relative' }} ref={actionsDropdownRef}>
+              <button className="btn" onClick={() => setShowActionsDropdown(!showActionsDropdown)}>
+                <MoreVertical size={16} />
+                Actions
+                <ChevronDown size={14} />
+              </button>
+              {showActionsDropdown && (
+                <div style={{
+                  position: 'absolute',
+                  top: '100%',
+                  right: 0,
+                  marginTop: '4px',
+                  backgroundColor: isDarkTheme ? '#1e293b' : '#ffffff',
+                  border: `1px solid ${isDarkTheme ? '#334155' : '#d1d5db'}`,
+                  borderRadius: '6px',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                  zIndex: 200,
+                  minWidth: '180px',
+                  overflow: 'hidden',
+                }}>
+                  <button className="btn" style={{ width: '100%', justifyContent: 'flex-start', borderRadius: 0, border: 'none', borderBottom: `1px solid ${isDarkTheme ? '#334155' : '#e5e7eb'}` }} onClick={() => { handleEditMode(); setShowActionsDropdown(false); }}>
+                    <Edit3 size={16} />
+                    Edit Source
+                  </button>
+                  <button className="btn" style={{ width: '100%', justifyContent: 'flex-start', borderRadius: 0, border: 'none', borderBottom: `1px solid ${isDarkTheme ? '#334155' : '#e5e7eb'}` }} onClick={() => { downloadJson(script.data, `${script.name}.json`); setShowActionsDropdown(false); }}>
+                    <FileDown size={16} />
+                    Export JSON
+                  </button>
+                  <button className="btn" style={{ width: '100%', justifyContent: 'flex-start', borderRadius: 0, border: 'none', borderBottom: `1px solid ${isDarkTheme ? '#334155' : '#e5e7eb'}` }} onClick={() => { setShowExcelPreview(true); setShowActionsDropdown(false); }}>
+                    <FileDown size={16} />
+                    Export Excel
+                  </button>
+                  <button className="btn" style={{ width: '100%', justifyContent: 'flex-start', borderRadius: 0, border: 'none' }} onClick={() => { setShowImportTableDescriptions(true); setShowActionsDropdown(false); }}>
+                    <Upload size={16} />
+                    Import Descriptions
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -2306,67 +2375,82 @@ export default function DataDictionary({
             {excelMode ? 'Normal Mode' : 'Excel Mode'}
           </button>
           {renderColumnSelector(viewMode !== 'dictionary')}
-          <button className="btn" onClick={handleEditMode}>
-            <Edit3 size={16} />
-            Edit Source
-          </button>
-          <button className="btn" onClick={() => downloadJson(script.data, `${script.name}.json`)}>
-            <FileDown size={16} />
-            Export JSON
-          </button>
-          <button className="btn" onClick={() => setShowExcelPreview(true)}>
-            <FileDown size={16} />
-            Export Excel
-          </button>
-          <button
-            className="btn"
-            onClick={() => setShowAttachSampleData(true)}
-            title="Attach sample data from CSV"
-          >
-            <Paperclip size={16} />
-            Sample Data
-            {(script.sampleDataAttachments?.length || 0) > 0 && (
-              <span style={{
-                marginLeft: '4px',
-                backgroundColor: '#22c55e',
-                color: 'white',
-                borderRadius: '10px',
-                padding: '0 6px',
-                fontSize: '11px',
-                fontWeight: 600
-              }}>
-                {script.sampleDataAttachments?.length}
-              </span>
-            )}
-          </button>
-          <button
-            className="btn"
-            onClick={() => setShowImportTables(true)}
-            title="Insert or replace CREATE TABLE statements into the script"
-          >
-            <Upload size={16} />
-            Import Tables
-          </button>
-          <button
-            className="btn"
-            onClick={() => setShowImportExplanations(true)}
-            title="Import column explanations & possible values"
-          >
-            <FileText size={16} />
-            Import Explanations
-          </button>
-          {/* Preview / Copy Table Data */}
-          <div style={{ position: 'relative' }}>
-            <button
-              className="btn"
-              onClick={() => { setShowExportPreview(!showExportPreview); setExportCopied(false); }}
-              disabled={!selectedTable}
-              style={!selectedTable ? { opacity: 0.4, pointerEvents: 'none' as const } : undefined}
-              title="Preview & copy visible column data for the selected table"
-            >
-              <Eye size={16} />
-              Preview / Copy
+          <div style={{ position: 'relative' }} ref={actionsDropdownRef}>
+            <button className="btn" onClick={() => setShowActionsDropdown(!showActionsDropdown)}>
+              <MoreVertical size={16} />
+              Actions
+              <ChevronDown size={14} />
             </button>
+            {showActionsDropdown && (
+              <div style={{
+                position: 'absolute',
+                top: '100%',
+                right: 0,
+                marginTop: '4px',
+                backgroundColor: isDarkTheme ? '#1e293b' : '#ffffff',
+                border: `1px solid ${isDarkTheme ? '#334155' : '#d1d5db'}`,
+                borderRadius: '6px',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                zIndex: 200,
+                minWidth: '200px',
+                overflow: 'hidden',
+              }}>
+                <button className="btn" style={{ width: '100%', justifyContent: 'flex-start', borderRadius: 0, border: 'none', borderBottom: `1px solid ${isDarkTheme ? '#334155' : '#e5e7eb'}` }} onClick={() => { handleEditMode(); setShowActionsDropdown(false); }}>
+                  <Edit3 size={16} />
+                  Edit Source
+                </button>
+                <button className="btn" style={{ width: '100%', justifyContent: 'flex-start', borderRadius: 0, border: 'none', borderBottom: `1px solid ${isDarkTheme ? '#334155' : '#e5e7eb'}` }} onClick={() => { downloadJson(script.data, `${script.name}.json`); setShowActionsDropdown(false); }}>
+                  <FileDown size={16} />
+                  Export JSON
+                </button>
+                <button className="btn" style={{ width: '100%', justifyContent: 'flex-start', borderRadius: 0, border: 'none', borderBottom: `1px solid ${isDarkTheme ? '#334155' : '#e5e7eb'}` }} onClick={() => { setShowExcelPreview(true); setShowActionsDropdown(false); }}>
+                  <FileDown size={16} />
+                  Export Excel
+                </button>
+                <button className="btn" style={{ width: '100%', justifyContent: 'flex-start', borderRadius: 0, border: 'none', borderBottom: `1px solid ${isDarkTheme ? '#334155' : '#e5e7eb'}` }} onClick={() => { setShowAttachSampleData(true); setShowActionsDropdown(false); }}>
+                  <Paperclip size={16} />
+                  Sample Data
+                  {(script.sampleDataAttachments?.length || 0) > 0 && (
+                    <span style={{
+                      marginLeft: '4px',
+                      backgroundColor: '#22c55e',
+                      color: 'white',
+                      borderRadius: '10px',
+                      padding: '0 6px',
+                      fontSize: '11px',
+                      fontWeight: 600
+                    }}>
+                      {script.sampleDataAttachments?.length}
+                    </span>
+                  )}
+                </button>
+                <button className="btn" style={{ width: '100%', justifyContent: 'flex-start', borderRadius: 0, border: 'none', borderBottom: `1px solid ${isDarkTheme ? '#334155' : '#e5e7eb'}` }} onClick={() => { setShowImportTables(true); setShowActionsDropdown(false); }}>
+                  <Upload size={16} />
+                  Import Tables
+                </button>
+                <button className="btn" style={{ width: '100%', justifyContent: 'flex-start', borderRadius: 0, border: 'none', borderBottom: `1px solid ${isDarkTheme ? '#334155' : '#e5e7eb'}` }} onClick={() => { setShowImportTableDescriptions(true); setShowActionsDropdown(false); }}>
+                  <Upload size={16} />
+                  Import Descriptions
+                </button>
+                <button className="btn" style={{ width: '100%', justifyContent: 'flex-start', borderRadius: 0, border: 'none', borderBottom: `1px solid ${isDarkTheme ? '#334155' : '#e5e7eb'}` }} onClick={() => { setShowImportExplanations(true); setShowActionsDropdown(false); }}>
+                  <FileText size={16} />
+                  Import Explanations
+                </button>
+                <button
+                  className="btn"
+                  style={{ width: '100%', justifyContent: 'flex-start', borderRadius: 0, border: 'none', opacity: !selectedTable ? 0.4 : 1 }}
+                  onClick={() => { if (selectedTable) { setShowExportPreview(!showExportPreview); setExportCopied(false); setShowActionsDropdown(false); } }}
+                  title="Preview & copy visible column data for the selected table"
+                >
+                  <Eye size={16} />
+                  Preview / Copy
+                </button>
+              </div>
+            )}
+          </div>
+          {/* Preview / Copy Table Data popup */}
+          <div style={{ position: 'relative' }}>
+            <div style={{ display: 'none' }} />
             {showExportPreview && selectedTable && (
               <div
                 style={{
@@ -2438,40 +2522,8 @@ export default function DataDictionary({
       {/* Table List View Mode */}
       {viewMode === 'tableList' && (
         (() => {
-          // Combine targets and sources
-          const allTables = [
-            ...script.data.targets.map(t => ({ ...t, isSource: false })),
-            ...script.data.sources.map(t => ({ ...t, isSource: true })),
-          ];
-
-          // Apply filters (multi-select)
-          const filteredTables = allTables.filter(table => {
-            if (tableListFilters.tableName.length > 0 && !tableListFilters.tableName.includes(table.tableName)) {
-              return false;
-            }
-            if (tableListFilters._t.length > 0 && !tableListFilters._t.includes((table._tChecked ?? table.tableName.toLowerCase().includes('_t')) ? 'Y' : 'N')) {
-              return false;
-            }
-            if (tableListFilters.domain.length > 0 && !tableListFilters.domain.includes(table.schema)) {
-              return false;
-            }
-            if (tableListFilters.purpose.length > 0 && !tableListFilters.purpose.includes(table.description || '')) {
-              return false;
-            }
-            if (tableListFilters.explanationCompleted.length > 0) {
-              const tableExplCompletedValue = table.explanationCompleted ? 'Y' : 'N';
-              if (!tableListFilters.explanationCompleted.includes(tableExplCompletedValue)) {
-                return false;
-              }
-            }
-            if (tableListFilters.toIgnore.length > 0) {
-              const tableIgnoreValue = table.toIgnore ? 'Y' : 'N';
-              if (!tableListFilters.toIgnore.includes(tableIgnoreValue)) {
-                return false;
-              }
-            }
-            return true;
-          });
+          const allTables = allTablesCombined;
+          const filteredTables = filteredTablesCached;
 
           // Table List columns: 0=#(readonly), 1=TableName(readonly), 2=_t(readonly), 3=Domain, 4=Explanation, 5=ExplCompleted, 6=ToIgnore
           const TABLE_LIST_COL_COUNT = 7;
@@ -3956,6 +4008,22 @@ export default function DataDictionary({
           onImport={(newRawContent) => {
             onUpdateScript(newRawContent);
             setShowImportTables(false);
+          }}
+          isDarkTheme={isDarkTheme}
+          darkThemeVariant={darkThemeVariant}
+        />
+      )}
+
+      {/* Import Table Descriptions Modal */}
+      {showImportTableDescriptions && (
+        <ImportTableDescriptionsModal
+          script={script}
+          onClose={() => setShowImportTableDescriptions(false)}
+          onImport={(updatedScript) => {
+            if (onUpdateScriptPartial) {
+              onUpdateScriptPartial({ data: updatedScript.data });
+            }
+            setShowImportTableDescriptions(false);
           }}
           isDarkTheme={isDarkTheme}
           darkThemeVariant={darkThemeVariant}

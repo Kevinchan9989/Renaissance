@@ -230,6 +230,18 @@ export default function Sidebar({
               const filteredTables = filterTables(tablesBySchema[schema]);
               if (filteredTables.length === 0) return null;
 
+              // Sort: table name matches first, then column-only matches
+              if (searchTerm) {
+                const term = searchTerm.toLowerCase();
+                filteredTables.sort((a, b) => {
+                  const aNameMatch = a.tableName.toLowerCase().includes(term) || a.schema.toLowerCase().includes(term);
+                  const bNameMatch = b.tableName.toLowerCase().includes(term) || b.schema.toLowerCase().includes(term);
+                  if (aNameMatch && !bNameMatch) return -1;
+                  if (!aNameMatch && bNameMatch) return 1;
+                  return 0;
+                });
+              }
+
               return (
                 <div key={schema} className="schema-block">
                   <div className="schema-header" onClick={toggleSchema}>
