@@ -56,6 +56,9 @@ function IndexTableRow({ t, i, onClick, textPrimary, textSecondary, bg, complete
       </td>
       <td style={tdStyle}>{t.description || '-'}</td>
       <td style={{ ...tdStyle, textAlign: 'center' as const }}>{t.columns.length}</td>
+      <td style={{ ...tdStyle, textAlign: 'center' as const }}>{(t._tChecked ?? t.tableName.toLowerCase().includes('_t')) ? 'Y' : 'N'}</td>
+      <td style={{ ...tdStyle, textAlign: 'center' as const }}>{t.explanationCompleted ? 'Y' : 'N'}</td>
+      <td style={{ ...tdStyle, textAlign: 'center' as const }}>{t.toIgnore ? 'Y' : 'N'}</td>
     </tr>
   );
 }
@@ -68,8 +71,8 @@ export default function ExcelExportPreview({
   onClose,
   isDarkTheme = false,
 }: ExcelExportPreviewProps) {
-  // Filter out tables marked as "To Ignore"
-  const tables = useMemo(() => allTables.filter(t => !t.toIgnore), [allTables]);
+  // Include all tables (including those marked "To Ignore" so data is preserved)
+  const tables = allTables;
 
   const [selectedTab, setSelectedTab] = useState(-1);
   const [exporting, setExporting] = useState(false);
@@ -98,7 +101,14 @@ export default function ExcelExportPreview({
     const saved = loadExcelExportColumns();
     if (saved && saved.length > 0) {
       const valid = saved.filter(k => EXCEL_COLUMNS.some(c => c.key === k)) as ExcelColumnKey[];
-      if (valid.length > 0) return new Set(valid);
+      if (valid.length > 0) {
+        // Auto-include any new columns not in the saved set
+        const result = new Set(valid);
+        for (const col of EXCEL_COLUMNS) {
+          if (!saved.includes(col.key)) result.add(col.key);
+        }
+        return result;
+      }
     }
     return new Set(EXCEL_COLUMNS.map(c => c.key));
   });
@@ -371,6 +381,9 @@ export default function ExcelExportPreview({
                       <th style={thStyle}>Table Name</th>
                       <th style={thStyle}>Description</th>
                       <th style={{ ...thStyle, textAlign: 'center', width: '70px' }}>Columns</th>
+                      <th style={{ ...thStyle, textAlign: 'center', width: '40px' }}>_t</th>
+                      <th style={{ ...thStyle, textAlign: 'center', width: '80px' }}>Expl Completed</th>
+                      <th style={{ ...thStyle, textAlign: 'center', width: '60px' }}>To Ignore</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -422,6 +435,9 @@ export default function ExcelExportPreview({
                       <th style={thStyle}>Table Name</th>
                       <th style={thStyle}>Description</th>
                       <th style={{ ...thStyle, textAlign: 'center', width: '70px' }}>Columns</th>
+                      <th style={{ ...thStyle, textAlign: 'center', width: '40px' }}>_t</th>
+                      <th style={{ ...thStyle, textAlign: 'center', width: '80px' }}>Expl Completed</th>
+                      <th style={{ ...thStyle, textAlign: 'center', width: '60px' }}>To Ignore</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -470,6 +486,9 @@ export default function ExcelExportPreview({
                     ['Table Name', table.tableName],
                     ['Total Columns', String(table.columns.length)],
                     ['Description', table.description || '-'],
+                    ['_t', (table._tChecked ?? table.tableName.toLowerCase().includes('_t')) ? 'Y' : 'N'],
+                    ['Explanation Completed', table.explanationCompleted ? 'Y' : 'N'],
+                    ['To Ignore', table.toIgnore ? 'Y' : 'N'],
                   ].map(([label, value], i) => (
                     <tr key={i}>
                       <td style={{
@@ -576,6 +595,8 @@ export default function ExcelExportPreview({
                       nullable: getNullableDisplay(col.nullable), default: col.default || '',
                       explanation: col.explanation || '', mapping: col.mapping || '',
                       sampleValues: sampleText, possibleValues: col.possibleValues || '', mappedTo,
+                      migrationNeeded: col.migrationNeeded === undefined ? '' : col.migrationNeeded ? 'Y' : 'N',
+                      nonMigrationComment: col.nonMigrationComment || '',
                     };
                     return (
                       <tr key={rowIdx} style={{ backgroundColor: table.explanationCompleted ? completedBg : bg }}>

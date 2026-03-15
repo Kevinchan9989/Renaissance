@@ -1,7 +1,7 @@
 import type { Table } from '../types';
 
 // Column keys matching DataDictionary
-export type ExcelColumnKey = 'column' | 'type' | 'nullable' | 'default' | 'explanation' | 'mapping' | 'sampleValues' | 'possibleValues' | 'mappedTo';
+export type ExcelColumnKey = 'column' | 'type' | 'nullable' | 'default' | 'explanation' | 'mapping' | 'sampleValues' | 'possibleValues' | 'mappedTo' | 'migrationNeeded' | 'nonMigrationComment';
 
 export const EXCEL_COLUMNS: { key: ExcelColumnKey; header: string; width: number }[] = [
   { key: 'column', header: 'Column', width: 28 },
@@ -13,6 +13,8 @@ export const EXCEL_COLUMNS: { key: ExcelColumnKey; header: string; width: number
   { key: 'sampleValues', header: 'Sample Values', width: 36 },
   { key: 'possibleValues', header: 'Possible Values', width: 52 },
   { key: 'mappedTo', header: 'Mapped To', width: 42 },
+  { key: 'migrationNeeded', header: 'Migration Needed', width: 18 },
+  { key: 'nonMigrationComment', header: 'Non-Migration Comment', width: 36 },
 ];
 
 // Styling constants
@@ -103,8 +105,8 @@ export async function exportDataDictionaryToExcel(options: ExcelExportOptions): 
 
   const { scriptName, tables: allTables, getMappingInfo, getColumnTags, visibleColumns } = options;
 
-  // Filter out tables marked as "To Ignore"
-  const tables = allTables.filter(t => !t.toIgnore);
+  // Include all tables (including those marked "To Ignore" so data is preserved)
+  const tables = allTables;
 
   const activeCols = EXCEL_COLUMNS.filter(c => visibleColumns.includes(c.key));
   const colCount = activeCols.length;
@@ -123,13 +125,16 @@ export async function exportDataDictionaryToExcel(options: ExcelExportOptions): 
   // ═══════════════════════════════════════
   {
     const homeSheet = workbook.addWorksheet('Index');
-    const homeCols = 5;
+    const homeCols = 8;
     homeSheet.columns = [
       { width: 8 },   // #
       { width: 20 },  // Schema
       { width: 30 },  // Table Name
       { width: 40 },  // Description
       { width: 12 },  // Columns
+      { width: 10 },  // _t
+      { width: 16 },  // Expl Completed
+      { width: 12 },  // To Ignore
     ];
 
     let hr = 1;
@@ -152,7 +157,7 @@ export async function exportDataDictionaryToExcel(options: ExcelExportOptions): 
       hr++;
 
       const headerRowNum = hr;
-      const headers = ['#', 'Schema', 'Table Name', 'Description', 'Columns'];
+      const headers = ['#', 'Schema', 'Table Name', 'Description', 'Columns', '_t', 'Expl Completed', 'To Ignore'];
       headers.forEach((h, ci) => {
         const cell = homeSheet.getCell(hr, ci + 1);
         cell.value = h;
@@ -172,6 +177,9 @@ export async function exportDataDictionaryToExcel(options: ExcelExportOptions): 
           t.tableName,
           t.description || '-',
           String(t.columns.length),
+          (t._tChecked ?? t.tableName.toLowerCase().includes('_t')) ? 'Y' : 'N',
+          t.explanationCompleted ? 'Y' : 'N',
+          t.toIgnore ? 'Y' : 'N',
         ];
         vals.forEach((v, ci) => {
           const cell = homeSheet.getCell(hr, ci + 1);
@@ -268,11 +276,14 @@ export async function exportDataDictionaryToExcel(options: ExcelExportOptions): 
       currentRow++;
     };
 
-    // Order: Schema, Table Name, Total Columns, Description (removed Type & Status)
+    // Order: Schema, Table Name, Total Columns, Description, _t, Expl Completed, To Ignore
     writeInfoRow('Schema', table.schema || '-');
     writeInfoRow('Table Name', table.tableName);
     writeInfoRow('Total Columns', String(table.columns.length));
     writeInfoRow('Description', table.description || '-');
+    writeInfoRow('_t', (table._tChecked ?? table.tableName.toLowerCase().includes('_t')) ? 'Y' : 'N');
+    writeInfoRow('Explanation Completed', table.explanationCompleted ? 'Y' : 'N');
+    writeInfoRow('To Ignore', table.toIgnore ? 'Y' : 'N');
 
     // Blank separator row
     currentRow++;
@@ -381,6 +392,8 @@ export async function exportDataDictionaryToExcel(options: ExcelExportOptions): 
         sampleValues: sampleText,
         possibleValues: col.possibleValues || '',
         mappedTo: mappedTo,
+        migrationNeeded: col.migrationNeeded === undefined ? '' : col.migrationNeeded ? 'Y' : 'N',
+        nonMigrationComment: col.nonMigrationComment || '',
       };
 
       const rowValues = activeCols.map(c => allValues[c.key]);
