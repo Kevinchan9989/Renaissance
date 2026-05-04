@@ -43,7 +43,11 @@ def _coerce_nullable(value):
         return True
     if s in ("N", "NO", "FALSE", "F", "0", "NOT NULL"):
         return False
-    return True  # default
+    sys.stderr.write(
+        f"WARN extract_source_ddl: unrecognized nullable value {value!r}; "
+        "defaulting to True (nullable). Add this token to _coerce_nullable.\n"
+    )
+    return True
 
 
 def extract_from_script_file(path):
@@ -84,8 +88,7 @@ def extract_all(script_glob=DEFAULT_SCRIPT_GLOB):
                 continue
             # First occurrence wins; record source script for audit
             if name not in seen:
-                t["_source_script"] = Path(p).name
-                seen[name] = t
+                seen[name] = {**t, "_source_script": Path(p).name}
     return list(seen.values())
 
 
