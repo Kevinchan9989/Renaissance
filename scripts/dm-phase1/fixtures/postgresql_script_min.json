@@ -1,0 +1,21 @@
+{
+  "id": "pg-script",
+  "name": "pg-test",
+  "type": "postgresql",
+  "data": {
+    "sources": [],
+    "targets": [
+      {
+        "id": 1,
+        "schema": "iss",
+        "tableName": "iss_security_master",
+        "columns": [
+          { "name": "uuid", "type": "VARCHAR(36)", "nullable": "No", "default": null, "explanation": "", "mapping": "" }
+        ],
+        "constraints": []
+      }
+    ]
+  },
+  "createdAt": 0,
+  "updatedAt": 0
+}
