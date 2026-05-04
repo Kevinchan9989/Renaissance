@@ -1,0 +1,35 @@
+{
+  "id": "test-script",
+  "name": "test",
+  "type": "oracle",
+  "data": {
+    "sources": [],
+    "targets": [
+      {
+        "id": 1,
+        "schema": "MNETD",
+        "tableName": "ABA0001_SECURITY_MASTER",
+        "description": "Security master legacy table",
+        "columns": [
+          { "name": "ABA0001_SECURITY_CODE", "type": "CHAR(8)", "nullable": "No", "default": null, "explanation": "", "mapping": "" },
+          { "name": "ABA0001_ISIN_CODE", "type": "CHAR(12)", "nullable": "Yes", "default": null, "explanation": "", "mapping": "" }
+        ],
+        "constraints": [
+          { "name": "PK_ABA0001", "type": "Primary Key", "localCols": "ABA0001_SECURITY_CODE,ABA0001_ISSUE_NO" }
+        ]
+      },
+      {
+        "id": 2,
+        "schema": "MNETD",
+        "tableName": "ABA0007_DETAIL_AUCTION_RESULT",
+        "description": "Auction result",
+        "columns": [
+          { "name": "ABA0007_SECURITY_CODE", "type": "CHAR(8)", "nullable": "No", "default": null, "explanation": "", "mapping": "" }
+        ],
+        "constraints": []
+      }
+    ]
+  },
+  "createdAt": 0,
+  "updatedAt": 0
+}
