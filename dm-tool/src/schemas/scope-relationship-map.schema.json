@@ -1,0 +1,139 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Scope Relationship Map",
+  "type": "object",
+  "required": ["version", "generated_at", "scope", "tables", "edges", "source_target_matrix", "questions_open"],
+  "properties": {
+    "version": { "type": "string" },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "scope": { "type": "string", "enum": ["R1", "R2", "ALL"] },
+    "tables": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "domain", "wave", "decision"],
+        "properties": {
+          "name": { "type": "string" },
+          "domain": { "type": "string" },
+          "schema": { "type": "string" },
+          "wave": { "type": "string", "enum": ["R1", "R2"] },
+          "side": { "type": "string", "enum": ["source", "target"] },
+          "description": { "type": "string" },
+          "reviewed": { "type": "boolean" },
+          "columns": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["name", "type", "nullable"],
+              "properties": {
+                "name": { "type": "string" },
+                "type": { "type": "string" },
+                "nullable": { "type": "boolean" },
+                "default": { "type": ["string", "null"] },
+                "explanation": { "type": "string" },
+                "possible_values": { "type": "string" }
+              }
+            }
+          },
+          "primary_key": { "type": "array", "items": { "type": "string" } },
+          "row_volume_estimate": {
+            "type": "object",
+            "properties": {
+              "value": { "type": ["integer", "null"] },
+              "source": { "type": "string", "enum": ["sample", "omega-db", "estimate", "unknown"] }
+            }
+          },
+          "decision": {
+            "type": "object",
+            "required": ["to_migrate"],
+            "properties": {
+              "to_migrate": { "type": "string", "enum": ["Y", "N", "TBD"] },
+              "rationale": { "type": "string" },
+              "evidence_refs": { "type": "array", "items": { "type": "string" } },
+              "needs_user_review": { "type": "boolean" }
+            }
+          }
+        }
+      }
+    },
+    "edges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "kind", "from", "to", "evidence", "confidence"],
+        "properties": {
+          "id": { "type": "string" },
+          "kind": { "type": "string", "enum": ["fk-declared", "fk-implicit", "business-hierarchy"] },
+          "from": {
+            "type": "object",
+            "required": ["table", "column"],
+            "properties": {
+              "table": { "type": "string" },
+              "column": { "type": "string" }
+            }
+          },
+          "to": {
+            "type": "object",
+            "required": ["table", "column"],
+            "properties": {
+              "table": { "type": "string" },
+              "column": { "type": "string" }
+            }
+          },
+          "cardinality": { "type": "string", "enum": ["1:1", "1:N", "N:1", "N:N", "unknown"] },
+          "evidence": {
+            "type": "object",
+            "properties": {
+              "ddl_declared": { "type": "boolean" },
+              "naming_match": { "type": "boolean" },
+              "nlm_archive_id": { "type": ["string", "null"] },
+              "legacy_archive_id": { "type": ["string", "null"] },
+              "sample_join": {
+                "type": "object",
+                "properties": {
+                  "matched": { "type": "integer" },
+                  "orphans": { "type": "integer" },
+                  "coverage": { "type": "string", "enum": ["full", "partial", "none"] }
+                }
+              },
+              "db_validation": {
+                "type": "object",
+                "properties": {
+                  "status": { "type": "string", "enum": ["pending_user_run", "passed", "failed", "n/a"] },
+                  "query_id": { "type": ["string", "null"] }
+                }
+              }
+            }
+          },
+          "confidence": { "type": "string", "enum": ["high", "medium", "low"] },
+          "needs_user_review": { "type": "boolean" }
+        }
+      }
+    },
+    "source_target_matrix": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["source", "targets"],
+        "properties": {
+          "source": { "type": "string" },
+          "targets": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "questions_open": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "channel", "prompt"],
+        "properties": {
+          "id": { "type": "string" },
+          "channel": { "type": "string", "enum": ["notebooklm", "legacy-source", "omega-db", "user"] },
+          "prompt": { "type": "string" },
+          "for_table": { "type": ["string", "null"] },
+          "for_edge": { "type": ["string", "null"] }
+        }
+      }
+    }
+  }
+}
