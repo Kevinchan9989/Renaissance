@@ -460,19 +460,26 @@ git commit -m "feat(dm-phase1): scope-map JSON schema validator"
 - Create: `scripts/dm-phase1/tests/test_extract_source_ddl.py`
 - Create: `scripts/dm-phase1/fixtures/source_script_min.json`
 
-**Background:** `gsib-migration/workspace/script-*.json` files are dm-tool exports. Each contains a `data.sources` array of Table objects (see `dm-tool/src/types/index.ts`): `{ id, schema, tableName, description, constraints[], columns[] }`. We want a flat list of source tables across all scripts (deduped by `tableName`).
+**Background:** `gsib-migration/workspace/script-*.json` files are dm-tool exports. **Important quirk discovered during execution:** dm-tool stores all parsed DDL tables in `data.targets` regardless of whether the file holds source-side or target-side schemas. `data.sources` is always empty. The source-vs-target distinction lives at the file level via the `type` field:
 
-- [ ] **Step 1: Inspect a real script-*.json to learn shape**
+- `type: "oracle"` scripts hold legacy SOURCE-side DDL (e.g., `script-00-BE_MNETD.json`, `script-04-FE_TRI1.json`)
+- `type: "postgresql"` scripts hold TARGET-side DDL (OMEGA schemas)
+
+For Task 4 (source DDL), we filter to `type == "oracle"` files only and read their `data.targets` arrays. We dedupe by `tableName` across the (typically 2) oracle script files.
+
+Real data also uses `"Yes"`/`"No"` (not `"Y"`/`"N"`) for column `nullable` values; the `_coerce_nullable` helper handles both.
+
+- [ ] **Step 1: Inspect a real script-*.json to confirm shape (already discovered; this is a sanity check)**
 
 Run once interactively:
 ```bash
 cd "/c/Users/ECQ1025/Downloads/MAS Securities/MAS DM/Renaissance"
-python -c "import json; d=json.load(open('gsib-migration/workspace/script-00-BE_MNETD.json')); print(list(d.keys()))"
-python -c "import json; d=json.load(open('gsib-migration/workspace/script-00-BE_MNETD.json')); print(list(d.get('data',{}).keys()))"
-python -c "import json; d=json.load(open('gsib-migration/workspace/script-00-BE_MNETD.json')); print(d['data']['sources'][0] if d['data']['sources'] else 'EMPTY')"
+python -c "import json; d=json.load(open('gsib-migration/workspace/script-00-BE_MNETD.json')); print('type=', d.get('type'), 'sources=', len(d['data'].get('sources',[])), 'targets=', len(d['data'].get('targets',[])))"
 ```
 
-Use the printed shape to refine the fixture below.
+Expected output: `type= oracle sources= 0 targets= 104` (or similar non-zero target count).
+
+If the shape differs from this expectation, STOP and report.
 
 - [ ] **Step 2: Write fixture**
 
@@ -483,15 +490,16 @@ Use the printed shape to refine the fixture below.
   "name": "test",
   "type": "oracle",
   "data": {
-    "sources": [
+    "sources": [],
+    "targets": [
       {
         "id": 1,
         "schema": "MNETD",
         "tableName": "ABA0001_SECURITY_MASTER",
         "description": "Security master legacy table",
         "columns": [
-          { "name": "ABA0001_SECURITY_CODE", "type": "CHAR(8)", "nullable": "N", "default": null, "explanation": "", "mapping": "" },
-          { "name": "ABA0001_ISIN_CODE", "type": "CHAR(12)", "nullable": "Y", "default": null, "explanation": "", "mapping": "" }
+          { "name": "ABA0001_SECURITY_CODE", "type": "CHAR(8)", "nullable": "No", "default": null, "explanation": "", "mapping": "" },
+          { "name": "ABA0001_ISIN_CODE", "type": "CHAR(12)", "nullable": "Yes", "default": null, "explanation": "", "mapping": "" }
         ],
         "constraints": [
           { "name": "PK_ABA0001", "type": "Primary Key", "localCols": "ABA0001_SECURITY_CODE,ABA0001_ISSUE_NO" }
@@ -503,12 +511,38 @@ Use the printed shape to refine the fixture below.
         "tableName": "ABA0007_DETAIL_AUCTION_RESULT",
         "description": "Auction result",
         "columns": [
-          { "name": "ABA0007_SECURITY_CODE", "type": "CHAR(8)", "nullable": "N", "default": null, "explanation": "", "mapping": "" }
+          { "name": "ABA0007_SECURITY_CODE", "type": "CHAR(8)", "nullable": "No", "default": null, "explanation": "", "mapping": "" }
         ],
         "constraints": []
       }
-    ],
-    "targets": []
+    ]
+  },
+  "createdAt": 0,
+  "updatedAt": 0
+}
+```
+
+Also create a fixture for a non-oracle script that should be ignored by the source extractor:
+
+`scripts/dm-phase1/fixtures/postgresql_script_min.json`:
+```json
+{
+  "id": "pg-script",
+  "name": "pg-test",
+  "type": "postgresql",
+  "data": {
+    "sources": [],
+    "targets": [
+      {
+        "id": 1,
+        "schema": "iss",
+        "tableName": "iss_security_master",
+        "columns": [
+          { "name": "uuid", "type": "VARCHAR(36)", "nullable": "No", "default": null, "explanation": "", "mapping": "" }
+        ],
+        "constraints": []
+      }
+    ]
   },
   "createdAt": 0,
   "updatedAt": 0
@@ -556,6 +590,10 @@ def test_emits_side_source():
 def test_keeps_schema():
     tables = extract_from_script_file(FIXTURES / "source_script_min.json")
     assert all(t["schema"] == "MNETD" for t in tables)
+
+def test_ignores_non_oracle_scripts():
+    tables = extract_from_script_file(FIXTURES / "postgresql_script_min.json")
+    assert tables == []
 ```
 
 - [ ] **Step 4: Run test to verify failure**
@@ -565,13 +603,19 @@ cd scripts/dm-phase1
 .venv/Scripts/python -m pytest tests/test_extract_source_ddl.py -v
 ```
 
-Expected: 6 errors — `ModuleNotFoundError`.
+Expected: 7 errors — `ModuleNotFoundError`.
 
 - [ ] **Step 5: Implement the extractor**
 
 `scripts/dm-phase1/extract_source_ddl.py`:
 ```python
-"""Extracts source-side table records from dm-tool script-*.json exports."""
+"""Extracts source-side table records from dm-tool script-*.json exports.
+
+Quirk: dm-tool stores all parsed DDL tables in `data.targets` regardless of
+file type. The source/target distinction lives at the FILE level via the
+`type` field (`oracle` -> source-side legacy, `postgresql` -> OMEGA target).
+This extractor reads ONLY oracle-type scripts; non-oracle files yield [].
+"""
 import json
 import sys
 import glob
@@ -616,9 +660,12 @@ def _coerce_nullable(value):
 def extract_from_script_file(path):
     with open(path, "r", encoding="utf-8") as f:
         doc = json.load(f)
-    sources = (doc.get("data") or {}).get("sources") or []
+    if doc.get("type") != "oracle":
+        return []  # only oracle-type scripts hold source-side legacy DDL
+    # NOTE: dm-tool stores DDL in data.targets regardless of file type.
+    tables = (doc.get("data") or {}).get("targets") or []
     out = []
-    for t in sources:
+    for t in tables:
         out.append({
             "name": t.get("tableName"),
             "schema": t.get("schema") or "",
@@ -674,7 +721,7 @@ cd scripts/dm-phase1
 .venv/Scripts/python -m pytest tests/test_extract_source_ddl.py -v
 ```
 
-Expected: 6 passed.
+Expected: 7 passed.
 
 - [ ] **Step 7: Smoke run on real data**
 
@@ -683,7 +730,7 @@ cd scripts/dm-phase1
 .venv/Scripts/python extract_source_ddl.py
 ```
 
-Expected: `Wrote N source tables → .../build/source-tables.json` where N is the unique count across all 15 script-*.json files. Inspect output to verify shape.
+Expected: `Wrote N source tables → .../build/source-tables.json` where N is the unique count across the **2 oracle-type** script-*.json files (`script-00-BE_MNETD.json` and `script-04-FE_TRI1.json`). Likely ~150–230 unique tables. Inspect output to verify shape.
 
 - [ ] **Step 8: Add build/ to gitignore (intermediate artifacts not committed)**
 
@@ -694,8 +741,8 @@ echo "build/" >> scripts/dm-phase1/.gitignore
 - [ ] **Step 9: Commit**
 
 ```bash
-git add scripts/dm-phase1/extract_source_ddl.py scripts/dm-phase1/tests/test_extract_source_ddl.py scripts/dm-phase1/fixtures/source_script_min.json scripts/dm-phase1/.gitignore
-git commit -m "feat(dm-phase1): extract source DDL from script-*.json"
+git add scripts/dm-phase1/extract_source_ddl.py scripts/dm-phase1/tests/test_extract_source_ddl.py scripts/dm-phase1/fixtures/source_script_min.json scripts/dm-phase1/fixtures/postgresql_script_min.json scripts/dm-phase1/.gitignore
+git commit -m "feat(dm-phase1): extract source DDL from oracle-type script-*.json"
 ```
 
 ---
