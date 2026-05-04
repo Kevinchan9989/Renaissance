@@ -2,7 +2,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from extract_source_ddl import extract_from_script_file
+from extract_source_ddl import extract_from_script_file, _coerce_nullable
 
 FIXTURES = Path(__file__).parent.parent / "fixtures"
 
@@ -39,3 +39,10 @@ def test_keeps_schema():
 def test_ignores_non_oracle_scripts():
     tables = extract_from_script_file(FIXTURES / "postgresql_script_min.json")
     assert tables == []
+
+def test_coerce_nullable_warns_on_unknown(capsys):
+    result = _coerce_nullable("MAYBE")
+    assert result is True
+    captured = capsys.readouterr()
+    assert "unrecognized nullable value" in captured.err
+    assert "MAYBE" in captured.err
