@@ -184,7 +184,7 @@
                 "properties": {
                   "matched": { "type": "integer" },
                   "orphans": { "type": "integer" },
-                  "coverage": { "type": "string", "enum": ["full", "partial", "none"] }
+                  "coverage": { "type": "string", "enum": ["full", "partial", "none", "disjoint"] }
                 }
               },
               "db_validation": {

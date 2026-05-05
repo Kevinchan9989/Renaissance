@@ -90,3 +90,80 @@ def test_rollup_confidence():
     # no evidence => low
     assert rollup_confidence(declared=False, naming_match=False,
                               sample_join={"coverage": "none", "matched": 0, "orphans": 0}) == "low"
+
+
+def test_types_compatible_helper():
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+    from extract_edges import _types_compatible
+    assert _types_compatible("CHAR(8)", "VARCHAR2(8)") is True
+    assert _types_compatible("NUMBER(4,0)", "INTEGER") is True
+    assert _types_compatible("CHAR(8)", "NUMBER(4,0)") is False
+    assert _types_compatible("DATE", "TIMESTAMP") is True
+    assert _types_compatible("", "CHAR(8)") is True  # missing -> permissive
+
+
+def test_backup_table_detection():
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+    from extract_edges import _is_backup_table
+    assert _is_backup_table("ABA0001_SECURITY_MASTER_20230428") is True
+    assert _is_backup_table("ABA0001_SECURITY_MASTER_R2_20231212") is True
+    assert _is_backup_table("ABA0001_BKP") is True
+    assert _is_backup_table("STG_FOO") is False  # leading STG is not a clone marker
+    assert _is_backup_table("FOO_STG") is True
+    assert _is_backup_table("ABA0001_SECURITY_MASTER") is False
+
+
+def test_propose_implicit_fks_excludes_backup_parents():
+    sources = [
+        {
+            "name": "CHILD",
+            "columns": [{"name": "ABA0001_X", "type": "CHAR(8)", "nullable": False, "default": None}],
+            "primary_key": [],
+            "declared_fks": [],
+        },
+        {
+            "name": "ABA0001_PARENT",
+            "columns": [{"name": "ABA0001_X", "type": "CHAR(8)", "nullable": False, "default": None}],
+            "primary_key": ["ABA0001_X"],
+            "declared_fks": [],
+        },
+        {
+            "name": "ABA0001_PARENT_20230428",
+            "columns": [{"name": "ABA0001_X", "type": "CHAR(8)", "nullable": False, "default": None}],
+            "primary_key": ["ABA0001_X"],
+            "declared_fks": [],
+        },
+    ]
+    edges = propose_implicit_fks(sources)
+    assert len(edges) == 1
+    assert edges[0]["to"]["table"] == "ABA0001_PARENT"
+
+
+def test_propose_implicit_fks_skips_incompatible_types():
+    sources = [
+        {
+            "name": "CHILD",
+            "columns": [{"name": "X_CODE", "type": "NUMBER(4,0)", "nullable": False, "default": None}],
+            "primary_key": [],
+            "declared_fks": [],
+        },
+        {
+            "name": "PARENT",
+            "columns": [{"name": "X_CODE", "type": "CHAR(8)", "nullable": False, "default": None}],
+            "primary_key": ["X_CODE"],
+            "declared_fks": [],
+        },
+    ]
+    edges = propose_implicit_fks(sources)
+    assert edges == []
+
+
+def test_sample_join_disjoint_coverage():
+    samples = {
+        "child": {"columns": {"fk": {"sample_values": ["A", "B"]}}},
+        "parent": {"columns": {"pk": {"sample_values": ["X", "Y"]}}},
+    }
+    result = sample_join(samples, "child", "fk", "parent", "pk")
+    assert result["matched"] == 0
+    assert result["orphans"] == 2
+    assert result["coverage"] == "disjoint"
