@@ -85,6 +85,59 @@ def _strip_table_prefix(col_name):
     return m.group(1) if m else col_name
 
 
+def _base_type(t):
+    """Extracts the base type token from a column type string.
+
+    'CHAR(8)' -> 'CHAR'
+    'VARCHAR2(30)' -> 'VARCHAR2'
+    'NUMBER(4,0)' -> 'NUMBER'
+    'DATE' -> 'DATE'
+    Returns '' if input is falsy.
+    """
+    if not t:
+        return ""
+    return str(t).split("(", 1)[0].strip().upper()
+
+
+# Treat a few near-equivalents as the same family (Oracle quirks).
+_TYPE_FAMILIES = {
+    "CHAR": "TEXT", "VARCHAR": "TEXT", "VARCHAR2": "TEXT", "CLOB": "TEXT", "TEXT": "TEXT",
+    "NUMBER": "NUM", "NUMERIC": "NUM", "INT": "NUM", "INTEGER": "NUM", "DECIMAL": "NUM",
+    "DATE": "DATE", "TIMESTAMP": "DATE",
+}
+
+
+def _types_compatible(t_child, t_parent):
+    """Two types are compatible iff their base type or family matches.
+
+    Generous-by-design: we only want to filter the OBVIOUSLY incompatible
+    pairs (e.g., NUMBER vs CHAR), not enforce exact match.
+    """
+    bc = _base_type(t_child)
+    bp = _base_type(t_parent)
+    if not bc or not bp:
+        return True  # don't reject when type info is missing
+    if bc == bp:
+        return True
+    return _TYPE_FAMILIES.get(bc, bc) == _TYPE_FAMILIES.get(bp, bp)
+
+
+_BACKUP_TABLE_PATTERNS = [
+    re.compile(r"_\d{8}$"),                    # ABA0001_SECURITY_MASTER_20230428
+    re.compile(r"_R\d+_\d{8}$"),               # ABA0001_SECURITY_MASTER_R2_20231212
+    re.compile(r"_BKP$|_BKP_", re.IGNORECASE), # explicit backup naming
+    re.compile(r"_STG$|_STG_", re.IGNORECASE), # staging clone
+    re.compile(r"_TMP$|_TMP_", re.IGNORECASE), # temp clone
+    re.compile(r"_OLD$|_OLD_", re.IGNORECASE),
+]
+
+
+def _is_backup_table(name):
+    if not name:
+        return False
+    return any(p.search(name) for p in _BACKUP_TABLE_PATTERNS)
+
+
 def extract_declared_fks(sources):
     """Walks source records and emits one edge per declared FK constraint.
 
@@ -122,24 +175,38 @@ def extract_declared_fks(sources):
 
 def propose_implicit_fks(sources, eid_start=10000):
     """For each non-PK column, check if its stripped suffix matches any other
-    table's PK column suffix. Cross-table only (not self)."""
+    table's PK column suffix. Skips backup-pattern parent tables. Requires
+    type-compatibility between child and parent columns.
+    """
     edges = []
     pk_index = {}
     for t in sources:
+        if _is_backup_table(t["name"]):
+            # Don't propose backup tables as canonical parents
+            continue
         for pk_col in t.get("primary_key", []) or []:
             stripped = _strip_table_prefix(pk_col)
-            pk_index.setdefault(stripped, []).append((t["name"], pk_col))
+            # Find type for this PK col
+            pk_type = ""
+            for c in t.get("columns", []) or []:
+                if c.get("name") == pk_col:
+                    pk_type = c.get("type", "")
+                    break
+            pk_index.setdefault(stripped, []).append((t["name"], pk_col, pk_type))
 
     eid = eid_start
     for child in sources:
         child_pks = set(child.get("primary_key", []) or [])
         for col in child.get("columns", []) or []:
             cname = col.get("name")
+            ctype = col.get("type", "")
             if not cname or cname in child_pks:
                 continue
             stripped = _strip_table_prefix(cname)
-            for parent_name, parent_col in pk_index.get(stripped, []):
+            for parent_name, parent_col, parent_type in pk_index.get(stripped, []):
                 if parent_name == child["name"]:
+                    continue
+                if not _types_compatible(ctype, parent_type):
                     continue
                 eid += 1
                 edges.append({
@@ -153,7 +220,7 @@ def propose_implicit_fks(sources, eid_start=10000):
                         "naming_match": True,
                         "sample_join": {"matched": 0, "orphans": 0, "coverage": "none"},
                     },
-                    "confidence": "low",  # bumped later after sample_join
+                    "confidence": "low",
                 })
     return edges
 
@@ -166,9 +233,10 @@ def sample_join(samples, child_table, child_col, parent_table, parent_col):
 
     Returns {matched, orphans, coverage}.
     coverage:
-      - 'none' if either side has no sample values
-      - 'full' if all child values matched AND child sample size >= 100
-      - 'partial' otherwise
+      - 'none'     if either side has no sample values
+      - 'disjoint' if both sides have samples but matched == 0 (strong rejection)
+      - 'full'     if all child values matched AND child sample size >= 100
+      - 'partial'  otherwise (some matches, not 100%)
     """
     cs = (((samples.get(child_table) or {}).get("columns") or {}).get(child_col, {}).get("sample_values")) or []
     ps = (((samples.get(parent_table) or {}).get("columns") or {}).get(parent_col, {}).get("sample_values")) or []
@@ -177,8 +245,12 @@ def sample_join(samples, child_table, child_col, parent_table, parent_col):
     parent_set = set(ps)
     matched = sum(1 for v in cs if v in parent_set)
     orphans = len(cs) - matched
-    full = (matched == len(cs)) and (len(cs) >= 100)
-    coverage = "full" if full else "partial"
+    if matched == 0:
+        coverage = "disjoint"
+    elif matched == len(cs) and len(cs) >= 100:
+        coverage = "full"
+    else:
+        coverage = "partial"
     return {"matched": matched, "orphans": orphans, "coverage": coverage}
 
 
