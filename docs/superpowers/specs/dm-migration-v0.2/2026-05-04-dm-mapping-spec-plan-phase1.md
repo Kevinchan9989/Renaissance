@@ -1,5 +1,13 @@
 # DM Mapping Spec v0.2 — Phase 1 Implementation Plan
 
+> ⚠️ **PARTIALLY SUPERSEDED 2026-05-05.** Tasks 1–4 of this plan are STILL IN EFFECT
+> (commits `4d266ee`, `e177e17`, `6161f1e`, `27356ad`, `74a9b92`). Tasks 5–17 below
+> have been REPLACED by `2026-05-05-dm-mapping-spec-plan-phase1-lean.md`. Reason: the
+> original plan built parallel data structures (a unified `scope-relationship-map.json`)
+> that duplicated 80% of `omega-ddl-current.dict.json`. The lean plan reuses existing
+> files as the source of truth and only creates sidecars for genuinely new information.
+> See the lean plan for current Tasks LT1–LT9.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Produce `phase1/scope-relationship-map.{md,json}` for the R1 wave — an audited, evidence-cited inventory of every R1 source table with its migration decision, declared & implicit FK relationships, business hierarchies, sample-data validation, row-volume estimates, and a cross-system source→target matrix; plus a Q&A backlog (`open-questions.md`) and verbatim Q&A archives.

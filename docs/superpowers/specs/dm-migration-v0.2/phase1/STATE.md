@@ -10,9 +10,12 @@
 
 1. **The spec:** `docs/superpowers/specs/dm-migration-v0.2/2026-05-04-dm-mapping-spec-design.md`
    — five-phase architecture, gate criteria, three-channel Q&A topology.
-2. **The Phase 1 plan:** `docs/superpowers/specs/dm-migration-v0.2/2026-05-04-dm-mapping-spec-plan-phase1.md`
-   — 17 tasks. Each task has full code + commands. **The plan was amended** (commit `a30cddd`)
-   to fix Task 4's shape assumption — see "Plan amendments below.
+2. **The CURRENT Phase 1 plan (LEAN):** `docs/superpowers/specs/dm-migration-v0.2/2026-05-05-dm-mapping-spec-plan-phase1-lean.md`
+   — 9 tasks (LT1–LT9). Reuses dm-tool's `omega-ddl-current.dict.json` as the comprehension
+   repo and only creates small sidecars for new info. **THIS IS THE ACTIVE PLAN.**
+3. **The PRIOR Phase 1 plan (Tasks 1–4 only still in effect):**
+   `docs/superpowers/specs/dm-migration-v0.2/2026-05-04-dm-mapping-spec-plan-phase1.md`
+   — Tasks 1–4 are done and stay done. Tasks 5–17 superseded by the lean plan.
 3. **Grounding decisions:** `docs/superpowers/specs/dm-migration-v0.2/phase1/grounding-decisions.md`
    — D1–D7 (migration pipeline, R1/R2 module-level boundaries, MNETD=MNET, MLOG pending,
    `_t` audit twins out of scope, `sec.*` folded into `iss.*`, `stg.*` runtime-only).
@@ -58,18 +61,18 @@ Fresh subagent dispatched per task with full task text inlined. Spec compliance 
 
 None. Last subagent (Task 4 fix code-quality re-review) returned APPROVED.
 
-### Next intended action
+### Next intended action (post-pivot 2026-05-05)
 
-Dispatch implementer for **Plan Task 5** (Target DDL extractor — preserves explanations,
-`reviewed` flag, AND emits `comprehension_status` per column per the post-`57f4922`
-amendment). Sonnet model. Plan §B Task 5.
+Per the LEAN plan: dispatch implementer for **LT1 — Inventory extractor** (haiku model,
+~10 min). Reads v0.01 *List of Source Tables* sheet; emits `phase1/inventory.json`. Code
+is essentially Plan Task 6 from the prior plan, with output path changed.
 
-Note: Task 4 (already done at commit `74a9b92`) does NOT emit `explanation`/`possible_values`
-on source columns. The combiner (T8) defaults missing fields to "" via the
-`_attach_comprehension_status` helper; source columns therefore default to
-`comprehension_status: "pending"`. This is acceptable — the user said source-side dm-tool
-explanations are mostly empty anyway, so nothing is lost. If pre-authored source
-explanations turn out to be valuable, dispatch a small Task 4 fix later.
+After LT1, dispatch LT2 (edges extractor, sonnet) and LT3 (open-questions generator,
+sonnet) in sequence. Then move to interactive Q&A burn (LT4–LT6) which is multi-session.
+
+Why this changed: the prior "Plan Task 5" (target DDL extractor) is OBSOLETE —
+`omega-ddl-current.dict.json` already has every field that extractor would have produced.
+We mutate it in-place during Q&A instead of building a parallel scope-relationship-map.json.
 
 ---
 
