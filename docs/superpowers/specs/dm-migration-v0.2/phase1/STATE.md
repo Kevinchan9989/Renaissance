@@ -47,6 +47,7 @@ Fresh subagent dispatched per task with full task text inlined. Spec compliance 
 | Commit | What | Why |
 |---|---|---|
 | `a30cddd` | Task 4 shape fix | dm-tool stores all DDL in `data.targets` regardless of file type; `data.sources` is always empty. Source vs target lives at file level via `type` field (oracle vs postgresql). Fixture, test, implementation, expected counts all corrected. |
+| `57f4922` | Column-level comprehension required | User flagged: cannot confidently author Transformation cells without column-by-column understanding on both sides. Phase 1 now establishes per-column comprehension as a gate-blocking deliverable. Schema adds `comprehension_status` per column. T8 attaches status. T12 emits per-table column-batch prompts (QC-*). T17 gates on zero pending. T16 merger contract defined; implementation deferred to that task. |
 
 ### Open follow-ups (not blocking subsequent tasks)
 
@@ -59,8 +60,16 @@ None. Last subagent (Task 4 fix code-quality re-review) returned APPROVED.
 
 ### Next intended action
 
-Dispatch implementer for **Plan Task 5** (Target DDL extractor — preserves explanations
-and `reviewed` flag). Sonnet model. Plan §B Task 5.
+Dispatch implementer for **Plan Task 5** (Target DDL extractor — preserves explanations,
+`reviewed` flag, AND emits `comprehension_status` per column per the post-`57f4922`
+amendment). Sonnet model. Plan §B Task 5.
+
+Note: Task 4 (already done at commit `74a9b92`) does NOT emit `explanation`/`possible_values`
+on source columns. The combiner (T8) defaults missing fields to "" via the
+`_attach_comprehension_status` helper; source columns therefore default to
+`comprehension_status: "pending"`. This is acceptable — the user said source-side dm-tool
+explanations are mostly empty anyway, so nothing is lost. If pre-authored source
+explanations turn out to be valuable, dispatch a small Task 4 fix later.
 
 ---
 
@@ -121,8 +130,10 @@ ls dm-tool/src/schemas/
 
 - `ffe838d` — design spec + grounding archive
 - `3e4752e` — Phase 1 plan
-- `a30cddd` — Task 4 plan amendment
+- `a30cddd` — Task 4 plan amendment (data.sources/data.targets shape fix)
 - `4d266ee`, `e177e17`, `6161f1e`, `27356ad`, `74a9b92` — Tasks 1–4 implementation
+- `dbbde86` — STATE.md initial
+- `57f4922` — comprehension amendment (column-level comprehension as Phase 1 gate)
 
 If `git log` shows commits beyond `74a9b92` that are not listed above, this STATE.md is
 stale; trust git over this file.
