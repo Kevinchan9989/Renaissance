@@ -1,0 +1,872 @@
+{
+  "ABA0011_DAILY_PRICE": {
+    "domain": "Daily Price",
+    "schema": "MNETD",
+    "draft_to_migrate": "Y",
+    "wave": "R2"
+  },
+  "ABA0012_DP_STATUS": {
+    "domain": "Daily Price",
+    "schema": "MNETD",
+    "draft_to_migrate": "Y",
+    "wave": "R2"
+  },
+  "ABA0015_PRICE_SPREAD": {
+    "domain": "Daily Price",
+    "schema": "MNETD",
+    "draft_to_migrate": "Y",
+    "wave": "R2"
+  },
+  "ABA0016_DAILY_EXTRA_DATA": {
+    "domain": "Daily Price",
+    "schema": "MNETD",
+    "draft_to_migrate": "Y",
+    "wave": "R2"
+  },
+  "ABA0017_FINAL_DAILY_PRICE": {
+    "domain": "Daily Price",
+    "schema": "MNETD",
+    "draft_to_migrate": "Y",
+    "wave": "R2"
+  },
+  "ABA0018_FINAL_EXTRA_PRICE": {
+    "domain": "Daily Price",
+    "schema": "MNETD",
+    "draft_to_migrate": "Y",
+    "wave": "R2"
+  },
+  "ABA0025_OUTSTANDING_SGS": {
+    "domain": "Daily Price",
+    "schema": "MNETD",
+    "draft_to_migrate": "Y",
+    "wave": "R2"
+  },
+  "ABA0026_OUTSTANDING_MAS": {
+    "domain": "Daily Price",
+    "schema": "MNETD",
+    "draft_to_migrate": "Y",
+    "wave": "R2"
+  },
+  "ABA0029_SORA_RATE": {
+    "domain": "Daily Price",
+    "schema": "MNETD",
+    "draft_to_migrate": "Y",
+    "wave": "R2"
+  },
+  "ABA0031_OUTSTANDING_FRN": {
+    "domain": "Daily Price",
+    "schema": "MNETD",
+    "draft_to_migrate": "Y",
+    "wave": "R2"
+  },
+  "ABA0033_ISSUANCE_REDEMPT_SGS": {
+    "domain": "Daily Price",
+    "schema": "MNETD",
+    "draft_to_migrate": "Y",
+    "wave": "R2"
+  },
+  "ABA0036_STAGE_SORA_AMMO": {
+    "domain": "Daily Price",
+    "schema": "MNETD",
+    "draft_to_migrate": "Y",
+    "wave": "R2"
+  },
+  "ABA0001_SECURITY_MASTER": {
+    "domain": "eApps",
+    "schema": "MNETD & PRI1",
+    "draft_to_migrate": "Y",
+    "wave": "R1"
+  },
+  "ABA0002_FRN_ISSUE": {
+    "domain": "eApps",
+    "schema": "MNETD",
+    "draft_to_migrate": "N",
+    "wave": "R1"
+  },
+  "ABA0004_ENCRYPTED_TRANSACTION": {
+    "domain": "eApps",
+    "schema": "MNETD",
+    "draft_to_migrate": "N",
+    "wave": "R1"
+  },
+  "ABA0004_RETAIL_BID_TRANS": {
+    "domain": "eApps",
+    "schema": "MNETD",
+    "draft_to_migrate": "N",
+    "wave": "R1"
+  },
+  "ABA0005_RSA_TEXT_ENC_TRANS": {
+    "domain": "eApps",
+    "schema": "MNETD",
+    "draft_to_migrate": "N",
+    "wave": "R1"
+  },
+  "ABA0006_AUCTION_RESULT": {
+    "domain": "eApps",
+    "schema": "MNETD & PRI1",
+    "draft_to_migrate": "N",
+    "wave": "R1"
+  },
+  "ABA0007_DETAIL_AUCTION_RESULT": {
+    "domain": "eApps",
+    "schema": "MNETD & PRI1",
+    "draft_to_migrate": "Y",
+    "wave": "R1"
+  },
+  "ABA0008_AUCTION_AUDIT_LOG": {
+    "domain": "eApps",
+    "schema": "PRI1",
+    "draft_to_migrate": "N",
+    "wave": "R1"
+  },
+  "ABA0008_STAGE_SECURITY_MASTER": {
+    "domain": "eApps",
+    "schema": "MNETD",
+    "draft_to_migrate": "TBD",
+    "wave": "R1"
+  },
+  "ABA0009_BANK_MASTER": {
+    "domain": "eApps",
+    "schema": "MNETD",
+    "draft_to_migrate": "Y",
+    "wave": "R1"
+  },
+  "ABA0009_EAUCTION_CONFIG": {
+    "domain": "eApps",
+    "schema": "PRI1",
+    "draft_to_migrate": "N",
+    "wave": "R1"
+  },
+  "ABA0010_ANNOUNCE_TEXT": {
+    "domain": "eApps",
+    "schema": "MNETD",
+    "draft_to_migrate": "Y",
+    "wave": "R1"
+  },
+  "ABA0010_EAUCTION_AUCTION_CUTOFF_TIME": {
+    "domain": "eApps",
+    "schema": "PRI1",
+    "draft_to_migrate": "N",
+    "wave": "R1"
+  },
+  "ABA0013_PRIMARY_DEALER": {
+    "domain": "eApps",
+    "schema": "MNETD",
+    "draft_to_migrate": "Y",
+    "wave": "R1"
+  },
+  "ABA0019_PUBLIC_HOLIDAY": {
+    "domain": "eApps",
+    "schema": "MNETD",
+    "draft_to_migrate": "Y",
+    "wave": "R1"
+  },
+  "ABA0020_STAGING_BANK_MASTER": {
+    "domain": "eApps",
+    "schema": "MNETD",
+    "draft_to_migrate": "TBD",
+    "wave": "R1"
+  },
+  "ABA0021_ISSUE_CALENDAR": {
+    "domain": "eApps",
+    "schema": "MNETD",
+    "draft_to_migrate": "Y",
+    "wave": "R1"
+  },
+  "ABA0022_NON_BENCHMARK": {
+    "domain": "eApps",
+    "schema": "MNETD",
+    "draft_to_migrate": "TBD",
+    "wave": "R1"
+  },
+  "ABA0023_AUDIT_ACTION": {
+    "domain": "eApps",
+    "schema": "MNETD",
+    "draft_to_migrate": "N",
+    "wave": "R1"
+  },
+  "ABA0024_USER_SESSION": {
+    "domain": "eApps",
+    "schema": "MNETD",
+    "draft_to_migrate": "N",
+    "wave": "R1"
+  },
+  "ABA0030_CORP_PASS_MAPPING": {
+    "domain": "eApps",
+    "schema": "MNETD",
+    "draft_to_migrate": "Y",
+    "wave": "R1"
+  },
+  "ABA0032_EAPPS_CONFIG": {
+    "domain": "eApps",
+    "schema": "MNETD",
+    "draft_to_migrate": "N",
+    "wave": "R1"
+  },
+  "ABA0034_EAPPS_SUBMISSION_CUTOFF_TIME": {
+    "domain": "eApps",
+    "schema": "MNETD",
+    "draft_to_migrate": "N",
+    "wave": "R1"
+  },
+  "ABA0035_RETAILBID_FILE": {
+    "domain": "eApps",
+    "schema": "MNETD",
+    "draft_to_migrate": "N",
+    "wave": "R1"
+  },
+  "ABA0035_SECURITY_MASTER_CTG_STG": {
+    "domain": "eApps",
+    "schema": "PRI1",
+    "draft_to_migrate": "N",
+    "wave": "R1"
+  },
+  "ABA0036_RETAILBID_FILE": {
+    "domain": "eApps",
+    "schema": "PRI1",
+    "draft_to_migrate": "N",
+    "wave": "R1"
+  },
+  "AQA0001_LIMIT": {
+    "domain": "eApps",
+    "schema": "PRI1",
+    "draft_to_migrate": "N",
+    "wave": "R1"
+  },
+  "AQA0002_TRANSACTION": {
+    "domain": "eApps",
+    "schema": "PRI1",
+    "draft_to_migrate": "N",
+    "wave": "R1"
+  },
+  "AQA0003_USER": {
+    "domain": "eApps",
+    "schema": "PRI1",
+    "draft_to_migrate": "Y",
+    "wave": "R1"
+  },
+  "AQA0004_LEVEL_ACTION": {
+    "domain": "eApps",
+    "schema": "PRI1",
+    "draft_to_migrate": "Y",
+    "wave": "R1"
+  },
+  "AQA0005_REPORT_COUNTER": {
+    "domain": "eApps",
+    "schema": "PRI1",
+    "draft_to_migrate": "N",
+    "wave": "R1"
+  },
+  "AQA0006_EAPPS_TRANSACTION": {
+    "domain": "eApps",
+    "schema": "PRI1",
+    "draft_to_migrate": "N",
+    "wave": "R1"
+  },
+  "AQA0007_COPY_SEC_MASTER_IND": {
+    "domain": "eApps",
+    "schema": "PRI1",
+    "draft_to_migrate": "N",
+    "wave": "R1"
+  },
+  "AQA0008_SEC_AUCTION_PARA": {
+    "domain": "eApps",
+    "schema": "MNETD & PRI1",
+    "draft_to_migrate": "N",
+    "wave": "R1"
+  },
+  "AQA0009_SEC_AUCTION_PARA_CTG_STG": {
+    "domain": "eApps",
+    "schema": "PRI1",
+    "draft_to_migrate": "N",
+    "wave": "R1"
+  },
+  "AQA0010_ACTION_REF": {
+    "domain": "eApps",
+    "schema": "PRI1",
+    "draft_to_migrate": "Y",
+    "wave": "R1"
+  },
+  "AQA0011_USER_SESSION": {
+    "domain": "eApps",
+    "schema": "PRI1",
+    "draft_to_migrate": "N",
+    "wave": "R1"
+  },
+  "AQA0017_AUCTION_IND": {
+    "domain": "eApps",
+    "schema": "PRI1",
+    "draft_to_migrate": "N",
+    "wave": "R1"
+  },
+  "AQA0018_RETAIL_BID_PROC_IND": {
+    "domain": "eApps",
+    "schema": "PRI1",
+    "draft_to_migrate": "N",
+    "wave": "R1"
+  },
+  "AQA0019_AUCTION_REPORT_IND": {
+    "domain": "eApps",
+    "schema": "PRI1",
+    "draft_to_migrate": "N",
+    "wave": "R1"
+  },
+  "AQA0020_AUCTION_RESULTS_REPORT": {
+    "domain": "eApps",
+    "schema": "MNETD & PRI1",
+    "draft_to_migrate": "N",
+    "wave": "R1"
+  },
+  "AQA0021_AUCTION_RESULTS_REPORT_CTG_STG": {
+    "domain": "eApps",
+    "schema": "PRI1",
+    "draft_to_migrate": "N",
+    "wave": "R1"
+  },
+  "AQA0104_SYSTEM_PARM": {
+    "domain": "eApps",
+    "schema": "PRI1",
+    "draft_to_migrate": "N",
+    "wave": "R1"
+  },
+  "AQA0105_CYCLE": {
+    "domain": "eApps",
+    "schema": "PRI1",
+    "draft_to_migrate": "N",
+    "wave": "R1"
+  },
+  "AQA0107_AUDIT_LOG": {
+    "domain": "eApps",
+    "schema": "PRI1",
+    "draft_to_migrate": "N",
+    "wave": "R1"
+  },
+  "AQA0108_LOG_DETAIL": {
+    "domain": "eApps",
+    "schema": "PRI1",
+    "draft_to_migrate": "N",
+    "wave": "R1"
+  },
+  "ABA0501_ENCRYPTED_REPO_TRANS": {
+    "domain": "ERF",
+    "schema": "MNETD",
+    "draft_to_migrate": "Y",
+    "wave": "R2"
+  },
+  "ABA0502_PUB_KEY": {
+    "domain": "ERF",
+    "schema": "MNETD",
+    "draft_to_migrate": "Y",
+    "wave": "R2"
+  },
+  "ABA0503_OPEN_ISSUES": {
+    "domain": "ERF",
+    "schema": "MNETD",
+    "draft_to_migrate": "Y",
+    "wave": "R2"
+  },
+  "ABA0504_AUCTION_SUMMARY": {
+    "domain": "ERF",
+    "schema": "MNETD",
+    "draft_to_migrate": "Y",
+    "wave": "R2"
+  },
+  "ABA0505_AUCTION_DETAILS": {
+    "domain": "ERF",
+    "schema": "MNETD",
+    "draft_to_migrate": "Y",
+    "wave": "R2"
+  },
+  "ABA0506_SYSTEM_PARM": {
+    "domain": "ERF",
+    "schema": "MNETD",
+    "draft_to_migrate": "Y",
+    "wave": "R2"
+  },
+  "ABA0507_SPLIT_BIDS": {
+    "domain": "ERF",
+    "schema": "MNETD",
+    "draft_to_migrate": "Y",
+    "wave": "R2"
+  },
+  "ABA0601_ENCRYPTED_REPO_TRANS": {
+    "domain": "ERF",
+    "schema": "MNETD",
+    "draft_to_migrate": "Y",
+    "wave": "R2"
+  },
+  "ABA0603_OPEN_ISSUES": {
+    "domain": "ERF",
+    "schema": "MNETD",
+    "draft_to_migrate": "Y",
+    "wave": "R2"
+  },
+  "ABA0605_TRADE_DETAILS": {
+    "domain": "ERF",
+    "schema": "MNETD",
+    "draft_to_migrate": "Y",
+    "wave": "R2"
+  },
+  "ABA0606_SYSTEM_PARM": {
+    "domain": "ERF",
+    "schema": "MNETD",
+    "draft_to_migrate": "Y",
+    "wave": "R2"
+  },
+  "ABA0608_LEGAL_LOG": {
+    "domain": "ERF",
+    "schema": "MNETD",
+    "draft_to_migrate": "Y",
+    "wave": "R2"
+  },
+  "ABA0610_REJECTED_ISSUES": {
+    "domain": "ERF",
+    "schema": "MNETD",
+    "draft_to_migrate": "Y",
+    "wave": "R2"
+  },
+  "AQA0101_REPO_TRANS": {
+    "domain": "ERF",
+    "schema": "PRI1",
+    "draft_to_migrate": "Y",
+    "wave": "R2"
+  },
+  "AQA0102_USER": {
+    "domain": "ERF",
+    "schema": "PRI1",
+    "draft_to_migrate": "Y",
+    "wave": "R2"
+  },
+  "AQA0103_PRIVATE_KEY": {
+    "domain": "ERF",
+    "schema": "PRI1",
+    "draft_to_migrate": "Y",
+    "wave": "R2"
+  },
+  "AQA0104_ERF_SYSTEM_PARM": {
+    "domain": "ERF",
+    "schema": "PRI1",
+    "draft_to_migrate": "Y",
+    "wave": "R2"
+  },
+  "AQA0105_ERF_CYCLE": {
+    "domain": "ERF",
+    "schema": "PRI1",
+    "draft_to_migrate": "Y",
+    "wave": "R2"
+  },
+  "AQA0107_ERF_AUDIT_LOG": {
+    "domain": "ERF",
+    "schema": "PRI1",
+    "draft_to_migrate": "Y",
+    "wave": "R2"
+  },
+  "AQA0108_ERF_LOG_DETAIL": {
+    "domain": "ERF",
+    "schema": "PRI1",
+    "draft_to_migrate": "Y",
+    "wave": "R2"
+  },
+  "AQA0111_CANCEL_TRADE": {
+    "domain": "ERF",
+    "schema": "PRI1",
+    "draft_to_migrate": "Y",
+    "wave": "R2"
+  },
+  "AQA0112_DUR_RATE": {
+    "domain": "ERF",
+    "schema": "PRI1",
+    "draft_to_migrate": "Y",
+    "wave": "R2"
+  },
+  "AQA0113_USER_SESSION": {
+    "domain": "ERF",
+    "schema": "PRI1",
+    "draft_to_migrate": "Y",
+    "wave": "R2"
+  },
+  "MLOG$_ABA0001_SECURITY_MAS": {
+    "domain": "MLOG",
+    "schema": "MNETD & PRI1",
+    "draft_to_migrate": "N",
+    "wave": "R1"
+  },
+  "MLOG$_ABA0017_FINAL_DAILY": {
+    "domain": "MLOG",
+    "schema": "MNETD",
+    "draft_to_migrate": "N",
+    "wave": "R1"
+  },
+  "MLOG$_ABA0018_FINAL_EXTRA": {
+    "domain": "MLOG",
+    "schema": "MNETD",
+    "draft_to_migrate": "N",
+    "wave": "R1"
+  },
+  "ABA0101_SB_SECURITY_MASTER": {
+    "domain": "SBA",
+    "schema": "MNETD",
+    "draft_to_migrate": "TBD",
+    "wave": "R1"
+  },
+  "ABA0108_SB_STAGE_SEC_MASTER": {
+    "domain": "SBA",
+    "schema": "MNETD",
+    "draft_to_migrate": "TBD",
+    "wave": "R1"
+  },
+  "ABA0110_SB_ANNOUNCE_TEXT": {
+    "domain": "SBA",
+    "schema": "MNETD",
+    "draft_to_migrate": "TBD",
+    "wave": "R1"
+  },
+  "ABA0121_SB_ISSUE_CALENDAR": {
+    "domain": "SBA",
+    "schema": "MNETD",
+    "draft_to_migrate": "TBD",
+    "wave": "R1"
+  },
+  "ABA0124_SB_COUPON_RATE_DETAILS": {
+    "domain": "SBA",
+    "schema": "MNETD",
+    "draft_to_migrate": "TBD",
+    "wave": "R1"
+  },
+  "ABA0125_SB_STAGE_COUPON_RATE": {
+    "domain": "SBA",
+    "schema": "MNETD",
+    "draft_to_migrate": "TBD",
+    "wave": "R1"
+  },
+  "ABA0126_SB_REDEMPTION_RESULT": {
+    "domain": "SBA",
+    "schema": "MNETD",
+    "draft_to_migrate": "TBD",
+    "wave": "R1"
+  },
+  "ABA0127_SB_SYSTEM_CONFIG": {
+    "domain": "SBA",
+    "schema": "MNETD",
+    "draft_to_migrate": "TBD",
+    "wave": "R1"
+  },
+  "ABA0212_SB_REPORT": {
+    "domain": "SBA",
+    "schema": "PRI1",
+    "draft_to_migrate": "TBD",
+    "wave": "R1"
+  },
+  "ABA0213_SB_REPORT_FILE": {
+    "domain": "SBA",
+    "schema": "PRI1",
+    "draft_to_migrate": "TBD",
+    "wave": "R1"
+  },
+  "ABA0214_SB_CD_FILE_TYPE": {
+    "domain": "SBA",
+    "schema": "MNETD & PRI1",
+    "draft_to_migrate": "TBD",
+    "wave": "R1"
+  },
+  "ABA0215_SB_CD_FILE_STATUS": {
+    "domain": "SBA",
+    "schema": "PRI1",
+    "draft_to_migrate": "TBD",
+    "wave": "R1"
+  },
+  "ABA0216_SB_CD_RECORD_STATUS": {
+    "domain": "SBA",
+    "schema": "PRI1",
+    "draft_to_migrate": "TBD",
+    "wave": "R1"
+  },
+  "ABA0217_SB_CD_NATION": {
+    "domain": "SBA",
+    "schema": "PRI1",
+    "draft_to_migrate": "TBD",
+    "wave": "R1"
+  },
+  "ABA0218_SB_CD_NATION_CTY": {
+    "domain": "SBA",
+    "schema": "PRI1",
+    "draft_to_migrate": "TBD",
+    "wave": "R1"
+  },
+  "ABA0219_SB_CD_FILE_ERROR_DESC": {
+    "domain": "SBA",
+    "schema": "PRI1",
+    "draft_to_migrate": "TBD",
+    "wave": "R1"
+  },
+  "ABA0220_SB_CD_RECORD_ERR_DESC": {
+    "domain": "SBA",
+    "schema": "PRI1",
+    "draft_to_migrate": "TBD",
+    "wave": "R1"
+  },
+  "ABA0221_SB_CD_BATCHJOB_STATUS": {
+    "domain": "SBA",
+    "schema": "PRI1",
+    "draft_to_migrate": "TBD",
+    "wave": "R1"
+  },
+  "ABA0222_SB_ORG": {
+    "domain": "SBA",
+    "schema": "MNETD & PRI1",
+    "draft_to_migrate": "TBD",
+    "wave": "R1"
+  },
+  "ABA0223_SB_APPLICANT": {
+    "domain": "SBA",
+    "schema": "PRI1",
+    "draft_to_migrate": "TBD",
+    "wave": "R1"
+  },
+  "ABA0223_SB_PGP_CONFIG": {
+    "domain": "SBA",
+    "schema": "MNETD",
+    "draft_to_migrate": "TBD",
+    "wave": "R1"
+  },
+  "ABA0224_SB_SUBSCRIPT": {
+    "domain": "SBA",
+    "schema": "PRI1",
+    "draft_to_migrate": "TBD",
+    "wave": "R1"
+  },
+  "ABA0225_SB_SUBSCRIPT_DT": {
+    "domain": "SBA",
+    "schema": "PRI1",
+    "draft_to_migrate": "TBD",
+    "wave": "R1"
+  },
+  "ABA0226_SB_SUBSCRIPT_DT_ERR": {
+    "domain": "SBA",
+    "schema": "PRI1",
+    "draft_to_migrate": "TBD",
+    "wave": "R1"
+  },
+  "ABA0227_SB_REDEMPTION": {
+    "domain": "SBA",
+    "schema": "PRI1",
+    "draft_to_migrate": "TBD",
+    "wave": "R1"
+  },
+  "ABA0228_SB_REDEMPTION_DT": {
+    "domain": "SBA",
+    "schema": "PRI1",
+    "draft_to_migrate": "TBD",
+    "wave": "R1"
+  },
+  "ABA0229_SB_REDEMPTION_DT_ERR": {
+    "domain": "SBA",
+    "schema": "PRI1",
+    "draft_to_migrate": "TBD",
+    "wave": "R1"
+  },
+  "ABA0230_SB_HLD_INFO": {
+    "domain": "SBA",
+    "schema": "PRI1",
+    "draft_to_migrate": "TBD",
+    "wave": "R1"
+  },
+  "ABA0231_SB_HLD_INFO_DT": {
+    "domain": "SBA",
+    "schema": "PRI1",
+    "draft_to_migrate": "TBD",
+    "wave": "R1"
+  },
+  "ABA0232_SB_ALLOTMENT_RESULT": {
+    "domain": "SBA",
+    "schema": "PRI1",
+    "draft_to_migrate": "TBD",
+    "wave": "R1"
+  },
+  "ABA0233_SB_BATCH_JOB": {
+    "domain": "SBA",
+    "schema": "PRI1",
+    "draft_to_migrate": "TBD",
+    "wave": "R1"
+  },
+  "ABA0234_SB_BATCH_JOB_EXECUTION": {
+    "domain": "SBA",
+    "schema": "PRI1",
+    "draft_to_migrate": "TBD",
+    "wave": "R1"
+  },
+  "ABA0235_SB_SUBMISSION_SUMMARY": {
+    "domain": "SBA",
+    "schema": "PRI1",
+    "draft_to_migrate": "TBD",
+    "wave": "R1"
+  },
+  "ABA0236_SB_HLD_INFO_DT_ERR": {
+    "domain": "SBA",
+    "schema": "PRI1",
+    "draft_to_migrate": "TBD",
+    "wave": "R1"
+  },
+  "ABA0237_SB_USER": {
+    "domain": "SBA",
+    "schema": "PRI1",
+    "draft_to_migrate": "TBD",
+    "wave": "R1"
+  },
+  "ABA0238_SB_LEVEL_ACTION": {
+    "domain": "SBA",
+    "schema": "PRI1",
+    "draft_to_migrate": "TBD",
+    "wave": "R1"
+  },
+  "ABA0239_SB_ACTION_REF": {
+    "domain": "SBA",
+    "schema": "PRI1",
+    "draft_to_migrate": "TBD",
+    "wave": "R1"
+  },
+  "ABA0240_SB_CD_SUBMISSION_TYPE": {
+    "domain": "SBA",
+    "schema": "PRI1",
+    "draft_to_migrate": "TBD",
+    "wave": "R1"
+  },
+  "ABA0241_SB_RESULT_FILE": {
+    "domain": "SBA",
+    "schema": "PRI1",
+    "draft_to_migrate": "TBD",
+    "wave": "R1"
+  },
+  "ABA0250_SB_AUDIT_LOG": {
+    "domain": "SBA",
+    "schema": "PRI1",
+    "draft_to_migrate": "TBD",
+    "wave": "R1"
+  },
+  "ABA0251_SB_CONT_MAKE_CHECK": {
+    "domain": "SBA",
+    "schema": "PRI1",
+    "draft_to_migrate": "TBD",
+    "wave": "R1"
+  },
+  "ABA0252_SB_SYSCONF_MAKE_CHECK": {
+    "domain": "SBA",
+    "schema": "PRI1",
+    "draft_to_migrate": "TBD",
+    "wave": "R1"
+  },
+  "ABA0280_SB_TEMP_APP_SUB_DT": {
+    "domain": "SBA",
+    "schema": "PRI1",
+    "draft_to_migrate": "TBD",
+    "wave": "R1"
+  },
+  "ABA0281_SB_TEMP_HOLDING": {
+    "domain": "SBA",
+    "schema": "PRI1",
+    "draft_to_migrate": "TBD",
+    "wave": "R1"
+  },
+  "ABA0282_SB_CD_APPLICATION_TYPE": {
+    "domain": "SBA",
+    "schema": "PRI1",
+    "draft_to_migrate": "TBD",
+    "wave": "R1"
+  },
+  "ABA0283_SB_COUPON_RESULT_FILE": {
+    "domain": "SBA",
+    "schema": "PRI1",
+    "draft_to_migrate": "TBD",
+    "wave": "R1"
+  },
+  "ABA0284_SB_PORTAL_SYNC": {
+    "domain": "SBA",
+    "schema": "PRI1",
+    "draft_to_migrate": "TBD",
+    "wave": "R1"
+  },
+  "ABA0285_SB_USER_SESSION": {
+    "domain": "SBA",
+    "schema": "PRI1",
+    "draft_to_migrate": "TBD",
+    "wave": "R1"
+  },
+  "AQA0012_SYNDICATION_INS_RET_DT": {
+    "domain": "Syndication",
+    "schema": "PRI1",
+    "draft_to_migrate": "TBD",
+    "wave": "R1"
+  },
+  "AQA0013_SYNDICATION_COUPON_DT": {
+    "domain": "Syndication",
+    "schema": "PRI1",
+    "draft_to_migrate": "TBD",
+    "wave": "R1"
+  },
+  "AQA0014_SYNDICATION_RPT_COUNT": {
+    "domain": "Syndication",
+    "schema": "PRI1",
+    "draft_to_migrate": "TBD",
+    "wave": "R1"
+  },
+  "AQA0015_COPY_SYND_SEC_MAST_IND": {
+    "domain": "Syndication",
+    "schema": "PRI1",
+    "draft_to_migrate": "TBD",
+    "wave": "R1"
+  },
+  "AQA0016_SYNDICATED_SEC_MAST_DT": {
+    "domain": "Syndication",
+    "schema": "PRI1",
+    "draft_to_migrate": "TBD",
+    "wave": "R1"
+  },
+  "ABA0027_BATCH_JOB": {
+    "domain": "System Batch Job",
+    "schema": "MNETD",
+    "draft_to_migrate": "N",
+    "wave": "R1"
+  },
+  "ABA0028_BATCH_JOB_EXECUTION": {
+    "domain": "System Batch Job",
+    "schema": "MNETD",
+    "draft_to_migrate": "N",
+    "wave": "R1"
+  },
+  "BATCH_JOB_EXECUTION": {
+    "domain": "System Batch Job",
+    "schema": "PRI1",
+    "draft_to_migrate": "N",
+    "wave": "R1"
+  },
+  "BATCH_JOB_EXECUTION_CONTEXT": {
+    "domain": "System Batch Job",
+    "schema": "PRI1",
+    "draft_to_migrate": "N",
+    "wave": "R1"
+  },
+  "BATCH_JOB_EXECUTION_PARAMS": {
+    "domain": "System Batch Job",
+    "schema": "PRI1",
+    "draft_to_migrate": "N",
+    "wave": "R1"
+  },
+  "BATCH_JOB_INSTANCE": {
+    "domain": "System Batch Job",
+    "schema": "PRI1",
+    "draft_to_migrate": "N",
+    "wave": "R1"
+  },
+  "BATCH_STEP_EXECUTION": {
+    "domain": "System Batch Job",
+    "schema": "PRI1",
+    "draft_to_migrate": "N",
+    "wave": "R1"
+  },
+  "BATCH_STEP_EXECUTION_CONTEXT": {
+    "domain": "System Batch Job",
+    "schema": "PRI1",
+    "draft_to_migrate": "N",
+    "wave": "R1"
+  }
+}
