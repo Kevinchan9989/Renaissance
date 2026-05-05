@@ -338,6 +338,71 @@ If `needs_user_review: true`, that fact does not become a decision until you con
 The map's JSON cross-references the archive file ID for every claim that came from a Q&A
 channel.
 
+### 5.6a Column-level comprehension (added 2026-05-05)
+
+Phase 1 must establish, before any per-module mapping work begins, a column-level
+*understanding* of every Y-to-migrate column on both source and target sides. Without
+this, transformation cells in Phase 5 are guesswork dressed in citations.
+
+**Per-column requirement:** every Y-to-migrate column has either:
+- `comprehension_status: "reviewed"` with `explanation` (string) and `possible_values`
+  (string) populated, plus at least one entry in `comprehension_evidence_refs` pointing
+  at a Q&A archive ID, OR
+- `comprehension_status: "skip"` with a one-sentence rationale in the column's
+  `explanation` field (e.g., "legacy artifact column, not migrated, source-side only").
+
+`comprehension_status: "pending"` is allowed during Phase 1 execution but **the Phase 1
+gate fails if any Y-to-migrate column on a Y-to-migrate table is still pending.**
+
+**Sourcing comprehension (priority order):**
+
+1. **dm-tool's existing `reviewed: true` entries** in `omega-ddl-current.dict.json` —
+   target-side; already trustworthy. T8 combiner seeds these as `reviewed`.
+2. **NotebookLM batched table-level queries** — for each Y-to-migrate target table where
+   coverage from (1) is incomplete, emit one prompt covering all the table's columns at
+   once. Reduces query count from per-column to per-table.
+3. **Legacy-source channel** — same pattern for source-side tables (eApps, SBA,
+   Syndication, etc.).
+4. **OMEGA DB sample-value queries** — when business semantics are clear but value
+   distributions / null patterns aren't.
+5. **User direct** — your input fills any residual gaps; recorded as a user-channel Q&A.
+
+**Comprehension Q&A archive shape (extension of §5.5):**
+
+```yaml
+---
+id: QC-NNN
+date: 2026-MM-DD
+phase: 1
+channel: notebooklm | legacy-source | omega-db | user
+topic: "Column comprehension: <table_name>"
+prompt: |
+  <verbatim batched prompt covering all table columns>
+answer: |
+  <verbatim batched answer>
+column_explanations:
+  <column_name>:
+    explanation: "..."
+    possible_values: "..."
+    citation: "..."   # optional per-column citation
+  <column_name>:
+    ...
+evaluation:
+  confidence: high | medium | low
+  needs_user_review: <bool>
+---
+```
+
+The merger (Task 16) reads `column_explanations` and assigns each column's entry into
+the scope-relationship-map's `tables[].columns[]` records, setting
+`comprehension_status: "reviewed"` and appending the archive ID to
+`comprehension_evidence_refs`.
+
+**Mirror-back to dm-tool (Phase 5):** at v0.2 export time, comprehension content also
+flows back into dm-tool's storage so the tool's data dictionary reflects the audited
+explanations. This keeps two sources of truth from drifting and lets future you
+re-author from the tool's UI without losing context.
+
 ### 5.6 Sample-data integration
 
 dm-tool already persists CSV samples per source table via `sampleDataAttachments` (in

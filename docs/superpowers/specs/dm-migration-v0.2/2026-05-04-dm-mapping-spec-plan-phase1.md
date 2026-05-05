@@ -112,7 +112,9 @@
                 "nullable": { "type": "boolean" },
                 "default": { "type": ["string", "null"] },
                 "explanation": { "type": "string" },
-                "possible_values": { "type": "string" }
+                "possible_values": { "type": "string" },
+                "comprehension_status": { "type": "string", "enum": ["reviewed", "pending", "skip"] },
+                "comprehension_evidence_refs": { "type": "array", "items": { "type": "string" } }
               }
             }
           },
@@ -677,6 +679,11 @@ def extract_from_script_file(path):
                     "type": c.get("type"),
                     "nullable": _coerce_nullable(c.get("nullable")),
                     "default": c.get("default"),
+                    # Preserve any explanation/possibleValues already authored in
+                    # dm-tool. dm-tool uses camelCase 'possibleValues' on its column
+                    # type; we normalize to snake_case 'possible_values' here.
+                    "explanation": c.get("explanation") or "",
+                    "possible_values": c.get("possibleValues") or "",
                 }
                 for c in (t.get("columns") or [])
             ],
@@ -933,16 +940,28 @@ def extract_from_dict_file(path):
         types = v.get("types") or {}
         explanations = v.get("explanations") or {}
         possible_values = v.get("possible_values") or {}
+        table_reviewed = bool(v.get("reviewed", False))
         cols = []
         for col_name, decl in types.items():
             t, nullable, default = _parse_type_decl(decl)
+            col_expl = explanations.get(col_name) or ""
+            col_pv = possible_values.get(col_name) or ""
+            # Comprehension status: "reviewed" only if the table is reviewed
+            # AND the column has both explanation and possible_values populated.
+            # Otherwise "pending" — Phase 1 Q&A must populate it before gate.
+            if table_reviewed and col_expl and col_pv:
+                comp_status = "reviewed"
+            else:
+                comp_status = "pending"
             cols.append({
                 "name": col_name,
                 "type": t,
                 "nullable": nullable,
                 "default": default,
-                "explanation": explanations.get(col_name) or "",
-                "possible_values": possible_values.get(col_name) or "",
+                "explanation": col_expl,
+                "possible_values": col_pv,
+                "comprehension_status": comp_status,
+                "comprehension_evidence_refs": [],
             })
         out.append({
             "name": tbl,
@@ -1455,6 +1474,30 @@ import extract_sample_data as sd
 REPO_ROOT = Path(__file__).parent.parent.parent
 
 
+def _attach_comprehension_status(columns, table_reviewed):
+    """Adds comprehension_status + comprehension_evidence_refs to each column.
+
+    A column is 'reviewed' only if its parent table is reviewed AND both
+    explanation and possible_values are non-empty. Otherwise 'pending'.
+    Phase 1 Q&A must populate explanations before the gate; the gate fails
+    on any 'pending' column whose parent table has decision.to_migrate == 'Y'.
+    """
+    out = []
+    for c in columns:
+        col = {**c}
+        if "explanation" not in col:
+            col["explanation"] = ""
+        if "possible_values" not in col:
+            col["possible_values"] = ""
+        if table_reviewed and col["explanation"] and col["possible_values"]:
+            col["comprehension_status"] = "reviewed"
+        else:
+            col["comprehension_status"] = "pending"
+        col.setdefault("comprehension_evidence_refs", [])
+        out.append(col)
+    return out
+
+
 def build_draft(source_xlsx, source_script, target_dict, workspace, scope="R1"):
     inventory = inv.extract_from_xlsx(source_xlsx)
     source_tables = src.extract_from_script_file(source_script)
@@ -1478,7 +1521,10 @@ def build_draft(source_xlsx, source_script, target_dict, workspace, scope="R1"):
             "schema": t.get("schema", ""),
             "wave": wave or "R1",
             "side": "source",
-            "columns": t["columns"],
+            # Source side: there's no "reviewed" flag in legacy script-*.json,
+            # so default to False — every source column starts as pending until
+            # legacy-source channel Q&A populates its explanation.
+            "columns": _attach_comprehension_status(t["columns"], table_reviewed=False),
             "primary_key": t["primary_key"],
             "row_volume_estimate": {
                 "value": rv_value,
@@ -1502,7 +1548,9 @@ def build_draft(source_xlsx, source_script, target_dict, workspace, scope="R1"):
             "side": "target",
             "description": t.get("description", ""),
             "reviewed": t.get("reviewed", False),
-            "columns": t["columns"],
+            # Target side: comprehension_status comes from per-table reviewed
+            # AND per-column explanation/possible_values via the helper.
+            "columns": _attach_comprehension_status(t["columns"], table_reviewed=t.get("reviewed", False)),
             "primary_key": [],
             "row_volume_estimate": {"value": None, "source": "unknown"},
             "decision": {
@@ -1550,7 +1598,7 @@ def main(argv):
             "schema": t.get("schema", ""),
             "wave": wave or "R1",
             "side": "source",
-            "columns": t["columns"],
+            "columns": _attach_comprehension_status(t["columns"], table_reviewed=False),
             "primary_key": t["primary_key"],
             "row_volume_estimate": {"value": rv_value, "source": rv_source},
             "decision": {
@@ -1568,7 +1616,9 @@ def main(argv):
             "schema": t["schema"],
             "wave": "R1",
             "side": "target",
-            "columns": t["columns"],
+            "description": t.get("description", ""),
+            "reviewed": t.get("reviewed", False),
+            "columns": _attach_comprehension_status(t["columns"], table_reviewed=t.get("reviewed", False)),
             "primary_key": [],
             "row_volume_estimate": {"value": None, "source": "unknown"},
             "decision": {
@@ -2129,7 +2179,38 @@ git commit -m "feat(dm-phase1): render source-target-matrix.md"
 **Files:**
 - Create: `scripts/dm-phase1/generate_open_questions.py`
 
-**Goal:** Walk the JSON for entries with `needs_user_review: true` (tables with TBD decision; edges with low confidence). For each, generate a ready-to-paste prompt. Group by channel (NotebookLM / legacy-source / OMEGA DB / user). Also include the four pre-existing questions from `grounding-decisions.md` (D4, D6 for legacy-source + NotebookLM).
+**Goal:** Walk the JSON for entries with `needs_user_review: true` (tables with TBD decision; edges with low confidence) AND for tables with any column at `comprehension_status: "pending"`. For each, generate a ready-to-paste prompt. Group by channel (NotebookLM / legacy-source / OMEGA DB / user). Also include the four pre-existing questions from `grounding-decisions.md` (D4, D6 for legacy-source + NotebookLM).
+
+**Comprehension batches (added 2026-05-05):** for any table whose decision is Y or TBD AND that has ≥1 pending column, emit a single prompt covering ALL its pending columns at once (one prompt per table, not per column). Routing rule: source-side tables → legacy-source channel; target-side tables → NotebookLM channel. Prompt template:
+
+```
+Comprehend every column on `<table_name>` (<schema/domain>). For each column listed
+below, respond with:
+  - explanation: 1-2 sentence purpose / business role
+  - possible_values: known set of values, ranges, or master-code categories;
+                     "free-form" if not enumerable
+  - notes: any cross-column invariants, lifecycle states, deprecation, or gotchas
+
+Columns:
+  - <col_1> (<type>, nullable=<bool>, default=<default>)
+  - <col_2> (<type>, nullable=<bool>, default=<default>)
+  ...
+
+Return your answer in YAML form so I can paste it into an archive:
+
+  column_explanations:
+    <col_1>:
+      explanation: "..."
+      possible_values: "..."
+      notes: "..."
+    <col_2>:
+      ...
+```
+
+These prompts are tagged with id prefix `QC-` (Q-Comprehension) and stored under
+their channel's archive directory. Task 16's merger reads `column_explanations`
+from the archive YAML and updates each column's `explanation`, `possible_values`,
+and flips its `comprehension_status` to `reviewed`.
 
 - [ ] **Step 1: Implement**
 
@@ -2619,6 +2700,29 @@ if unresolved_e:
 ```
 
 Expected: `Unresolved tables: 0` and `Unresolved edges: 0`. If non-zero, return to Task 13/14/15 for the residual questions.
+
+- [ ] **Step 1b: Check zero pending column comprehension on Y-to-migrate tables**
+
+```bash
+cd "C:/Users/ECQ1025/Downloads/MAS Securities/MAS DM/Renaissance"
+python -c "
+import json
+d = json.load(open('docs/superpowers/specs/dm-migration-v0.2/phase1/scope-relationship-map.json'))
+pending = []
+for t in d['tables']:
+    if t.get('decision', {}).get('to_migrate') != 'Y':
+        continue
+    for c in t.get('columns', []) or []:
+        if c.get('comprehension_status') == 'pending':
+            pending.append(f\"{t['name']}.{c['name']}\")
+print(f'Pending columns on Y-to-migrate tables: {len(pending)}')
+if pending:
+    for p in pending[:20]: print(' ', p)
+    if len(pending) > 20: print(f'  ... +{len(pending)-20} more')
+"
+```
+
+Expected: `Pending columns on Y-to-migrate tables: 0`. If non-zero, return to Task 13/14 for column comprehension batches (QC-* prompts).
 
 - [ ] **Step 2: Validate JSON**
 
