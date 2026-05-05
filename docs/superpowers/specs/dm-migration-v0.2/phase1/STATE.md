@@ -45,6 +45,7 @@ Fresh subagent dispatched per task with full task text inlined. Spec compliance 
 | 3 | Schema validator (TDD, 3 tests) | `6161f1e` |
 | 4 | Source DDL extractor (TDD, 8 tests) | `27356ad` (initial), `74a9b92` (I-1/I-2 fix) |
 | LT1 | Inventory extractor (TDD, 4 tests, 145 entries: 110 R1 + 35 R2) | `d03dc14` (initial), `a514ce3` (header strict + plan note) |
+| LT2 | Edges extractor (TDD, 10 tests, 1289 implicit edges: 772 disjoint / 435 partial / 82 none) | `b69973b` (initial), `f692bf3` (type-compat + backup exclusion + disjoint label) |
 
 ### Plan amendments
 
@@ -64,13 +65,14 @@ None. Last subagent (Task 4 fix code-quality re-review) returned APPROVED.
 
 ### Next intended action (post-pivot 2026-05-05)
 
-LT1 done. Next: dispatch **LT2 — Edges extractor** (sonnet, ~20 min). Reads source DDL
-via existing `extract_source_ddl.extract_all()` + sample data from `backups/workspace.json`
-directly. Captures declared FKs, proposes implicit FKs by name match, validates via
-sample joins, computes confidence. Emits `phase1/edges.json`.
+LT1 + LT2 done. Next: dispatch **LT3 — Open-questions generator** (sonnet, ~15 min).
+Reads `omega-ddl-current.dict.json` + 2 oracle script JSONs + `inventory.json` directly.
+Emits `phase1/open-questions.md` grouped by channel (NotebookLM target comprehension
+batches; legacy-source source comprehension batches; decision audits; 3 grounding
+follow-ups).
 
-After LT2, dispatch LT3 (open-questions generator, sonnet). Then interactive Q&A burn
-(LT4–LT6), multi-session.
+After LT3, the structural skeleton is complete. Phase moves to interactive Q&A burn
+(LT4–LT6), multi-session, paced by NotebookLM 50/day budget and user availability.
 
 ---
 
@@ -138,6 +140,8 @@ ls dm-tool/src/schemas/
 - `dc748a0` — STATE.md after comprehension amendment
 - `9e0b591` — pivot to LEAN plan
 - `d03dc14`, `a514ce3` — LT1 inventory extractor + header strict fix
+- `ca47fcc` — STATE.md update after LT1
+- `b69973b`, `f692bf3` — LT2 edges extractor + noise reduction (type-compat, backup exclusion, disjoint label)
 
 If `git log` shows commits beyond `74a9b92` that are not listed above, this STATE.md is
 stale; trust git over this file.
