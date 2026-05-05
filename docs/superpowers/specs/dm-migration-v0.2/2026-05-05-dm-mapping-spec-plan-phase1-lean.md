@@ -58,8 +58,9 @@ inputs — no further intermediate artifacts.
 - Output: `docs/superpowers/specs/dm-migration-v0.2/phase1/inventory.json`
 
 **Spec:** Read v0.01 *List of Source Tables* sheet → emit dict keyed by tableName with
-fields `{ domain, schema, draft_to_migrate, wave }`. Filter to wave=R1 by default; allow
-override for full inventory dump.
+fields `{ domain, schema, draft_to_migrate, wave }`. Emit ALL rows (no filter). Consumers filter on the `wave` field as needed.
+This is more flexible than baking the filter into the extractor and matches
+what downstream tasks (LT2 edges, LT3 open-questions) want anyway.
 
 (Use the original Plan Task 6 code verbatim; just change the output path to write directly
 to `phase1/inventory.json` rather than the build/ dir.)

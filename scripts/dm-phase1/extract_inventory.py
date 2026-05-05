@@ -13,6 +13,15 @@ def _str(v):
     return "" if v is None else str(v).strip()
 
 
+def _col(idx, name):
+    if name not in idx:
+        raise ValueError(
+            f"Header column {name!r} not found in 'List of Source Tables' sheet; "
+            f"got headers={list(idx)}"
+        )
+    return idx[name]
+
+
 def extract_from_xlsx(path):
     wb = openpyxl.load_workbook(path, data_only=True)
     ws = wb[SHEET_NAME]
@@ -21,18 +30,28 @@ def extract_from_xlsx(path):
         return {}
     header_row = rows[0]
     idx = {h: i for i, h in enumerate(header_row) if h}
+    # Resolve all required headers up-front; raise loudly if any drift.
+    name_i = _col(idx, "Table Name")
+    domain_i = _col(idx, "Module / Domain")
+    schema_i = _col(idx, "Source Schema")
+    mig_i = _col(idx, "To Migrate")
+    wave_i = _col(idx, "Migrate in")
     result = {}
     for r in rows[1:]:
-        # Read by header name with safe fallback to positional indexes
-        name_idx = idx.get("Table Name", 1)
-        name = r[name_idx] if name_idx < len(r) else None
+        # Defensive against ragged rows: openpyxl can produce short tuples
+        # if trailing cells are unset. Pad with None.
+        if name_i >= len(r):
+            continue
+        name = r[name_i]
         if not name or not str(name).strip():
             continue
+        def _safe(i):
+            return r[i] if i < len(r) else None
         result[str(name).strip()] = {
-            "domain": _str(r[idx.get("Module / Domain", 2)]) if idx.get("Module / Domain", 2) < len(r) else "",
-            "schema": _str(r[idx.get("Source Schema", 3)]) if idx.get("Source Schema", 3) < len(r) else "",
-            "draft_to_migrate": _str(r[idx.get("To Migrate", 4)]).upper() if idx.get("To Migrate", 4) < len(r) else "",
-            "wave": _str(r[idx.get("Migrate in", 5)]).upper() if idx.get("Migrate in", 5) < len(r) else "",
+            "domain": _str(_safe(domain_i)),
+            "schema": _str(_safe(schema_i)),
+            "draft_to_migrate": _str(_safe(mig_i)).upper(),
+            "wave": _str(_safe(wave_i)).upper(),
         }
     return result
 
