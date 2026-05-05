@@ -44,6 +44,7 @@ Fresh subagent dispatched per task with full task text inlined. Spec compliance 
 | 2 | Python package skeleton + pinned deps + venv | `e177e17` |
 | 3 | Schema validator (TDD, 3 tests) | `6161f1e` |
 | 4 | Source DDL extractor (TDD, 8 tests) | `27356ad` (initial), `74a9b92` (I-1/I-2 fix) |
+| LT1 | Inventory extractor (TDD, 4 tests, 145 entries: 110 R1 + 35 R2) | `d03dc14` (initial), `a514ce3` (header strict + plan note) |
 
 ### Plan amendments
 
@@ -63,16 +64,13 @@ None. Last subagent (Task 4 fix code-quality re-review) returned APPROVED.
 
 ### Next intended action (post-pivot 2026-05-05)
 
-Per the LEAN plan: dispatch implementer for **LT1 — Inventory extractor** (haiku model,
-~10 min). Reads v0.01 *List of Source Tables* sheet; emits `phase1/inventory.json`. Code
-is essentially Plan Task 6 from the prior plan, with output path changed.
+LT1 done. Next: dispatch **LT2 — Edges extractor** (sonnet, ~20 min). Reads source DDL
+via existing `extract_source_ddl.extract_all()` + sample data from `backups/workspace.json`
+directly. Captures declared FKs, proposes implicit FKs by name match, validates via
+sample joins, computes confidence. Emits `phase1/edges.json`.
 
-After LT1, dispatch LT2 (edges extractor, sonnet) and LT3 (open-questions generator,
-sonnet) in sequence. Then move to interactive Q&A burn (LT4–LT6) which is multi-session.
-
-Why this changed: the prior "Plan Task 5" (target DDL extractor) is OBSOLETE —
-`omega-ddl-current.dict.json` already has every field that extractor would have produced.
-We mutate it in-place during Q&A instead of building a parallel scope-relationship-map.json.
+After LT2, dispatch LT3 (open-questions generator, sonnet). Then interactive Q&A burn
+(LT4–LT6), multi-session.
 
 ---
 
@@ -137,6 +135,9 @@ ls dm-tool/src/schemas/
 - `4d266ee`, `e177e17`, `6161f1e`, `27356ad`, `74a9b92` — Tasks 1–4 implementation
 - `dbbde86` — STATE.md initial
 - `57f4922` — comprehension amendment (column-level comprehension as Phase 1 gate)
+- `dc748a0` — STATE.md after comprehension amendment
+- `9e0b591` — pivot to LEAN plan
+- `d03dc14`, `a514ce3` — LT1 inventory extractor + header strict fix
 
 If `git log` shows commits beyond `74a9b92` that are not listed above, this STATE.md is
 stale; trust git over this file.
