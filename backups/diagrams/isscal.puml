@@ -1,0 +1,54 @@
+@startuml
+skinparam maxMessageSize 150
+skinparam ParticipantPadding 20
+skinparam BoxPadding 10
+
+actor "Issuance Calendar\nMaker" as Maker
+actor "Issuance Calendar\nChecker" as Checker
+box "OMEGA Application Layer" #LightBlue
+participant "OMEGA\nCalendar Module" as OMEGA
+end box
+box "OMEGA Database (iss & stg schemas)" #LightGray
+database "Transaction Tables\n(iss_calendar_*_t)" as TXN_DB
+database "Master Tables\n(iss_calendar_*)" as MST_DB
+database "Interface Staging\n(stg_fi_out_cal)" as STG_DB
+end box
+
+== Phase 1: Calendar Generation & Maker Submission ==
+Maker -> OMEGA : 1. Generate Calendar\n(via Algorithm, Manual, or Upload)
+activate OMEGA
+OMEGA -> TXN_DB : 2. INSERT into iss_calendar_listing_t & iss_calendar_data_t\n(Status = 'ISSCALSTAT_DRAFT', is_history = 'N')
+activate TXN_DB
+TXN_DB --> OMEGA : 3. Draft saved
+deactivate TXN_DB
+
+Maker -> OMEGA : 4. Submit for Approval
+OMEGA -> TXN_DB : 5. UPDATE iss_calendar_listing_t\n(Status = 'ISSCALSTAT_PENDING_APPROVAL')
+TXN_DB --> OMEGA : 6. Status updated
+OMEGA --> Maker : 7. Toast Notification: "Approval request sent"
+deactivate OMEGA
+
+== Phase 2: Checker Approval ==
+Checker -> OMEGA : 8. Review & Approve Calendar
+activate OMEGA
+
+OMEGA -> TXN_DB : 9. UPDATE iss_calendar_*_t\n(Set is_history = 'Y' for audit trail)
+activate TXN_DB
+TXN_DB --> OMEGA : 10. Audit locked
+deactivate TXN_DB
+
+OMEGA -> MST_DB : 11. INSERT into iss_calendar_listing & iss_calendar_data\n(Status = 'ISSCALSTAT_PUBLISHED')
+activate MST_DB
+MST_DB --> OMEGA : 12. Master records created
+deactivate MST_DB
+
+== Phase 3: Outbound Interfaces ==
+OMEGA -> STG_DB : 13. INSERT into stg.stg_fi_out_cal\n(Format data for Retail FIs & CDP)
+activate STG_DB
+STG_DB --> OMEGA : 14. Outbound staging ready
+deactivate STG_DB
+OMEGA -> OMEGA : 15. Send data to MAS Website
+OMEGA --> Checker : 16. Toast Notification: "Approval successful"
+deactivate OMEGA
+
+@enduml

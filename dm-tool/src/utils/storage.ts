@@ -1,5 +1,16 @@
 import { Script, MappingProject, TypeRuleSet, ScriptVersion, FlowchartScript } from '../types';
-import { saveWorkspaceToFile, isElectron } from '../services/electronStorage';
+import {
+  saveWorkspaceToFile,
+  isElectron,
+  saveWorkspaceShards,
+  type ShardSavePayload,
+} from '../services/electronStorage';
+import {
+  initIdbCache,
+  getSync as idbGetSync,
+  setSync as idbSetSync,
+  flushPending as idbFlushPending,
+} from '../services/idbCache';
 
 const STORAGE_KEY = 'dm_tool_data';
 const THEME_KEY = 'dm_tool_theme';
@@ -8,11 +19,64 @@ const MAPPING_PROJECTS_KEY = 'dm_tool_mapping_projects';
 const TYPE_RULE_SETS_KEY = 'dm_tool_type_rule_sets';
 const MAPPING_WORKSPACE_KEY = 'dm_tool_mapping_workspace';
 const FLOWCHART_SCRIPTS_KEY = 'dm_flowchart_scripts';
+const ACTIVE_SCRIPT_ID_KEY = 'dm_tool_active_script_id';
 
 // Git sync settings keys
 const GIT_SYNC_PATH_KEY = 'dm_tool_git_sync_path';
 const GIT_SYNC_ENABLED_KEY = 'dm_tool_git_sync_enabled';
 const GIT_SYNC_LAST_SAVED_KEY = 'dm_tool_git_sync_last_saved';
+
+// ============================================
+// SQLite storage feature flag
+//
+// New default since PR2 (cutover): ON for fresh users. Existing users get
+// the default applied on first launch via ensureSqliteStorageDefault(),
+// which then triggers MigrationSplash to import shards into SQLite.
+//
+// When ON the renderer:
+//   1. tries db.loadWorkspace() first; falls back to shards on failure
+//   2. dual-writes saves to both shards and SQLite (rollback safety during
+//      the 2-release ramp; Phase 4 drops the shard write)
+//
+// Users can flip the flag from Settings → Storage to roll back at any time.
+// ============================================
+const SQLITE_STORAGE_FLAG_KEY = 'dm_tool_use_sqlite_storage';
+const SQLITE_STORAGE_DEFAULT_APPLIED_KEY = 'dm_tool_use_sqlite_storage_default_applied';
+
+export function isSqliteStorageEnabled(): boolean {
+  try {
+    return localStorage.getItem(SQLITE_STORAGE_FLAG_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+export function setSqliteStorageEnabled(enabled: boolean): void {
+  try {
+    if (enabled) localStorage.setItem(SQLITE_STORAGE_FLAG_KEY, 'true');
+    else localStorage.removeItem(SQLITE_STORAGE_FLAG_KEY);
+    // Mark the default as applied so we don't re-flip it back on next launch.
+    localStorage.setItem(SQLITE_STORAGE_DEFAULT_APPLIED_KEY, 'true');
+  } catch {}
+}
+
+/**
+ * Apply the SQLite-by-default policy if it hasn't been applied yet.
+ * Idempotent — safe to call on every launch. After the first call, the flag
+ * is "owned" by the user (manual toggles via setSqliteStorageEnabled persist).
+ *
+ * Only takes effect in Electron, since the SQLite layer doesn't exist in web.
+ */
+export function ensureSqliteStorageDefault(): void {
+  try {
+    if (typeof window === 'undefined') return;
+    if (!window.electronAPI?.isElectron) return;
+    if (localStorage.getItem(SQLITE_STORAGE_DEFAULT_APPLIED_KEY) === 'true') return;
+    // Default is ON for everyone the first time we see them in Electron.
+    localStorage.setItem(SQLITE_STORAGE_FLAG_KEY, 'true');
+    localStorage.setItem(SQLITE_STORAGE_DEFAULT_APPLIED_KEY, 'true');
+  } catch {}
+}
 
 // Git repository sync filename
 export const GIT_WORKSPACE_FILENAME = 'workspace.json';
@@ -146,37 +210,284 @@ export async function triggerGitSync(): Promise<boolean> {
   return true;
 }
 
-// Auto-save to Electron file system when data changes (debounced)
-let electronSaveTimeout: ReturnType<typeof setTimeout> | null = null;
+// ============================================
+// Auto-save scheduler (sharded fast path + slow monolithic snapshot)
+//
+// Fast path (1 sec debounce): write only changed script/flowchart shards
+// to userData/workspace-shards/. Change detection is reference equality
+// against the last-saved snapshot, which matches React's immutable update
+// pattern (unchanged scripts retain object identity across array updates).
+//
+// Slow path (30 sec debounce): consolidate the full WorkspaceData into
+// userData/workspace.json. Keeps the canonical single-file artifact that
+// existing backups, git sync, and import/export rely on.
+// ============================================
+
+// In-memory mirrors of the latest scripts / flowcharts arrays as passed in
+// by the renderer. These hold the SAME object references React holds, which
+// is what makes reference-equality change detection correct. Reading from
+// localStorage instead would parse JSON each time and return fresh objects,
+// defeating the diff. Mirrors are populated by saveScripts / saveFlowchartScripts
+// (and seedSaveSnapshot at startup); reads inside the save scheduler must use
+// these, never loadScripts/loadFlowchartScripts.
+let scriptsMirror: Script[] = [];
+let flowchartsMirror: FlowchartScript[] = [];
+
+// Snapshots used for change detection. Map by id → reference last persisted.
+const lastSavedScriptRef = new Map<string, Script>();
+const lastSavedFlowchartRef = new Map<string, FlowchartScript>();
+// Stringified meta sub-fields (small) — string compare is cheap and exact.
+let lastSavedMetaJson: string | null = null;
+
+function buildMetaForShards() {
+  // Mirrors the meta portion that exportWorkspace assembles, but drops the
+  // heavy scripts/flowcharts arrays (those go to per-shard files).
+  const erdPositions: Record<string, Record<string, { x: number; y: number }>> = {};
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith('erd_positions_')) {
+      const scriptId = key.replace('erd_positions_', '');
+      const data = localStorage.getItem(key);
+      if (data) {
+        try { erdPositions[scriptId] = JSON.parse(data); } catch {}
+      }
+    }
+  }
+  let ddVisibleColumns: unknown = undefined;
+  let ddColumnWidths: unknown = undefined;
+  try {
+    const v = localStorage.getItem(DD_VISIBLE_COLUMNS_KEY);
+    if (v) ddVisibleColumns = JSON.parse(v);
+  } catch {}
+  try {
+    const w = localStorage.getItem(DD_COLUMN_WIDTHS_KEY);
+    if (w) ddColumnWidths = JSON.parse(w);
+  } catch {}
+  return {
+    theme: loadTheme(),
+    themeVariant: loadDarkThemeVariant(),
+    mappingProjects: loadMappingProjects(),
+    typeRuleSets: loadTypeRuleSets(),
+    erdPositions,
+    ddVisibleColumns,
+    ddColumnWidths,
+  };
+}
+
+function diffShardsAgainstSnapshot(
+  scripts: Script[],
+  flowcharts: FlowchartScript[]
+): {
+  changedScripts: Script[];
+  removedScriptIds: string[];
+  changedFlowcharts: FlowchartScript[];
+  removedFlowchartIds: string[];
+} {
+  const changedScripts: Script[] = [];
+  const seenScriptIds = new Set<string>();
+  for (const s of scripts) {
+    seenScriptIds.add(s.id);
+    if (lastSavedScriptRef.get(s.id) !== s) changedScripts.push(s);
+  }
+  const removedScriptIds: string[] = [];
+  for (const id of lastSavedScriptRef.keys()) {
+    if (!seenScriptIds.has(id)) removedScriptIds.push(id);
+  }
+
+  const changedFlowcharts: FlowchartScript[] = [];
+  const seenFlowIds = new Set<string>();
+  for (const f of flowcharts) {
+    seenFlowIds.add(f.id);
+    if (lastSavedFlowchartRef.get(f.id) !== f) changedFlowcharts.push(f);
+  }
+  const removedFlowchartIds: string[] = [];
+  for (const id of lastSavedFlowchartRef.keys()) {
+    if (!seenFlowIds.has(id)) removedFlowchartIds.push(id);
+  }
+
+  return { changedScripts, removedScriptIds, changedFlowcharts, removedFlowchartIds };
+}
+
+/**
+ * Seed the change-detection snapshot from the current mirrors. Called after
+ * a fresh load from disk so the first save after startup is a no-op rather
+ * than a spurious full rewrite.
+ *
+ * Must be called AFTER importWorkspace so the mirrors are populated. The
+ * `scripts` / `flowcharts` parameters are accepted for backward compatibility
+ * but ignored — refs come from the mirrors which are guaranteed to match
+ * what the renderer holds.
+ */
+export function seedSaveSnapshot(_scripts?: Script[], _flowcharts?: FlowchartScript[]): void {
+  lastSavedScriptRef.clear();
+  for (const s of scriptsMirror) lastSavedScriptRef.set(s.id, s);
+  lastSavedFlowchartRef.clear();
+  for (const f of flowchartsMirror) lastSavedFlowchartRef.set(f.id, f);
+  // Snapshot the meta as well so the first auto-save after load doesn't
+  // rewrite meta.json with content identical to what's already on disk.
+  try {
+    lastSavedMetaJson = JSON.stringify(buildMetaForShards());
+  } catch {
+    lastSavedMetaJson = null;
+  }
+}
+
+let shardSaveTimeout: ReturnType<typeof setTimeout> | null = null;
+let monolithicSaveTimeout: ReturnType<typeof setTimeout> | null = null;
+let shardSaveInFlight: Promise<void> | null = null;
+
+async function performShardSave(): Promise<void> {
+  if (!isElectron()) return;
+  // If a shard save is currently running, just chain — the next call will
+  // see the latest in-memory state.
+  if (shardSaveInFlight) {
+    await shardSaveInFlight.catch(() => {});
+  }
+
+  const run = (async () => {
+    // Read from in-memory mirrors so refs are stable across reads
+    // (loadScripts would re-parse JSON and produce fresh refs each call,
+    // making every script appear "changed").
+    const scripts = scriptsMirror;
+    const flowcharts = flowchartsMirror;
+
+    const diff = diffShardsAgainstSnapshot(scripts, flowcharts);
+    const meta = buildMetaForShards();
+    const metaJson = JSON.stringify(meta);
+    const metaChanged = metaJson !== lastSavedMetaJson;
+
+    if (
+      diff.changedScripts.length === 0 &&
+      diff.removedScriptIds.length === 0 &&
+      diff.changedFlowcharts.length === 0 &&
+      diff.removedFlowchartIds.length === 0 &&
+      !metaChanged
+    ) {
+      return; // nothing to do
+    }
+
+    const payload: ShardSavePayload = {
+      changedScripts: diff.changedScripts,
+      removedScriptIds: diff.removedScriptIds,
+      changedFlowcharts: diff.changedFlowcharts,
+      removedFlowchartIds: diff.removedFlowchartIds,
+      meta,
+      manifest: {
+        version: '1.2.0',
+        scriptIds: scripts.map(s => s.id),
+        flowchartIds: flowcharts.map(f => f.id),
+        updatedAt: new Date().toISOString(),
+      },
+    };
+
+    const ok = await saveWorkspaceShards(payload);
+    if (!ok) {
+      console.error('❌ Shard save reported failure — snapshot left untouched, will retry next change');
+      return;
+    }
+
+    // Dual-write to SQLite when the flag is ON. The shard write above is the
+    // source of truth during the rollback ramp; SQLite is shadowed alongside
+    // it so a flag flip-back is consistent. If the SQLite write fails we
+    // log + continue — the shard write already succeeded, so user data is safe.
+    // Phase 4 (post-soak) drops the shard write and leaves SQLite as the
+    // sole writer.
+    if (isSqliteStorageEnabled()) {
+      try {
+        const { dbSaveDiff } = await import('../services/dbStorage');
+        const dbOk = await dbSaveDiff(payload);
+        if (!dbOk) {
+          console.error('❌ SQLite mirror write failed (shards succeeded); next save will retry');
+        }
+      } catch (err) {
+        console.error('❌ SQLite mirror write threw (shards succeeded):', err);
+      }
+    }
+
+    // Update snapshot only after a successful disk write so a failure
+    // doesn't drop the change from future diffs.
+    for (const s of diff.changedScripts) lastSavedScriptRef.set(s.id, s);
+    for (const id of diff.removedScriptIds) lastSavedScriptRef.delete(id);
+    for (const f of diff.changedFlowcharts) lastSavedFlowchartRef.set(f.id, f);
+    for (const id of diff.removedFlowchartIds) lastSavedFlowchartRef.delete(id);
+    if (metaChanged) lastSavedMetaJson = metaJson;
+
+    console.log(
+      `📁 Sharded save: ${diff.changedScripts.length} scripts, ` +
+      `${diff.changedFlowcharts.length} flowcharts, ` +
+      `removed ${diff.removedScriptIds.length + diff.removedFlowchartIds.length}, ` +
+      `meta=${metaChanged}`
+    );
+  })();
+
+  shardSaveInFlight = run;
+  try { await run; } finally { shardSaveInFlight = null; }
+}
+
+async function performMonolithicSave(): Promise<void> {
+  if (!isElectron()) return;
+  try {
+    const workspaceData = exportWorkspace();
+    await saveWorkspaceToFile(workspaceData);
+    console.log('📁 Auto-saved consolidated workspace.json');
+  } catch (error) {
+    console.error('Failed to consolidate workspace.json:', error);
+  }
+}
+
 function scheduleElectronSave() {
   if (!isElectron()) return;
 
-  // Also schedule git sync if enabled
+  // Git sync (unchanged debounce)
   scheduleGitSync();
 
-  // Debounce: wait 2 seconds after last change before saving
-  if (electronSaveTimeout) {
-    clearTimeout(electronSaveTimeout);
-  }
+  // Fast path: 1 sec debounce, only changed shards
+  if (shardSaveTimeout) clearTimeout(shardSaveTimeout);
+  shardSaveTimeout = setTimeout(() => { performShardSave(); }, 1000);
 
-  electronSaveTimeout = setTimeout(async () => {
-    try {
-      const workspaceData = exportWorkspace();
-      await saveWorkspaceToFile(workspaceData);
-      console.log('📁 Auto-saved to local file');
-    } catch (error) {
-      console.error('Failed to auto-save to file:', error);
-    }
-  }, 2000);
+  // Slow path: 30 sec debounce, full workspace.json consolidation
+  if (monolithicSaveTimeout) clearTimeout(monolithicSaveTimeout);
+  monolithicSaveTimeout = setTimeout(() => { performMonolithicSave(); }, 30000);
+}
+
+/**
+ * Force-flush all pending writes:
+ *   - IDB-cached large keys (scripts/flowcharts/mappingProjects)
+ *   - Sharded workspace files (Electron only)
+ *   - Consolidated workspace.json (Electron only)
+ * Call before exporting, before quitting, or whenever the user explicitly saves.
+ */
+export async function flushElectronSaves(): Promise<void> {
+  // IDB flush is needed in both Electron and web modes
+  await idbFlushPending();
+  if (!isElectron()) return;
+  if (shardSaveTimeout) { clearTimeout(shardSaveTimeout); shardSaveTimeout = null; }
+  if (monolithicSaveTimeout) { clearTimeout(monolithicSaveTimeout); monolithicSaveTimeout = null; }
+  await performShardSave();
+  await performMonolithicSave();
 }
 
 // ============================================
 // Script Storage
 // ============================================
 
+// Keys routed through IDB rather than localStorage. They store the largest
+// JSON blobs in the app and were hitting Chromium's ~10MB localStorage cap.
+const IDB_KEYS = [STORAGE_KEY, FLOWCHART_SCRIPTS_KEY, MAPPING_PROJECTS_KEY];
+
+/**
+ * Hydrate the IDB-backed cache for large keys. Must be awaited at startup
+ * before any reads of scripts / flowcharts / mapping projects. After this
+ * resolves, sync reads return the IDB value (or the migrated localStorage
+ * value if this is the first run on a new build).
+ */
+export async function initStorage(): Promise<void> {
+  await initIdbCache(IDB_KEYS);
+}
+
 export function loadScripts(): Script[] {
   try {
-    const data = localStorage.getItem(STORAGE_KEY);
+    const data = idbGetSync(STORAGE_KEY);
     if (data) {
       return JSON.parse(data);
     }
@@ -188,7 +499,8 @@ export function loadScripts(): Script[] {
 
 export function saveScripts(scripts: Script[]): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(scripts));
+    scriptsMirror = scripts; // canonical refs for the diff path
+    idbSetSync(STORAGE_KEY, JSON.stringify(scripts));
     scheduleElectronSave(); // Auto-save to file when running in Electron
   } catch (e) {
     console.error('Failed to save scripts:', e);
@@ -209,6 +521,28 @@ export function loadScriptOrder(): string[] {
     console.error('Failed to load script order:', e);
   }
   return [];
+}
+
+// Persist which script the user has selected in the top dropdown so the same
+// one is restored on next launch. Tiny string value — kept on localStorage
+// (no need for IDB). On load we still validate that the saved id exists in
+// the loaded scripts array; if the script was deleted in the meantime we
+// fall back to the first available one.
+export function loadActiveScriptId(): string | null {
+  try {
+    return localStorage.getItem(ACTIVE_SCRIPT_ID_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function saveActiveScriptId(id: string | null): void {
+  try {
+    if (id) localStorage.setItem(ACTIVE_SCRIPT_ID_KEY, id);
+    else localStorage.removeItem(ACTIVE_SCRIPT_ID_KEY);
+  } catch {
+    // ignore quota / privacy-mode errors — selection just won't persist
+  }
 }
 
 export function getSortedScripts(scripts: Script[]): Script[] {
@@ -321,7 +655,7 @@ export interface WorkspaceData {
 
 export function loadFlowchartScripts(): FlowchartScript[] {
   try {
-    const data = localStorage.getItem(FLOWCHART_SCRIPTS_KEY);
+    const data = idbGetSync(FLOWCHART_SCRIPTS_KEY);
     if (data) {
       return JSON.parse(data);
     }
@@ -333,7 +667,8 @@ export function loadFlowchartScripts(): FlowchartScript[] {
 
 export function saveFlowchartScripts(scripts: FlowchartScript[]): void {
   try {
-    localStorage.setItem(FLOWCHART_SCRIPTS_KEY, JSON.stringify(scripts));
+    flowchartsMirror = scripts; // canonical refs for the diff path
+    idbSetSync(FLOWCHART_SCRIPTS_KEY, JSON.stringify(scripts));
     scheduleElectronSave();
   } catch (e) {
     console.error('Failed to save flowchart scripts:', e);
@@ -480,8 +815,18 @@ export function getWorkspaceSummary(): {
 }
 
 /**
- * Load workspace from Electron file system on startup
- * This should be called when the app initializes
+ * Load workspace from Electron file system on startup.
+ *
+ * Source preference (since PR2 cutover):
+ *   0. SQLite via window.electronAPI.db.loadWorkspace() when the flag is ON.
+ *      Migration from shards (if needed) is handled by MigrationSplash before
+ *      this is called, so by the time we get here SQLite either has the data
+ *      or we fall through to shards.
+ *   1. workspace-shards/ if its manifest is newer than workspace.json
+ *   2. workspace.json otherwise (legacy / consolidated snapshot)
+ *
+ * After loading, seed the change-detection snapshot so the first edit
+ * after startup only writes the actually-changed shard.
  */
 export async function loadWorkspaceFromElectron(): Promise<boolean> {
   if (!isElectron()) {
@@ -489,13 +834,54 @@ export async function loadWorkspaceFromElectron(): Promise<boolean> {
   }
 
   try {
-    const { loadWorkspaceFromFile } = await import('../services/electronStorage');
-    const data = await loadWorkspaceFromFile();
+    const {
+      loadWorkspaceFromFile,
+      loadWorkspaceShards,
+      getStorageMtimes,
+    } = await import('../services/electronStorage');
+
+    let data: WorkspaceData | null = null;
+
+    // (0) SQLite path. On any failure (missing native module, integrity error,
+    // empty DB) we silently fall through to the shard reader. The shard files
+    // remain on disk during the rollback ramp, so this is a safe escape hatch.
+    if (isSqliteStorageEnabled()) {
+      try {
+        const { dbLoadWorkspace, dbStatus } = await import('../services/dbStorage');
+        const status = await dbStatus();
+        if (status && (status.scriptCount || 0) > 0) {
+          console.log('📁 Loading workspace from SQLite...');
+          data = await dbLoadWorkspace();
+        } else {
+          console.log('📁 SQLite enabled but DB is empty — falling back to shards.');
+        }
+      } catch (err) {
+        console.error('SQLite load failed; falling back to shards', err);
+      }
+    }
+
+    if (!data) {
+      const mtimes = await getStorageMtimes();
+      const useShards =
+        mtimes.shardsMs !== null &&
+        (mtimes.workspaceMs === null || mtimes.shardsMs >= mtimes.workspaceMs);
+
+      if (useShards) {
+        console.log('📁 Loading workspace from shards (newer than workspace.json)...');
+        data = await loadWorkspaceShards();
+      }
+      if (!data) {
+        console.log('📁 Loading workspace from workspace.json...');
+        data = await loadWorkspaceFromFile();
+      }
+    }
 
     if (data) {
-      console.log('📁 Loading workspace from local file...');
       importWorkspace(data);
-      console.log('✅ Workspace loaded from local file');
+      // Seed change-detection snapshot from what was just loaded so the
+      // first save after startup is a no-op (no spurious full rewrite).
+      seedSaveSnapshot(data.scripts || [], data.flowchartScripts || []);
+      console.log('✅ Workspace loaded');
       return true;
     }
 
@@ -536,7 +922,7 @@ export function downloadText(content: string, filename: string): void {
 
 export function loadMappingProjects(): MappingProject[] {
   try {
-    const data = localStorage.getItem(MAPPING_PROJECTS_KEY);
+    const data = idbGetSync(MAPPING_PROJECTS_KEY);
     if (data) {
       const projects = JSON.parse(data) as MappingProject[];
       // Migrate old mappings that might be missing the validation property
@@ -560,7 +946,7 @@ export function loadMappingProjects(): MappingProject[] {
       }
       // Save migrated data if any changes were made
       if (needsSave) {
-        localStorage.setItem(MAPPING_PROJECTS_KEY, JSON.stringify(projects));
+        idbSetSync(MAPPING_PROJECTS_KEY, JSON.stringify(projects));
         console.log('Migrated mapping projects to add missing validation properties');
       }
       return projects;
@@ -573,7 +959,7 @@ export function loadMappingProjects(): MappingProject[] {
 
 export function saveMappingProjects(projects: MappingProject[]): void {
   try {
-    localStorage.setItem(MAPPING_PROJECTS_KEY, JSON.stringify(projects));
+    idbSetSync(MAPPING_PROJECTS_KEY, JSON.stringify(projects));
     scheduleElectronSave(); // Auto-save to file when running in Electron
   } catch (e) {
     console.error('Failed to save mapping projects:', e);
@@ -1061,77 +1447,23 @@ export function clearMappingWorkspaceState(): void {
 
 // ============================================
 // ERD Table Positions Storage (per script)
+//
+// Canonical storage: one localStorage key per script, named
+// `erd_positions_<scriptId>`. Written by ERDViewer.tsx (debounced) on drag
+// and read by exportWorkspace() when assembling WorkspaceData.
+//
+// A separate consolidated key (`dm_tool_erd_positions`) plus a parallel set
+// of save/load/clear helpers used to live here, but they had zero callers
+// across the codebase — orphaned dead code from an earlier design. Removed
+// to eliminate the "two parallel mechanisms" footgun (see audit fix #8).
+// If a future feature needs ERD positions outside the viewer, read the
+// per-script keys directly the way exportWorkspace() does at line ~346.
 // ============================================
-
-const ERD_POSITIONS_KEY = 'dm_tool_erd_positions';
 
 export interface ERDTablePosition {
   x: number;
   y: number;
 }
-
-export interface ERDPositionsState {
-  [scriptId: string]: {
-    tablePositions: Record<string, ERDTablePosition>; // tableId -> position
-    scale: number;
-    stagePosition: { x: number; y: number };
-  };
-}
-
-export function loadERDPositions(scriptId: string): {
-  tablePositions: Record<string, ERDTablePosition>;
-  scale: number;
-  stagePosition: { x: number; y: number };
-} | null {
-  try {
-    const data = localStorage.getItem(ERD_POSITIONS_KEY);
-    if (data) {
-      const allPositions: ERDPositionsState = JSON.parse(data);
-      return allPositions[scriptId] || null;
-    }
-  } catch (e) {
-    console.error('Failed to load ERD positions:', e);
-  }
-  return null;
-}
-
-export function saveERDPositions(
-  scriptId: string,
-  tablePositions: Record<string, ERDTablePosition>,
-  scale: number,
-  stagePosition: { x: number; y: number }
-): void {
-  try {
-    const data = localStorage.getItem(ERD_POSITIONS_KEY);
-    const allPositions: ERDPositionsState = data ? JSON.parse(data) : {};
-
-    allPositions[scriptId] = {
-      tablePositions,
-      scale,
-      stagePosition,
-    };
-
-    localStorage.setItem(ERD_POSITIONS_KEY, JSON.stringify(allPositions));
-  } catch (e) {
-    console.error('Failed to save ERD positions:', e);
-  }
-}
-
-export function clearERDPositions(scriptId: string): void {
-  try {
-    const data = localStorage.getItem(ERD_POSITIONS_KEY);
-    if (data) {
-      const allPositions: ERDPositionsState = JSON.parse(data);
-      delete allPositions[scriptId];
-      localStorage.setItem(ERD_POSITIONS_KEY, JSON.stringify(allPositions));
-    }
-  } catch (e) {
-    console.error('Failed to clear ERD positions:', e);
-  }
-}
-
-// ============================================
-// Script Versioning
 // ============================================
 
 const DEFAULT_MAX_VERSIONS = 50;
@@ -1449,6 +1781,99 @@ export function saveExcelExportColumns(columns: string[]): void {
     localStorage.setItem(EXCEL_EXPORT_COLUMNS_KEY, JSON.stringify(columns));
   } catch (e) {
     console.error('Failed to save Excel export columns:', e);
+  }
+}
+
+// Per-script Excel export selection (which tables / master codes / categories
+// to include). Stored as exclusion lists so unknown new items default to
+// "include" rather than vanishing on schema growth.
+export interface ExcelExportSelection {
+  excludedTableNames: string[];      // e.g. ['cm.cm_master_code', 'iss.iss_bid_retail']
+  excludedMasterCodeKeys: string[];  // e.g. ['ALLOTSTAT_WARNING']
+  excludedCategoryKeys: string[];    // e.g. ['SFGDSTAT']
+}
+
+const EXCEL_EXPORT_SELECTION_KEY_PREFIX = 'dm_tool_excel_export_selection:';
+const EXCEL_EXPORT_DEFAULTS_VERSION_KEY = 'dm_tool_excel_export_defaults_version:';
+
+// Bump when DEFAULT_EXCLUSIONS changes so existing users get the new
+// defaults merged into their saved selection on next load.
+const EXCEL_EXPORT_DEFAULTS_VERSION = 1;
+
+// Out-of-the-box exclusions per script. Applied automatically:
+//   - first time the user opens the preview (no saved selection)
+//   - or whenever EXCEL_EXPORT_DEFAULTS_VERSION is bumped (added defaults
+//     are merged INTO the user's existing exclusion lists; nothing is removed)
+const DEFAULT_EXCLUSIONS: Record<string, ExcelExportSelection> = {
+  'OMEGA DDL (Current)': {
+    excludedTableNames: [
+      // ERF — Designated for Release 2
+      'stg.stg_agd_out_it050048',
+      'stg.stg_agd_out_it052048',
+      'stg.stg_fmbs_out_erf',
+      'stg.stg_fmbs_out_erf_agg_bids',
+      // Daily Prices — R2-only
+      'stg.stg_fmbs_out_closingprice',
+      // Syndication — R2 institutional work
+      'iss.iss_synd_allotment_run',
+      'iss.iss_synd_allotment_run_t',
+    ],
+    excludedMasterCodeKeys: ['ISSTYPE_SYNDICATION'],
+    excludedCategoryKeys: [],
+  },
+};
+
+function mergeUnique(a: string[], b: string[]): string[] {
+  return Array.from(new Set([...a, ...b]));
+}
+
+export function loadExcelExportSelection(scriptKey: string): ExcelExportSelection | null {
+  try {
+    const defaults = DEFAULT_EXCLUSIONS[scriptKey];
+    const versionKey = EXCEL_EXPORT_DEFAULTS_VERSION_KEY + scriptKey;
+    const appliedVersion = Number(localStorage.getItem(versionKey) || '0');
+    const data = localStorage.getItem(EXCEL_EXPORT_SELECTION_KEY_PREFIX + scriptKey);
+
+    // No saved selection yet → return the baked-in defaults verbatim.
+    if (!data) {
+      if (defaults) {
+        localStorage.setItem(versionKey, String(EXCEL_EXPORT_DEFAULTS_VERSION));
+        return defaults;
+      }
+      return null;
+    }
+
+    const parsed = JSON.parse(data);
+    const current: ExcelExportSelection = {
+      excludedTableNames:     Array.isArray(parsed.excludedTableNames)     ? parsed.excludedTableNames     : [],
+      excludedMasterCodeKeys: Array.isArray(parsed.excludedMasterCodeKeys) ? parsed.excludedMasterCodeKeys : [],
+      excludedCategoryKeys:   Array.isArray(parsed.excludedCategoryKeys)   ? parsed.excludedCategoryKeys   : [],
+    };
+
+    // Saved selection exists. If the defaults version moved forward,
+    // merge the new defaults IN (never remove anything the user excluded).
+    if (defaults && appliedVersion < EXCEL_EXPORT_DEFAULTS_VERSION) {
+      const merged: ExcelExportSelection = {
+        excludedTableNames:     mergeUnique(current.excludedTableNames,     defaults.excludedTableNames),
+        excludedMasterCodeKeys: mergeUnique(current.excludedMasterCodeKeys, defaults.excludedMasterCodeKeys),
+        excludedCategoryKeys:   mergeUnique(current.excludedCategoryKeys,   defaults.excludedCategoryKeys),
+      };
+      localStorage.setItem(EXCEL_EXPORT_SELECTION_KEY_PREFIX + scriptKey, JSON.stringify(merged));
+      localStorage.setItem(versionKey, String(EXCEL_EXPORT_DEFAULTS_VERSION));
+      return merged;
+    }
+
+    return current;
+  } catch {
+    return DEFAULT_EXCLUSIONS[scriptKey] || null;
+  }
+}
+
+export function saveExcelExportSelection(scriptKey: string, sel: ExcelExportSelection): void {
+  try {
+    localStorage.setItem(EXCEL_EXPORT_SELECTION_KEY_PREFIX + scriptKey, JSON.stringify(sel));
+  } catch (e) {
+    console.error('Failed to save Excel export selection:', e);
   }
 }
 

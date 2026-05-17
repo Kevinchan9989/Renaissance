@@ -2,15 +2,18 @@ import React, { useState, useEffect, useRef, useMemo, useCallback, memo } from '
 import { Stage, Layer, Rect, Text, Line, Group, Path } from 'react-konva';
 import Konva from 'konva';
 import dagre from '@dagrejs/dagre';
-import ELK from 'elkjs/lib/elk.bundled.js';
 import { Table } from '../types';
 import { TABLE_COLORS, SIZING, FONTS, LIGHT_THEME, getDarkTheme, ThemeColors, DarkThemeVariant } from '../constants/erd';
 import { ZoomIn, ZoomOut, Maximize2, Download, RotateCcw, Maximize, Search, X, RefreshCw, Copy, MousePointer2 } from 'lucide-react';
 import ERDExportPreview from './ERDExportPreview';
 import { loadScripts } from '../utils/storage';
+import { computeStructuredLayout } from '../utils/erdLayout';
 
-// Initialize ELK instance
-const elk = new ELK();
+// Auto-arrange ("Smart Layout") is now handled by computeStructuredLayout
+// (utils/erdLayout.ts) — a deterministic pipeline of pair-merge → component
+// detection → tidy LR tree (or Dagre fallback) → skyline pack. ELK and its
+// black-box partitioning + the ad-hoc collision pass that lived here have
+// been removed.
 
 // Get list of scripts that have positions for tables matching current schema
 const getScriptsWithMatchingPositions = (
@@ -157,17 +160,22 @@ const getTableColorIndex = (tableName: string, allTables: Table[], groupTemporal
   return index % TABLE_COLORS.length;
 };
 
-// Calculate table width based on content - ensure column name + type fit without wrapping
+// Calculate table width based on content — ensures column name + type fit
+// without wrapping. Char-width factors are kept at the same fontSize-px
+// ratio as before so widths track text size automatically:
+//   title:  10 px/char @ SIZE_TABLE_TITLE 20  (= 0.50 px per fontSize-px)
+//   name:   9.7 px/char @ SIZE_SM 18          (≈ 0.54 — accounts for the
+//                                              key-icon column on the left)
+//   type:   9 px/char @ SIZE_SM-1 = 17        (≈ 0.53)
+// Padding constants (38 / 28) bumped one step to keep the comfortable
+// breathing room around text.
 const calculateTableWidth = (table: Table): number => {
-  // Measure table name (with some padding for header)
-  const tableNameWidth = table.tableName.length * 8 + 30;
+  const tableNameWidth = table.tableName.length * 10 + 38;
 
-  // Measure each column: name on left (~50%), type on right (~40%)
-  // We need width such that both name and type fit comfortably
   const columnWidths = table.columns.map(col => {
-    const nameWidth = col.name.length * 7.5 + 30; // 7.5px per char + padding for key icon
-    const typeWidth = col.type.length * 7 + 20; // type column
-    // Name gets ~50% of width, type gets ~40% (with gaps)
+    const nameWidth = col.name.length * 9.7 + 38;   // name + key-icon padding
+    const typeWidth = col.type.length * 9 + 28;     // type column
+    // Name occupies ~48 % of the table width, type ~38 % (rest is gaps).
     const widthForName = nameWidth / 0.48;
     const widthForType = typeWidth / 0.38;
     return Math.max(widthForName, widthForType);
@@ -300,6 +308,13 @@ interface ERDTableNodeProps {
   onDragEnd: (tableId: string, x: number, y: number) => void;
   onHoverChange: (tableId: string | null) => void;
   onClick: (tableId: string, e: Konva.KonvaEventObject<MouseEvent>) => void;
+  /**
+   * Fired when the user clicks a column row inside the table (separate from
+   * the table-level click). Used to anchor a small FK popup at the cursor.
+   * Coordinates are viewport-relative (clientX/clientY) so the DOM overlay
+   * can position itself with `position: fixed`.
+   */
+  onColumnClick: (tableId: string, columnName: string, clientX: number, clientY: number) => void;
   stageRef: React.RefObject<Konva.Stage>;
 }
 
@@ -314,13 +329,41 @@ const ERDTableNode = memo(function ERDTableNode({
   onDragEnd,
   onHoverChange,
   onClick,
+  onColumnClick,
   stageRef
 }: ERDTableNodeProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [hoveredColumn, setHoveredColumn] = useState<string | null>(null);
+  const mainRectRef = useRef<Konva.Rect>(null);
 
   const { table, x, y, width, height, colorIndex } = node;
   const color = TABLE_COLORS[colorIndex];
+
+  // Search-highlight pulse. When `isHighlighted` flips to true (user picked
+  // a search result and we routed to this table), do a single half-sine
+  // pulse on strokeWidth — 2 → 5 → 2 over 800 ms — so the user can spot
+  // where the camera landed. We drive it imperatively via Konva, NOT React
+  // state, to avoid 60 setState/sec re-renders on a memoized component.
+  // Steady-state border (after the pulse, while still highlighted) matches
+  // the hover style: same color, strokeWidth 2 — the user requested this
+  // explicitly so search-routed and hover look identical.
+  useEffect(() => {
+    if (!isHighlighted || !mainRectRef.current) return;
+    const rect = mainRectRef.current;
+    let raf = 0;
+    const start = performance.now();
+    const duration = 800;
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / duration);
+      const phase = Math.sin(t * Math.PI); // 0 → 1 → 0
+      rect.strokeWidth(2 + phase * 3);
+      rect.getLayer()?.batchDraw();
+      if (t < 1) raf = requestAnimationFrame(tick);
+      else rect.strokeWidth(2);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [isHighlighted]);
 
   // Get PK and FK columns
   const pkCols = useMemo(() => {
@@ -409,22 +452,15 @@ const ERDTableNode = memo(function ERDTableNode({
         />
       )}
 
-      {/* Highlight border (for search) */}
-      {isHighlighted && !isSelected && (
-        <Rect
-          x={-4}
-          y={-4}
-          width={width + 8}
-          height={height + 8}
-          stroke={color.regular}
-          strokeWidth={3}
-          cornerRadius={8}
-          dash={[8, 4]}
-        />
-      )}
-
-      {/* Main container */}
+      {/* Main container.
+          Search-highlight uses the SAME visual as hover (colored border,
+          strokeWidth 2) — no separate dashed ring — per UX request. The
+          pulse animation above briefly oscillates strokeWidth on highlight
+          so the routed-to table is easy to spot, then settles to the
+          hover-equivalent border. Connected FK edges are unaffected because
+          they only watch `hoveredTableId`, not `isHighlighted`. */}
       <Rect
+        ref={mainRectRef}
         width={width}
         height={height}
         fill={theme.table.background}
@@ -449,11 +485,12 @@ const ERDTableNode = memo(function ERDTableNode({
         fill={theme.table.headerBackground}
       />
 
-      {/* Table name */}
+      {/* Table name — vertically centered in the header band:
+          y = (TABLE_HEADER_HEIGHT − SIZE_TABLE_TITLE) / 2 = (50 − 20) / 2 = 15 */}
       <Text
         text={table.tableName}
         x={SIZING.PADDING + 6}
-        y={SIZING.TABLE_COLOR_HEIGHT + 10}
+        y={SIZING.TABLE_COLOR_HEIGHT + 15}
         width={width - SIZING.PADDING * 2 - 12}
         fontSize={FONTS.SIZE_TABLE_TITLE}
         fontFamily={FONTS.FAMILY}
@@ -513,7 +550,10 @@ const ERDTableNode = memo(function ERDTableNode({
               />
             )}
 
-            {/* Invisible rect for hover detection */}
+            {/* Invisible rect for hover + click detection.
+                Click cancelBubble so it doesn't trigger the table-level
+                onClick (drag still works because Konva fires click only when
+                pointer didn't move between mousedown/up). */}
             <Rect
               x={0}
               width={width}
@@ -521,23 +561,30 @@ const ERDTableNode = memo(function ERDTableNode({
               fill="transparent"
               onMouseEnter={() => setHoveredColumn(col.name)}
               onMouseLeave={() => setHoveredColumn(null)}
+              onClick={(ev) => {
+                ev.cancelBubble = true;
+                onColumnClick(node.id, col.name, ev.evt.clientX, ev.evt.clientY);
+              }}
             />
 
-            {/* Key indicator */}
+            {/* Key indicator — fontSize 14 in row 42:
+                y = (42 − 14) / 2 = 14. */}
             {(isPk || isFk) && (
               <Text
                 text={isPk ? '🔑' : '🔗'}
-                x={6}
-                y={7}
-                fontSize={10}
+                x={7}
+                y={14}
+                fontSize={14}
               />
             )}
 
-            {/* Column name */}
+            {/* Column name — vertically centered in COLUMN_HEIGHT 42 with
+                fontSize 18: y = (42 − 18) / 2 = 12. Left X 26 to clear
+                the wider key icon. */}
             <Text
               text={col.name}
-              x={isPk || isFk ? 22 : SIZING.PADDING + 6}
-              y={8}
+              x={isPk || isFk ? 26 : SIZING.PADDING + 6}
+              y={12}
               width={width * 0.5}
               fontSize={FONTS.SIZE_SM}
               fontFamily={FONTS.FAMILY}
@@ -546,11 +593,11 @@ const ERDTableNode = memo(function ERDTableNode({
               ellipsis={true}
             />
 
-            {/* Column type */}
+            {/* Column type — same Y offset as the name so they baseline up. */}
             <Text
               text={col.type}
               x={width * 0.55}
-              y={8}
+              y={12}
               width={width * 0.4}
               fontSize={FONTS.SIZE_SM - 1}
               fontFamily={FONTS.FAMILY}
@@ -587,6 +634,8 @@ interface ERDEdgePathProps {
   targetNode: TableNode;
   theme: ThemeColors;
   hoveredTableId: string | null;
+  /** Fires when the user clicks the FK line itself (not a connected table). */
+  onEdgeClick?: (edge: Edge) => void;
 }
 
 const ERDEdgePath = memo(function ERDEdgePath({
@@ -594,8 +643,13 @@ const ERDEdgePath = memo(function ERDEdgePath({
   sourceNode,
   targetNode,
   theme,
-  hoveredTableId
+  hoveredTableId,
+  onEdgeClick,
 }: ERDEdgePathProps) {
+  // Direct hover on the edge itself (independent of table hover). Local
+  // state so only this edge re-renders on enter/leave — the parent's edge
+  // list doesn't have to know about it.
+  const [isDirectlyHovered, setIsDirectlyHovered] = useState(false);
   // Get column Y position
   const getColumnY = (node: TableNode, colName: string): number => {
     const colIndex = node.table.columns.findIndex(
@@ -625,21 +679,46 @@ const ERDEdgePath = memo(function ERDEdgePath({
 
   const fullPath = `${pathData} ${sourceSymbol} ${targetSymbol}`;
 
-  const isHovered = hoveredTableId === edge.sourceTable || hoveredTableId === edge.targetTable;
+  const isTableHovered =
+    hoveredTableId === edge.sourceTable || hoveredTableId === edge.targetTable;
+  const isHighlighted = isDirectlyHovered || isTableHovered;
   const sourceColor = TABLE_COLORS[sourceNode.colorIndex];
 
   return (
     <Path
       data={fullPath}
-      stroke={isHovered ? sourceColor.regular : theme.connection.default}
-      strokeWidth={isHovered ? 2.5 : SIZING.CONNECTION_STROKE_WIDTH}
+      stroke={isHighlighted ? sourceColor.regular : theme.connection.default}
+      // Direct hover on the line is even thicker so it stands out among
+      // many sibling edges; a hovered TABLE just bumps the line slightly.
+      strokeWidth={
+        isDirectlyHovered ? 3.5 : isTableHovered ? 2.5 : SIZING.CONNECTION_STROKE_WIDTH
+      }
       lineCap="round"
       lineJoin="round"
-      opacity={isHovered ? 1 : 0.7}
+      opacity={isHighlighted ? 1 : 0.7}
+      // Generous hit area so a thin curve is still easy to grab without
+      // visually fattening the line itself.
+      hitStrokeWidth={14}
+      onMouseEnter={(ev) => {
+        setIsDirectlyHovered(true);
+        const stage = ev.target.getStage();
+        if (stage) stage.container().style.cursor = 'pointer';
+      }}
+      onMouseLeave={(ev) => {
+        setIsDirectlyHovered(false);
+        const stage = ev.target.getStage();
+        if (stage) stage.container().style.cursor = 'grab';
+      }}
+      onClick={(ev) => {
+        ev.cancelBubble = true;
+        onEdgeClick?.(edge);
+      }}
     />
   );
 }, (prevProps, nextProps) => {
-  // Custom comparison - only re-render when nodes move or hover changes
+  // Custom comparison - only re-render when nodes move or hover changes.
+  // onEdgeClick is expected to be a stable useCallback ref; if it's not,
+  // memo will be over-conservative and re-render — annoying but not wrong.
   return (
     prevProps.edge.id === nextProps.edge.id &&
     prevProps.sourceNode.x === nextProps.sourceNode.x &&
@@ -647,11 +726,12 @@ const ERDEdgePath = memo(function ERDEdgePath({
     prevProps.targetNode.x === nextProps.targetNode.x &&
     prevProps.targetNode.y === nextProps.targetNode.y &&
     prevProps.theme === nextProps.theme &&
-    prevProps.hoveredTableId === nextProps.hoveredTableId
+    prevProps.hoveredTableId === nextProps.hoveredTableId &&
+    prevProps.onEdgeClick === nextProps.onEdgeClick
   );
 });
 
-export default function ERDViewer({ tables, isDarkTheme, darkThemeVariant = 'slate', scriptId, scriptName = 'ERD', onRefresh }: ERDViewerProps) {
+function ERDViewer({ tables, isDarkTheme, darkThemeVariant = 'slate', scriptId, scriptName = 'ERD', onRefresh }: ERDViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -737,10 +817,44 @@ export default function ERDViewer({ tables, isDarkTheme, darkThemeVariant = 'sla
     }
   }, [scriptId]);
 
-  // Save positions when they change
-  const savePositions = useCallback((positions: Record<string, { x: number; y: number }>) => {
-    localStorage.setItem(getStorageKey(scriptId), JSON.stringify(positions));
+  // Save positions when they change.
+  // Drag handlers fire ~60×/sec, so a sync localStorage write per call would
+  // block the main thread and cause noticeable jitter. We coalesce: keep the
+  // latest payload in a ref, and flush after 150 ms of inactivity OR on flush().
+  const pendingPositionsRef = useRef<Record<string, { x: number; y: number }> | null>(null);
+  const positionsFlushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const flushPositions = useCallback(() => {
+    if (positionsFlushTimerRef.current) {
+      clearTimeout(positionsFlushTimerRef.current);
+      positionsFlushTimerRef.current = null;
+    }
+    const pending = pendingPositionsRef.current;
+    if (pending) {
+      try {
+        localStorage.setItem(getStorageKey(scriptId), JSON.stringify(pending));
+      } catch (e) {
+        console.error('Failed to persist ERD positions', e);
+      }
+      pendingPositionsRef.current = null;
+    }
   }, [scriptId]);
+
+  const savePositions = useCallback((positions: Record<string, { x: number; y: number }>) => {
+    pendingPositionsRef.current = positions;
+    if (positionsFlushTimerRef.current) clearTimeout(positionsFlushTimerRef.current);
+    positionsFlushTimerRef.current = setTimeout(flushPositions, 150);
+  }, [flushPositions]);
+
+  // Flush on unmount and on script change so we never lose the last drag.
+  useEffect(() => {
+    return () => { flushPositions(); };
+  }, [flushPositions]);
+  useEffect(() => {
+    const handler = () => flushPositions();
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [flushPositions]);
 
   // Update dimensions on resize
   useEffect(() => {
@@ -792,7 +906,12 @@ export default function ERDViewer({ tables, isDarkTheme, darkThemeVariant = 'sla
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [tables]);
 
-  // Extract FK relationships
+  // Extract FK relationships. Structurally stable: when the underlying FK
+  // structure is unchanged we return the previous array reference, even if
+  // `tables` itself got a new ref (typical case: user edits a column comment,
+  // which has nothing to do with edges). This stops the cascade into Dagre
+  // layout and Konva re-render on every keystroke.
+  const edgesRef = useRef<Edge[]>([]);
   const edges = useMemo((): Edge[] => {
     const result: Edge[] = [];
     const tableNames = new Set(tables.map(t => t.tableName.toUpperCase()));
@@ -819,228 +938,80 @@ export default function ERDViewer({ tables, isDarkTheme, darkThemeVariant = 'sla
       }
     }
 
+    // Reuse previous array ref if structurally identical.
+    const prev = edgesRef.current;
+    if (prev.length === result.length) {
+      let same = true;
+      for (let i = 0; i < result.length; i++) {
+        const a = prev[i], b = result[i];
+        if (a.id !== b.id ||
+            a.sourceTable !== b.sourceTable ||
+            a.sourceColumn !== b.sourceColumn ||
+            a.targetTable !== b.targetTable ||
+            a.targetColumn !== b.targetColumn) {
+          same = false;
+          break;
+        }
+      }
+      if (same) return prev;
+    }
+    edgesRef.current = result;
     return result;
   }, [tables]);
 
-  // Helper to identify master/temporal table pairs and group them
-  const getTableGroups = useCallback((tableList: Table[]): Map<string, { master: Table; temporal?: Table }> => {
-    const groups = new Map<string, { master: Table; temporal?: Table }>();
-    const tableMap = new Map<string, Table>();
+  // Topology signature: changes only when something that actually affects
+  // graph layout changes (table set, column counts, FK structure). A column
+  // comment / type-text edit leaves this string identical, so the expensive
+  // Dagre layout below skips rerun on those edits.
+  const layoutTopologyKey = useMemo(() => {
+    const tablesSig = tables
+      .map(t => `${t.tableName.toUpperCase()}:${t.columns.length}`)
+      .join('|');
+    const edgesSig = edges.map(e => e.id).join('|');
+    return `${tablesSig}#${edgesSig}`;
+  }, [tables, edges]);
 
-    tableList.forEach(t => tableMap.set(t.tableName.toUpperCase(), t));
+  // (The local `getTableGroups` helper that used to live here has moved
+  //  into utils/erdLayout.ts → buildUnits, where pair-merging is the very
+  //  first stage of the layout pipeline.)
 
-    tableList.forEach(table => {
-      const upperName = table.tableName.toUpperCase();
-
-      // Check if this is a temporal table (ends with _T)
-      if (upperName.endsWith('_T')) {
-        const masterName = upperName.slice(0, -2);
-        const masterTable = tableMap.get(masterName);
-        if (masterTable) {
-          // Add to master's group
-          const existing = groups.get(masterName);
-          if (existing) {
-            existing.temporal = table;
-          } else {
-            groups.set(masterName, { master: masterTable, temporal: table });
-          }
-          return;
-        }
-      }
-
-      // Not a temporal table or no master found
-      if (!upperName.endsWith('_T') && !groups.has(upperName)) {
-        groups.set(upperName, { master: table });
-      }
-    });
-
-    // Add any temporal tables without masters as standalone
-    tableList.forEach(table => {
-      const upperName = table.tableName.toUpperCase();
-      if (upperName.endsWith('_T')) {
-        const masterName = upperName.slice(0, -2);
-        if (!groups.has(masterName)) {
-          groups.set(upperName, { master: table });
-        }
-      }
-    });
-
-    return groups;
-  }, []);
-
-  // Compute smart layout using ELK.js
+  // Compute structured "smart" layout. Delegates to the standalone algorithm
+  // in utils/erdLayout.ts:
+  //   1. pair-merge master+_T into super-nodes
+  //   2. cluster tables by schema → name-prefix → "Other" (spatial chunking
+  //      only; no rendered borders or labels)
+  //   3. per cluster, per FK-connected component:
+  //        layered TB — master at top, dependents flow downward, every
+  //        depth-N table on the same Y row, ranks wider than maxRankSize
+  //        wrap into a sub-row directly below at the same logical depth.
+  //        Cyclic components fall back to Dagre TB with edges reversed so
+  //        master still ends up at the top.
+  //   4. shelf-pack components within each cluster, then shelf-pack
+  //      clusters at the top level — clusterGap > componentGap so chunks
+  //      read as visually distinct without needing borders.
+  // Async signature is preserved so existing call sites (which `await` it)
+  // keep working; the body is fully synchronous now.
   const computeSmartLayout = useCallback(async (): Promise<Record<string, { x: number; y: number }>> => {
     if (tables.length === 0) return {};
-
-    // Get table groups (master + temporal pairs)
-    const tableGroups = getTableGroups(tables);
-
-    // Build ELK graph structure
-    // Group tables by schema for better organization
-    const schemaGroups = new Map<string, Table[]>();
-    tables.forEach(table => {
-      const schema = table.schema || 'DEFAULT';
-      if (!schemaGroups.has(schema)) {
-        schemaGroups.set(schema, []);
-      }
-      schemaGroups.get(schema)!.push(table);
+    const positions = computeStructuredLayout(tables, edges, {
+      measure: (t) => ({ width: calculateTableWidth(t), height: calculateTableHeight(t) }),
+      // Vertical gap between depth levels (parent → child) — +50 % of the
+      // base inter-row spacing so layers read as distinct rows.
+      rankGap: Math.round(SIZING.TABLES_GAP_Y * 1.5),
+      // Horizontal gap between siblings stacked within a rank.
+      siblingGap: SIZING.TABLES_GAP_X,
+      pairGap: 30,            // master ↔ _T side-by-side gap
+      componentGap: SIZING.TABLES_GAP_X, // between disconnected components in same cluster
+      padding: SIZING.DIAGRAM_PADDING,
+      // If a rank has more than this many tables, wrap into a sub-row
+      // directly below at the same logical depth (subRankGap-spaced).
+      maxRankSize: 10,
     });
-
-    // Create ELK nodes with partitioning
-    // Partition logic: master + _T tables share same partition for side-by-side placement
-    const elkNodes: any[] = [];
-    let partitionIndex = 0;
-    const tablePartitions = new Map<string, number>();
-
-    // Assign partitions to table groups
-    tableGroups.forEach((group, _masterName) => {
-      tablePartitions.set(group.master.tableName.toUpperCase(), partitionIndex);
-      if (group.temporal) {
-        tablePartitions.set(group.temporal.tableName.toUpperCase(), partitionIndex);
-      }
-      partitionIndex++;
-    });
-
-    tables.forEach(table => {
-      const tableId = table.tableName.toUpperCase();
-      const width = calculateTableWidth(table);
-      const height = calculateTableHeight(table);
-      const partition = tablePartitions.get(tableId) ?? 0;
-
-      elkNodes.push({
-        id: tableId,
-        width,
-        height,
-        layoutOptions: {
-          'partitioning.partition': partition.toString()
-        }
-      });
-    });
-
-    // Create ELK edges
-    const elkEdges: any[] = edges.map((edge, i) => ({
-      id: `e${i}`,
-      sources: [edge.sourceTable],
-      targets: [edge.targetTable]
-    }));
-
-    // Build ELK graph
-    const elkGraph = {
-      id: 'root',
-      layoutOptions: {
-        'elk.algorithm': 'layered',
-        'elk.direction': 'RIGHT',
-        'elk.spacing.nodeNode': String(SIZING.TABLES_GAP_Y),
-        'elk.layered.spacing.nodeNodeBetweenLayers': String(SIZING.TABLES_GAP_X),
-        'elk.layered.crossingMinimization.strategy': 'LAYER_SWEEP',
-        'elk.layered.nodePlacement.strategy': 'BRANDES_KOEPF',
-        'elk.padding': `[top=${SIZING.DIAGRAM_PADDING},left=${SIZING.DIAGRAM_PADDING},bottom=${SIZING.DIAGRAM_PADDING},right=${SIZING.DIAGRAM_PADDING}]`,
-        // Enable partitioning to group related tables
-        'elk.partitioning.activate': 'true',
-        // Improve edge routing
-        'elk.layered.unnecessaryBendpoints': 'true',
-        'elk.layered.mergeEdges': 'true'
-      },
-      children: elkNodes,
-      edges: elkEdges
-    };
-
-    try {
-      const layoutResult = await elk.layout(elkGraph);
-
-      // Extract positions from ELK result
-      const positions: Record<string, { x: number; y: number }> = {};
-
-      if (layoutResult.children) {
-        layoutResult.children.forEach((node: any) => {
-          positions[node.id] = {
-            x: node.x ?? 0,
-            y: node.y ?? 0
-          };
-        });
-      }
-
-      // Post-process: ensure master + _T tables are truly side-by-side
-      // ELK partitioning puts them in same layer, but we want them adjacent horizontally
-      tableGroups.forEach((group, _masterName) => {
-        if (group.temporal) {
-          const masterId = group.master.tableName.toUpperCase();
-          const temporalId = group.temporal.tableName.toUpperCase();
-          const masterPos = positions[masterId];
-          const temporalPos = positions[temporalId];
-
-          if (masterPos && temporalPos) {
-            const masterWidth = calculateTableWidth(group.master);
-
-            // If they're not already side-by-side, adjust temporal position
-            // Place temporal table to the right of master with small gap
-            const idealTemporalX = masterPos.x + masterWidth + 30; // 30px gap
-
-            // Only adjust if temporal is not already close to master horizontally
-            if (Math.abs(temporalPos.x - idealTemporalX) > masterWidth) {
-              positions[temporalId] = {
-                x: idealTemporalX,
-                y: masterPos.y // Same Y position for side-by-side
-              };
-            }
-          }
-        }
-      });
-
-      // Handle collision detection after positioning temporal tables
-      // Sort by Y then X to process in order
-      const sortedPositions = Object.entries(positions).sort(([, a], [, b]) => {
-        if (Math.abs(a.y - b.y) < 10) return a.x - b.x;
-        return a.y - b.y;
-      });
-
-      // Simple collision resolution - push overlapping tables down
-      for (let i = 0; i < sortedPositions.length; i++) {
-        const [id1, pos1] = sortedPositions[i];
-        const table1 = tables.find(t => t.tableName.toUpperCase() === id1);
-        if (!table1) continue;
-
-        const width1 = calculateTableWidth(table1);
-        const height1 = calculateTableHeight(table1);
-
-        for (let j = i + 1; j < sortedPositions.length; j++) {
-          const [id2, pos2] = sortedPositions[j];
-          const table2 = tables.find(t => t.tableName.toUpperCase() === id2);
-          if (!table2) continue;
-
-          const width2 = calculateTableWidth(table2);
-          const height2 = calculateTableHeight(table2);
-
-          // Check for overlap
-          const overlapX = pos1.x < pos2.x + width2 && pos1.x + width1 > pos2.x;
-          const overlapY = pos1.y < pos2.y + height2 && pos1.y + height1 > pos2.y;
-
-          if (overlapX && overlapY) {
-            // Push the second table to the right or down
-            if (pos2.x - pos1.x < pos2.y - pos1.y) {
-              // Push right
-              positions[id2] = {
-                x: pos1.x + width1 + SIZING.TABLES_GAP_X,
-                y: pos2.y
-              };
-            } else {
-              // Push down
-              positions[id2] = {
-                x: pos2.x,
-                y: pos1.y + height1 + SIZING.TABLES_GAP_Y
-              };
-            }
-            sortedPositions[j] = [id2, positions[id2]];
-          }
-        }
-      }
-
-      return positions;
-    } catch (error) {
-      console.error('ELK layout failed:', error);
-      return {};
-    }
-  }, [tables, edges, getTableGroups]);
+    return positions;
+    // Topology-key memoization unchanged — function identity only refreshes
+    // when graph structure changes, not on column-comment edits.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [layoutTopologyKey]);
 
   // Initial layout with Dagre - handles connected and isolated tables separately
   const initialLayout = useMemo((): Record<string, { x: number; y: number; width: number; height: number; colorIndex: number }> => {
@@ -1147,7 +1118,13 @@ export default function ERDViewer({ tables, isDarkTheme, darkThemeVariant = 'sla
     }
 
     return layout;
-  }, [tables, edges, groupTemporalColors]);
+    // Keyed on the topology signature (table set + column counts + FK ids).
+    // The function body still closes over the latest `tables` / `edges` —
+    // that's intentional, since when topology *does* change we want fresh
+    // data — but the memo only re-runs when the signature changes, not on
+    // every edit that produces a new tables array reference.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [layoutTopologyKey, groupTemporalColors]);
 
   // Set initial positions from layout if not already set
   useEffect(() => {
@@ -1219,6 +1196,12 @@ export default function ERDViewer({ tables, isDarkTheme, darkThemeVariant = 'sla
     });
   }, [tables, initialLayout, tablePositions, groupTemporalColors]);
 
+  // (Cluster rendering was previously here — drawn dashed swim-lane boxes
+  //  with schema/prefix labels. Removed per UX request: clustering still
+  //  happens spatially in the layout pipeline so chunks of related tables
+  //  group together, but we no longer draw any border or label around them.
+  //  The visual signal is just the larger gap between groups.)
+
   // Search functionality
   useEffect(() => {
     if (searchQuery.length < 2) {
@@ -1269,32 +1252,92 @@ export default function ERDViewer({ tables, isDarkTheme, darkThemeVariant = 'sla
     setShowSearchDropdown(results.length > 0);
   }, [searchQuery, tables]);
 
-  // Handle search result selection
-  const handleSelectResult = (result: SearchResult) => {
-    setHighlightedTable(result.tableId);
-    if (result.type === 'column' && result.columnName) {
-      setHighlightedColumn({ table: result.tableId, column: result.columnName });
-    } else {
-      setHighlightedColumn(null);
-    }
+  // Center the camera on a table and pulse-highlight it. Shared between the
+  // search-result picker, edge-click navigation, and FK-popup row clicks so
+  // every "jump to that table" action behaves identically.
+  const routeToTable = useCallback((tableId: string, columnName?: string) => {
+    setHighlightedTable(tableId);
+    setHighlightedColumn(columnName ? { table: tableId, column: columnName } : null);
 
-    // Center on the table
-    const node = nodes.find(n => n.id === result.tableId);
+    const node = nodes.find(n => n.id === tableId);
     if (node) {
       const centerX = dimensions.width / 2 - (node.x + node.width / 2) * scale;
       const centerY = dimensions.height / 2 - (node.y + node.height / 2) * scale;
       setStagePosition({ x: centerX, y: centerY });
     }
 
-    setShowSearchDropdown(false);
-    setSearchQuery('');
-
-    // Clear highlight after 3 seconds
+    // Clear highlight after 3 seconds (matches search behaviour).
     setTimeout(() => {
       setHighlightedTable(null);
       setHighlightedColumn(null);
     }, 3000);
+  }, [nodes, dimensions.width, dimensions.height, scale]);
+
+  // Handle search result selection
+  const handleSelectResult = (result: SearchResult) => {
+    routeToTable(
+      result.tableId,
+      result.type === 'column' ? result.columnName : undefined
+    );
+    setShowSearchDropdown(false);
+    setSearchQuery('');
   };
+
+  // Click an FK line → navigate to the parent (target/PK side). Convention:
+  // clicking an FK arrow takes you to "what it points to," matching most
+  // ERD tools (DBeaver, DataGrip).
+  const handleEdgeClick = useCallback((edge: Edge) => {
+    routeToTable(edge.targetTable, edge.targetColumn);
+  }, [routeToTable]);
+
+  // Click a column row → open a small DOM popup at the cursor listing the
+  // FK relationships involving this column. Coordinates are viewport-relative
+  // (clientX/clientY captured in the Konva handler) so the overlay can use
+  // `position: fixed` and stay put even if the canvas scrolls.
+  const [columnPopup, setColumnPopup] = useState<
+    { tableId: string; columnName: string; clientX: number; clientY: number } | null
+  >(null);
+
+  const handleColumnClick = useCallback(
+    (tableId: string, columnName: string, clientX: number, clientY: number) => {
+      setColumnPopup({ tableId, columnName, clientX, clientY });
+    },
+    []
+  );
+
+  // Dismiss popup on outside click. Defer attaching the listener by one
+  // microtask so the same click that opened the popup doesn't close it.
+  useEffect(() => {
+    if (!columnPopup) return;
+    let attached = false;
+    const onDocClick = (e: MouseEvent) => {
+      const t = e.target as HTMLElement;
+      if (t.closest('.erd-column-popup')) return;
+      setColumnPopup(null);
+    };
+    const id = window.setTimeout(() => {
+      document.addEventListener('mousedown', onDocClick);
+      attached = true;
+    }, 0);
+    return () => {
+      window.clearTimeout(id);
+      if (attached) document.removeEventListener('mousedown', onDocClick);
+    };
+  }, [columnPopup]);
+
+  // FKs incident to the popup's column — split by direction so the UI can
+  // label them "Referenced by" vs "References".
+  const popupFKs = useMemo(() => {
+    if (!columnPopup) return null;
+    const upper = columnPopup.columnName.toUpperCase();
+    const incoming = edges.filter(e =>
+      e.targetTable === columnPopup.tableId && e.targetColumn.toUpperCase() === upper
+    );
+    const outgoing = edges.filter(e =>
+      e.sourceTable === columnPopup.tableId && e.sourceColumn.toUpperCase() === upper
+    );
+    return { incoming, outgoing };
+  }, [columnPopup, edges]);
 
   // Zoom handler with smooth scaling
   const handleWheel = useCallback((e: Konva.KonvaEventObject<WheelEvent>) => {
@@ -2080,6 +2123,7 @@ export default function ERDViewer({ tables, isDarkTheme, darkThemeVariant = 'sla
                 targetNode={targetNode}
                 theme={theme}
                 hoveredTableId={hoveredTable}
+                onEdgeClick={handleEdgeClick}
               />
             );
           })}
@@ -2096,6 +2140,7 @@ export default function ERDViewer({ tables, isDarkTheme, darkThemeVariant = 'sla
               onDragEnd={handleTableDragEnd}
               onHoverChange={handleTableHoverChange}
               onClick={handleTableClick}
+              onColumnClick={handleColumnClick}
               stageRef={stageRef}
             />
           ))}
@@ -2127,6 +2172,176 @@ export default function ERDViewer({ tables, isDarkTheme, darkThemeVariant = 'sla
         darkThemeVariant={darkThemeVariant}
         scriptName={scriptName}
       />
+
+      {/* FK reference popup — opens at the cursor when a column is clicked.
+          Pulls all colors from the same `theme` object the table cards and
+          edges use, so the popup blends with both Slate and VS-Code-Gray
+          dark variants automatically. Each row's left bar is the OTHER
+          end's table color (incoming → child color, outgoing → target). */}
+      {columnPopup && popupFKs &&
+       (popupFKs.incoming.length > 0 || popupFKs.outgoing.length > 0) && (
+        <div
+          className="erd-column-popup"
+          style={{
+            position: 'fixed',
+            left: columnPopup.clientX + 8,
+            top: columnPopup.clientY + 8,
+            zIndex: 1000,
+            minWidth: '220px',
+            maxWidth: '320px',
+            maxHeight: '60vh',
+            overflowY: 'auto',
+            background: theme.table.background,
+            color: theme.text.primary,
+            border: `1px solid ${theme.table.border}`,
+            borderRadius: '8px',
+            boxShadow: `0 10px 25px ${theme.table.shadow}`,
+            fontSize: '12px',
+            fontFamily: FONTS.FAMILY,
+            padding: '6px',
+          }}
+        >
+          <div
+            style={{
+              padding: '4px 8px 6px',
+              borderBottom: `1px solid ${theme.table.border}`,
+              marginBottom: '4px',
+            }}
+          >
+            <div
+              style={{
+                fontWeight: 600,
+                fontSize: '11px',
+                color: theme.text.secondary,
+              }}
+            >
+              {columnPopup.tableId}
+            </div>
+            <div style={{ fontWeight: 700, fontSize: '13px' }}>
+              {columnPopup.columnName}
+            </div>
+          </div>
+
+          {popupFKs.incoming.length > 0 && (
+            <div style={{ marginBottom: popupFKs.outgoing.length > 0 ? '6px' : 0 }}>
+              <div
+                style={{
+                  fontSize: '10px',
+                  fontWeight: 600,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.04em',
+                  color: theme.text.secondary,
+                  padding: '4px 8px',
+                }}
+              >
+                Referenced by ({popupFKs.incoming.length})
+              </div>
+              {popupFKs.incoming.map(e => {
+                const otherNode = nodeMap.get(e.sourceTable);
+                const color = otherNode
+                  ? TABLE_COLORS[otherNode.colorIndex].regular
+                  : theme.connection.default;
+                return (
+                  <button
+                    key={e.id}
+                    onClick={() => {
+                      routeToTable(e.sourceTable, e.sourceColumn);
+                      setColumnPopup(null);
+                    }}
+                    style={{
+                      display: 'block',
+                      width: '100%',
+                      textAlign: 'left',
+                      background: 'transparent',
+                      border: 'none',
+                      borderLeft: `3px solid ${color}`,
+                      padding: '6px 8px',
+                      cursor: 'pointer',
+                      borderRadius: '4px',
+                      color: 'inherit',
+                      fontFamily: 'inherit',
+                      fontSize: '12px',
+                    }}
+                    onMouseEnter={(ev) => {
+                      ev.currentTarget.style.background = theme.table.headerBackground;
+                    }}
+                    onMouseLeave={(ev) => {
+                      ev.currentTarget.style.background = 'transparent';
+                    }}
+                  >
+                    <div style={{ fontWeight: 600 }}>{e.sourceTable}</div>
+                    <div style={{ color: theme.text.secondary, fontSize: '11px' }}>
+                      .{e.sourceColumn}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {popupFKs.outgoing.length > 0 && (
+            <div>
+              <div
+                style={{
+                  fontSize: '10px',
+                  fontWeight: 600,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.04em',
+                  color: theme.text.secondary,
+                  padding: '4px 8px',
+                }}
+              >
+                References ({popupFKs.outgoing.length}) →
+              </div>
+              {popupFKs.outgoing.map(e => {
+                const otherNode = nodeMap.get(e.targetTable);
+                const color = otherNode
+                  ? TABLE_COLORS[otherNode.colorIndex].regular
+                  : theme.connection.default;
+                return (
+                  <button
+                    key={e.id}
+                    onClick={() => {
+                      routeToTable(e.targetTable, e.targetColumn);
+                      setColumnPopup(null);
+                    }}
+                    style={{
+                      display: 'block',
+                      width: '100%',
+                      textAlign: 'left',
+                      background: 'transparent',
+                      border: 'none',
+                      borderLeft: `3px solid ${color}`,
+                      padding: '6px 8px',
+                      cursor: 'pointer',
+                      borderRadius: '4px',
+                      color: 'inherit',
+                      fontFamily: 'inherit',
+                      fontSize: '12px',
+                    }}
+                    onMouseEnter={(ev) => {
+                      ev.currentTarget.style.background = theme.table.headerBackground;
+                    }}
+                    onMouseLeave={(ev) => {
+                      ev.currentTarget.style.background = 'transparent';
+                    }}
+                  >
+                    <div style={{ fontWeight: 600 }}>{e.targetTable}</div>
+                    <div style={{ color: theme.text.secondary, fontSize: '11px' }}>
+                      .{e.targetColumn}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
+
+// Memo'd default export. Prevents full re-mount of the Konva stage on every
+// theme toggle / sidebar resize / dropdown open. Relies on App.tsx passing
+// useCallback'd `onRefresh` so prop refs are stable across unrelated renders.
+export default memo(ERDViewer);

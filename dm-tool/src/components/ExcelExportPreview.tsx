@@ -1,7 +1,16 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { Table } from '../types';
+import { Table, MasterCode, MasterCodeCategory } from '../types';
 import { EXCEL_COLUMNS, ExcelColumnKey, exportDataDictionaryToExcel } from '../utils/excelExport';
-import { loadExcelExportColumns, saveExcelExportColumns } from '../utils/storage';
+import {
+  loadExcelExportColumns, saveExcelExportColumns,
+  loadExcelExportSelection, saveExcelExportSelection,
+} from '../utils/storage';
+
+// Columns hidden by default (until user opts them in).
+// Visible default: column / type / nullable / default / explanation / possibleValues.
+const DEFAULT_HIDDEN_COLUMNS: ExcelColumnKey[] = [
+  'mapping', 'sampleValues', 'mappedTo', 'migrationNeeded', 'nonMigrationComment',
+];
 import { X, FileDown, Check, Home, ArrowLeft } from 'lucide-react';
 
 interface ExcelExportPreviewProps {
@@ -11,24 +20,28 @@ interface ExcelExportPreviewProps {
   getColumnTags: (table: Table, colName: string) => string[];
   onClose: () => void;
   isDarkTheme?: boolean;
+  darkThemeVariant?: 'slate' | 'vscode-gray';
+  masterCodes?: MasterCode[];
+  masterCodeCategories?: MasterCodeCategory[];
 }
 
 // Shared table row renderer for Index page
-function IndexTableRow({ t, i, onClick, textPrimary, textSecondary, bg, completedBg, selected, onToggle, isDarkTheme }: {
+function IndexTableRow({ t, i, onClick, textPrimary, textSecondary, bg, selected, onToggle, isDarkTheme, isVscode }: {
   t: Table & { isSource?: boolean; _idx: number };
   i: number;
   onClick: () => void;
   textPrimary: string;
   textSecondary: string;
   bg: string;
-  completedBg: string;
   selected: boolean;
   onToggle: () => void;
   isDarkTheme?: boolean;
+  isVscode?: boolean;
 }) {
-  const tdStyle = { padding: '5px 12px', fontSize: '11px', border: '1px solid #000', color: textPrimary, backgroundColor: bg };
+  const cellBorder = `1px solid ${isDarkTheme ? (isVscode ? '#3c3c3c' : '#475569') : '#000'}`;
+  const tdStyle = { padding: '5px 12px', fontSize: '11px', border: cellBorder, color: textPrimary, backgroundColor: bg };
   return (
-    <tr style={{ backgroundColor: t.explanationCompleted ? completedBg : bg, opacity: selected ? 1 : 0.5 }}>
+    <tr style={{ backgroundColor: bg, opacity: selected ? 1 : 0.5 }}>
       <td style={{ ...tdStyle, textAlign: 'center' as const, width: '36px' }}>
         <input
           type="checkbox"
@@ -56,9 +69,6 @@ function IndexTableRow({ t, i, onClick, textPrimary, textSecondary, bg, complete
       </td>
       <td style={tdStyle}>{t.description || '-'}</td>
       <td style={{ ...tdStyle, textAlign: 'center' as const }}>{t.columns.length}</td>
-      <td style={{ ...tdStyle, textAlign: 'center' as const }}>{(t._tChecked ?? t.tableName.toLowerCase().includes('_t')) ? 'Y' : 'N'}</td>
-      <td style={{ ...tdStyle, textAlign: 'center' as const }}>{t.explanationCompleted ? 'Y' : 'N'}</td>
-      <td style={{ ...tdStyle, textAlign: 'center' as const }}>{t.toIgnore ? 'Y' : 'N'}</td>
     </tr>
   );
 }
@@ -70,13 +80,53 @@ export default function ExcelExportPreview({
   getColumnTags,
   onClose,
   isDarkTheme = false,
+  darkThemeVariant = 'slate',
+  masterCodes = [],
+  masterCodeCategories = [],
 }: ExcelExportPreviewProps) {
+  const isVscode = isDarkTheme && darkThemeVariant === 'vscode-gray';
   // Include all tables (including those marked "To Ignore" so data is preserved)
   const tables = allTables;
 
   const [selectedTab, setSelectedTab] = useState(-1);
   const [exporting, setExporting] = useState(false);
-  const [selectedTableIds, setSelectedTableIds] = useState<Set<number>>(() => new Set(tables.map(t => t.id)));
+
+  // Load saved per-script exclusion lists (table names, master-code keys,
+  // category keys). Anything in those exclusion sets is unselected by default
+  // when the preview opens.
+  const saved = useMemo(() => loadExcelExportSelection(scriptName), [scriptName]);
+  const excludedTables     = useMemo(() => new Set(saved?.excludedTableNames || []), [saved]);
+  const excludedMcKeys     = useMemo(() => new Set(saved?.excludedMasterCodeKeys || []), [saved]);
+  const excludedCatKeys    = useMemo(() => new Set(saved?.excludedCategoryKeys || []), [saved]);
+
+  const [selectedTableIds, setSelectedTableIds] = useState<Set<number>>(
+    () => new Set(tables.filter(t => !excludedTables.has(`${t.schema || ''}.${t.tableName}`)).map(t => t.id))
+  );
+  const [exportMasterCodes, setExportMasterCodes] = useState(masterCodes.length > 0);
+  const [exportMasterCodeCategories, setExportMasterCodeCategories] = useState(masterCodeCategories.length > 0);
+  const [selectedMasterCodeKeys, setSelectedMasterCodeKeys] = useState<Set<number>>(
+    () => new Set(masterCodes.map((m, i) => excludedMcKeys.has(m.key) ? -1 : i).filter(i => i >= 0))
+  );
+  const [selectedCategoryKeys, setSelectedCategoryKeys] = useState<Set<number>>(
+    () => new Set(masterCodeCategories.map((c, i) => excludedCatKeys.has(c.key) ? -1 : i).filter(i => i >= 0))
+  );
+
+  // Persist any change to selection so subsequent opens default to the same.
+  useEffect(() => {
+    const excludedTableNames = tables
+      .filter(t => !selectedTableIds.has(t.id))
+      .map(t => `${t.schema || ''}.${t.tableName}`);
+    const excludedMasterCodeKeys = masterCodes
+      .map((m, i) => selectedMasterCodeKeys.has(i) ? null : m.key)
+      .filter((k): k is string => k !== null);
+    const excludedCategoryKeys = masterCodeCategories
+      .map((c, i) => selectedCategoryKeys.has(i) ? null : c.key)
+      .filter((k): k is string => k !== null);
+    saveExcelExportSelection(scriptName, {
+      excludedTableNames, excludedMasterCodeKeys, excludedCategoryKeys,
+    });
+  }, [scriptName, tables, masterCodes, masterCodeCategories,
+      selectedTableIds, selectedMasterCodeKeys, selectedCategoryKeys]);
 
   const toggleTableSelection = (id: number) => {
     setSelectedTableIds(prev => {
@@ -97,20 +147,20 @@ export default function ExcelExportPreview({
 
   const selectedCount = tables.filter(t => selectedTableIds.has(t.id)).length;
   const exportTables = useMemo(() => tables.filter(t => selectedTableIds.has(t.id)), [tables, selectedTableIds]);
+  const exportMasterCodeList = useMemo(() => exportMasterCodes ? masterCodes.filter((_, i) => selectedMasterCodeKeys.has(i)) : [], [exportMasterCodes, masterCodes, selectedMasterCodeKeys]);
+  const exportCategoryList = useMemo(() => exportMasterCodeCategories ? masterCodeCategories.filter((_, i) => selectedCategoryKeys.has(i)) : [], [exportMasterCodeCategories, masterCodeCategories, selectedCategoryKeys]);
   const [visibleColumns, setVisibleColumns] = useState<Set<ExcelColumnKey>>(() => {
     const saved = loadExcelExportColumns();
     if (saved && saved.length > 0) {
       const valid = saved.filter(k => EXCEL_COLUMNS.some(c => c.key === k)) as ExcelColumnKey[];
       if (valid.length > 0) {
-        // Auto-include any new columns not in the saved set
-        const result = new Set(valid);
-        for (const col of EXCEL_COLUMNS) {
-          if (!saved.includes(col.key)) result.add(col.key);
-        }
-        return result;
+        return new Set(valid);
       }
     }
-    return new Set(EXCEL_COLUMNS.map(c => c.key));
+    // Default: every column EXCEPT the ones in DEFAULT_HIDDEN_COLUMNS.
+    return new Set(
+      EXCEL_COLUMNS.map(c => c.key).filter(k => !DEFAULT_HIDDEN_COLUMNS.includes(k))
+    );
   });
   const [homeSearch, setHomeSearch] = useState('');
   const tabStripRef = useRef<HTMLDivElement>(null);
@@ -163,23 +213,30 @@ export default function ExcelExportPreview({
       await exportDataDictionaryToExcel({
         scriptName, tables: exportTables, getMappingInfo, getColumnTags,
         visibleColumns: Array.from(visibleColumns),
+        masterCodes: exportMasterCodeList.length > 0 ? exportMasterCodeList : undefined,
+        masterCodeCategories: exportCategoryList.length > 0 ? exportCategoryList : undefined,
       });
     } finally {
       setExporting(false);
     }
   };
 
-  // Styles
-  const bg = isDarkTheme ? '#0f172a' : '#ffffff';
-  const bgAlt = isDarkTheme ? '#1e293b' : '#f8fafc';
-  const textPrimary = isDarkTheme ? '#e2e8f0' : '#1a202c';
-  const textSecondary = isDarkTheme ? '#94a3b8' : '#64748b';
-  const borderColor = isDarkTheme ? '#334155' : '#e2e8f0';
-  const titleBg = '#1B3A5C';
-  const sectionBg = '#2C5282';
-  const headerBg = isDarkTheme ? '#334155' : '#e2e8f0';
-  const completedBg = isDarkTheme ? '#064e3b22' : '#E8FAF0';
-  const labelBg = isDarkTheme ? '#1e293b' : '#f7fafc';
+  // Styles — branch on isVscode for the neutral VS-Code-gray palette,
+  // otherwise use slate tones.
+  const bg            = isDarkTheme ? (isVscode ? '#1e1e1e' : '#0f172a') : '#ffffff';
+  const bgAlt         = isDarkTheme ? (isVscode ? '#252526' : '#1e293b') : '#f8fafc';
+  const textPrimary   = isDarkTheme ? (isVscode ? '#e4e4e7' : '#e2e8f0') : '#1a202c';
+  const textSecondary = isDarkTheme ? (isVscode ? '#a1a1aa' : '#94a3b8') : '#64748b';
+  const borderColor   = isDarkTheme ? (isVscode ? '#3c3c3c' : '#334155') : '#e2e8f0';
+  // Title + section bars: pure Excel-blue in light mode (WYSIWYG); softer
+  // theme-matching tones in dark mode so the preview fits the app theme.
+  const titleBg       = isDarkTheme ? (isVscode ? '#2d2d30' : '#1e293b') : '#1B3A5C';
+  const sectionBg     = isDarkTheme ? (isVscode ? '#3c3c3c' : '#334155') : '#2C5282';
+  const headerBg      = isDarkTheme ? (isVscode ? '#2d2d30' : '#1e293b') : '#e2e8f0';
+  const labelBg       = isDarkTheme ? (isVscode ? '#1e1e1e' : '#0f172a') : '#f7fafc';
+  // Cell border — pure black is invisible on dark bg.
+  const cellBorderColor = isDarkTheme ? (isVscode ? '#3c3c3c' : '#475569') : '#000';
+  const cellBorder = `1px solid ${cellBorderColor}`;
 
   const getNullableDisplay = (nullable: string) => {
     const upper = nullable?.toUpperCase();
@@ -205,7 +262,7 @@ export default function ExcelExportPreview({
   const targetTables = filteredHomeTables.filter(t => !t.isSource);
   const sourceTables = filteredHomeTables.filter(t => t.isSource);
 
-  const thStyle = { padding: '6px 12px', fontSize: '11px', fontWeight: 600 as const, backgroundColor: headerBg, border: '1px solid #000', textAlign: 'left' as const, color: textPrimary };
+  const thStyle = { padding: '6px 12px', fontSize: '11px', fontWeight: 600 as const, backgroundColor: headerBg, border: cellBorder, textAlign: 'left' as const, color: textPrimary };
 
   return (
     <div style={{
@@ -309,6 +366,28 @@ export default function ExcelExportPreview({
             </button>
           );
         })}
+        {exportMasterCodes && exportMasterCodeList.length > 0 && (
+          <button data-tab-idx={-2} onClick={() => setSelectedTab(-2)} style={{
+            padding: '8px 16px', fontSize: '12px', fontWeight: selectedTab === -2 ? 600 : 400,
+            color: selectedTab === -2 ? '#3b82f6' : textSecondary,
+            backgroundColor: selectedTab === -2 ? bg : 'transparent',
+            border: 'none', borderBottom: selectedTab === -2 ? '2px solid #3b82f6' : '2px solid transparent',
+            cursor: 'pointer', whiteSpace: 'nowrap',
+          }}>
+            Appendix ({exportMasterCodeList.length})
+          </button>
+        )}
+        {exportMasterCodeCategories && exportCategoryList.length > 0 && (
+          <button data-tab-idx={-3} onClick={() => setSelectedTab(-3)} style={{
+            padding: '8px 16px', fontSize: '12px', fontWeight: selectedTab === -3 ? 600 : 400,
+            color: selectedTab === -3 ? '#3b82f6' : textSecondary,
+            backgroundColor: selectedTab === -3 ? bg : 'transparent',
+            border: 'none', borderBottom: selectedTab === -3 ? '2px solid #3b82f6' : '2px solid transparent',
+            cursor: 'pointer', whiteSpace: 'nowrap',
+          }}>
+            Categories ({exportCategoryList.length})
+          </button>
+        )}
       </div>
 
       {/* ==================== INDEX PAGE ==================== */}
@@ -319,14 +398,14 @@ export default function ExcelExportPreview({
             <div style={{
               backgroundColor: titleBg, color: '#ffffff', padding: '14px 20px',
               fontSize: '16px', fontWeight: 700, borderRadius: '6px 6px 0 0',
-              border: '1px solid #000', borderBottom: 'none',
+              border: cellBorder, borderBottom: 'none',
             }}>
               {scriptName} - Table Index
             </div>
             {/* Search bar */}
             <div style={{
               padding: '12px 20px', backgroundColor: labelBg,
-              border: '1px solid #000', borderBottom: 'none',
+              border: cellBorder, borderBottom: 'none',
               display: 'flex', alignItems: 'center', gap: '12px',
             }}>
               <input
@@ -350,7 +429,7 @@ export default function ExcelExportPreview({
               <>
                 <div style={{
                   backgroundColor: sectionBg, color: '#ffffff', padding: '8px 20px',
-                  fontSize: '13px', fontWeight: 700, border: '1px solid #000', borderBottom: 'none',
+                  fontSize: '13px', fontWeight: 700, border: cellBorder, borderBottom: 'none',
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 }}>
                   <span>Table List ({targetTables.length})</span>
@@ -381,16 +460,13 @@ export default function ExcelExportPreview({
                       <th style={thStyle}>Table Name</th>
                       <th style={thStyle}>Description</th>
                       <th style={{ ...thStyle, textAlign: 'center', width: '70px' }}>Columns</th>
-                      <th style={{ ...thStyle, textAlign: 'center', width: '40px' }}>_t</th>
-                      <th style={{ ...thStyle, textAlign: 'center', width: '80px' }}>Expl Completed</th>
-                      <th style={{ ...thStyle, textAlign: 'center', width: '60px' }}>To Ignore</th>
                     </tr>
                   </thead>
                   <tbody>
                     {targetTables.map((t, i) => (
                       <IndexTableRow key={t.id} t={t} i={i} onClick={() => setSelectedTab(t._idx)}
-                        textPrimary={textPrimary} textSecondary={textSecondary} bg={bg} completedBg={completedBg}
-                        selected={selectedTableIds.has(t.id)} onToggle={() => toggleTableSelection(t.id)} isDarkTheme={isDarkTheme} />
+                        textPrimary={textPrimary} textSecondary={textSecondary} bg={bg}
+                        selected={selectedTableIds.has(t.id)} onToggle={() => toggleTableSelection(t.id)} isDarkTheme={isDarkTheme} isVscode={isVscode} />
                     ))}
                   </tbody>
                 </table>
@@ -404,7 +480,7 @@ export default function ExcelExportPreview({
               <>
                 <div style={{
                   backgroundColor: sectionBg, color: '#ffffff', padding: '8px 20px',
-                  fontSize: '13px', fontWeight: 700, border: '1px solid #000', borderBottom: 'none',
+                  fontSize: '13px', fontWeight: 700, border: cellBorder, borderBottom: 'none',
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 }}>
                   <span>Source Tables ({sourceTables.length})</span>
@@ -435,19 +511,157 @@ export default function ExcelExportPreview({
                       <th style={thStyle}>Table Name</th>
                       <th style={thStyle}>Description</th>
                       <th style={{ ...thStyle, textAlign: 'center', width: '70px' }}>Columns</th>
-                      <th style={{ ...thStyle, textAlign: 'center', width: '40px' }}>_t</th>
-                      <th style={{ ...thStyle, textAlign: 'center', width: '80px' }}>Expl Completed</th>
-                      <th style={{ ...thStyle, textAlign: 'center', width: '60px' }}>To Ignore</th>
                     </tr>
                   </thead>
                   <tbody>
                     {sourceTables.map((t, i) => (
                       <IndexTableRow key={t.id} t={t} i={i} onClick={() => setSelectedTab(t._idx)}
-                        textPrimary={textPrimary} textSecondary={textSecondary} bg={bg} completedBg={completedBg}
-                        selected={selectedTableIds.has(t.id)} onToggle={() => toggleTableSelection(t.id)} isDarkTheme={isDarkTheme} />
+                        textPrimary={textPrimary} textSecondary={textSecondary} bg={bg}
+                        selected={selectedTableIds.has(t.id)} onToggle={() => toggleTableSelection(t.id)} isDarkTheme={isDarkTheme} isVscode={isVscode} />
                     ))}
                   </tbody>
                 </table>
+              </>
+            )}
+            {/* Appendix Options */}
+            {(masterCodes.length > 0 || masterCodeCategories.length > 0) && (
+              <>
+                <div style={{ height: '20px' }} />
+                <div style={{
+                  backgroundColor: sectionBg, color: '#ffffff', padding: '8px 20px',
+                  fontSize: '13px', fontWeight: 700, border: cellBorder, borderBottom: 'none',
+                }}>
+                  Appendix Sheets
+                </div>
+                <div style={{ border: cellBorder, backgroundColor: bg, padding: '16px 20px' }}>
+                  {/* Master Codes toggle */}
+                  {masterCodes.length > 0 && (
+                    <div style={{ marginBottom: masterCodeCategories.length > 0 ? '16px' : 0 }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', marginBottom: '8px' }}>
+                        <input
+                          type="checkbox"
+                          checked={exportMasterCodes}
+                          onChange={(e) => {
+                            setExportMasterCodes(e.target.checked);
+                            if (!e.target.checked) setSelectedTab(prev => prev === -2 ? -1 : prev);
+                          }}
+                          style={{ width: '14px', height: '14px', cursor: 'pointer', accentColor: isDarkTheme ? '#6b7280' : '#4b5563' }}
+                        />
+                        <span style={{ fontSize: '13px', fontWeight: 600, color: textPrimary }}>
+                          Master Code Definitions
+                        </span>
+                        <span style={{ fontSize: '12px', color: textSecondary }}>
+                          ({selectedMasterCodeKeys.size}/{masterCodes.length} selected)
+                        </span>
+                      </label>
+                      {exportMasterCodes && (
+                        <div style={{
+                          marginLeft: '22px', maxHeight: '180px', overflowY: 'auto',
+                          border: `1px solid ${borderColor}`, borderRadius: '4px',
+                        }}>
+                          <div style={{
+                            padding: '4px 12px', borderBottom: `1px solid ${borderColor}`,
+                            backgroundColor: headerBg, display: 'flex', alignItems: 'center', gap: '8px',
+                          }}>
+                            <input
+                              type="checkbox"
+                              checked={selectedMasterCodeKeys.size === masterCodes.length}
+                              onChange={(e) => setSelectedMasterCodeKeys(e.target.checked ? new Set(masterCodes.map((_, i) => i)) : new Set())}
+                              style={{ width: '13px', height: '13px', cursor: 'pointer', accentColor: isDarkTheme ? '#6b7280' : '#4b5563' }}
+                            />
+                            <span style={{ fontSize: '11px', fontWeight: 600, color: textSecondary }}>Select All</span>
+                          </div>
+                          {masterCodes.map((mc, idx) => (
+                            <div key={idx} style={{
+                              padding: '3px 12px', display: 'flex', alignItems: 'center', gap: '8px',
+                              borderBottom: idx < masterCodes.length - 1 ? `1px solid ${borderColor}` : 'none',
+                              opacity: selectedMasterCodeKeys.has(idx) ? 1 : 0.5,
+                            }}>
+                              <input
+                                type="checkbox"
+                                checked={selectedMasterCodeKeys.has(idx)}
+                                onChange={() => {
+                                  setSelectedMasterCodeKeys(prev => {
+                                    const next = new Set(prev);
+                                    if (next.has(idx)) next.delete(idx); else next.add(idx);
+                                    return next;
+                                  });
+                                }}
+                                style={{ width: '13px', height: '13px', cursor: 'pointer', accentColor: isDarkTheme ? '#6b7280' : '#4b5563' }}
+                              />
+                              <span style={{ fontFamily: 'Consolas, monospace', fontSize: '11px', fontWeight: 600, color: textPrimary }}>{mc.key}</span>
+                              <span style={{ fontSize: '11px', color: textSecondary, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{mc.definition}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Master Code Categories toggle */}
+                  {masterCodeCategories.length > 0 && (
+                    <div>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', marginBottom: '8px' }}>
+                        <input
+                          type="checkbox"
+                          checked={exportMasterCodeCategories}
+                          onChange={(e) => {
+                            setExportMasterCodeCategories(e.target.checked);
+                            if (!e.target.checked) setSelectedTab(prev => prev === -3 ? -1 : prev);
+                          }}
+                          style={{ width: '14px', height: '14px', cursor: 'pointer', accentColor: isDarkTheme ? '#6b7280' : '#4b5563' }}
+                        />
+                        <span style={{ fontSize: '13px', fontWeight: 600, color: textPrimary }}>
+                          Master Code Categories
+                        </span>
+                        <span style={{ fontSize: '12px', color: textSecondary }}>
+                          ({selectedCategoryKeys.size}/{masterCodeCategories.length} selected)
+                        </span>
+                      </label>
+                      {exportMasterCodeCategories && (
+                        <div style={{
+                          marginLeft: '22px', maxHeight: '180px', overflowY: 'auto',
+                          border: `1px solid ${borderColor}`, borderRadius: '4px',
+                        }}>
+                          <div style={{
+                            padding: '4px 12px', borderBottom: `1px solid ${borderColor}`,
+                            backgroundColor: headerBg, display: 'flex', alignItems: 'center', gap: '8px',
+                          }}>
+                            <input
+                              type="checkbox"
+                              checked={selectedCategoryKeys.size === masterCodeCategories.length}
+                              onChange={(e) => setSelectedCategoryKeys(e.target.checked ? new Set(masterCodeCategories.map((_, i) => i)) : new Set())}
+                              style={{ width: '13px', height: '13px', cursor: 'pointer', accentColor: isDarkTheme ? '#6b7280' : '#4b5563' }}
+                            />
+                            <span style={{ fontSize: '11px', fontWeight: 600, color: textSecondary }}>Select All</span>
+                          </div>
+                          {masterCodeCategories.map((mc, idx) => (
+                            <div key={idx} style={{
+                              padding: '3px 12px', display: 'flex', alignItems: 'center', gap: '8px',
+                              borderBottom: idx < masterCodeCategories.length - 1 ? `1px solid ${borderColor}` : 'none',
+                              opacity: selectedCategoryKeys.has(idx) ? 1 : 0.5,
+                            }}>
+                              <input
+                                type="checkbox"
+                                checked={selectedCategoryKeys.has(idx)}
+                                onChange={() => {
+                                  setSelectedCategoryKeys(prev => {
+                                    const next = new Set(prev);
+                                    if (next.has(idx)) next.delete(idx); else next.add(idx);
+                                    return next;
+                                  });
+                                }}
+                                style={{ width: '13px', height: '13px', cursor: 'pointer', accentColor: isDarkTheme ? '#6b7280' : '#4b5563' }}
+                              />
+                              <span style={{ fontFamily: 'Consolas, monospace', fontSize: '11px', fontWeight: 600, color: textPrimary }}>{mc.key}</span>
+                              <span style={{ fontSize: '11px', color: textSecondary, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{mc.definition}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </>
             )}
           </div>
@@ -473,7 +687,7 @@ export default function ExcelExportPreview({
             <div style={{ maxWidth: '500px' }}>
               <div style={{
                 backgroundColor: titleBg, color: '#ffffff', padding: '8px 16px',
-                fontSize: '12px', fontWeight: 700, border: '1px solid #000', borderBottom: 'none',
+                fontSize: '12px', fontWeight: 700, border: cellBorder, borderBottom: 'none',
               }}>
                 {table.isSource ? '[SOURCE] ' : ''}{table.schema ? table.schema + '.' : ''}{table.tableName}
               </div>
@@ -486,18 +700,15 @@ export default function ExcelExportPreview({
                     ['Table Name', table.tableName],
                     ['Total Columns', String(table.columns.length)],
                     ['Description', table.description || '-'],
-                    ['_t', (table._tChecked ?? table.tableName.toLowerCase().includes('_t')) ? 'Y' : 'N'],
-                    ['Explanation Completed', table.explanationCompleted ? 'Y' : 'N'],
-                    ['To Ignore', table.toIgnore ? 'Y' : 'N'],
                   ].map(([label, value], i) => (
                     <tr key={i}>
                       <td style={{
                         width: '160px', padding: '6px 12px', fontSize: '12px', fontWeight: 600,
-                        color: textPrimary, backgroundColor: labelBg, border: '1px solid #000',
+                        color: textPrimary, backgroundColor: labelBg, border: cellBorder,
                       }}>{label}</td>
                       <td style={{
                         padding: '6px 12px', fontSize: '12px', color: textPrimary,
-                        backgroundColor: bg, border: '1px solid #000',
+                        backgroundColor: bg, border: cellBorder,
                       }}>{value}</td>
                     </tr>
                   ))}
@@ -508,9 +719,10 @@ export default function ExcelExportPreview({
             <div style={{ height: '20px' }} />
 
             {/* SECTION 2: Constraints */}
+            <div style={{ maxWidth: '700px' }}>
             <div style={{
               backgroundColor: sectionBg, color: '#ffffff', padding: '8px 16px',
-              fontSize: '12px', fontWeight: 700, border: '1px solid #000', borderBottom: 'none',
+              fontSize: '12px', fontWeight: 700, border: cellBorder, borderBottom: 'none',
             }}>
               Constraints
             </div>
@@ -523,7 +735,7 @@ export default function ExcelExportPreview({
                         <th key={h} style={{
                           padding: '6px 12px', fontSize: '11px', fontWeight: 600,
                           color: isDarkTheme ? '#e2e8f0' : '#1a202c',
-                          backgroundColor: headerBg, border: '1px solid #000', textAlign: 'left',
+                          backgroundColor: headerBg, border: cellBorder, textAlign: 'left',
                         }}>{h}</th>
                       ))}
                     </tr>
@@ -531,10 +743,10 @@ export default function ExcelExportPreview({
                   <tbody>
                     {table.constraints.map((c, i) => (
                       <tr key={i}>
-                        <td style={{ padding: '5px 12px', fontSize: '11px', border: '1px solid #000', color: textPrimary, backgroundColor: bg, fontWeight: 700 }}>{c.name}</td>
-                        <td style={{ padding: '5px 12px', fontSize: '11px', border: '1px solid #000', color: textPrimary, backgroundColor: bg }}>{c.type}</td>
-                        <td style={{ padding: '5px 12px', fontSize: '11px', border: '1px solid #000', color: textPrimary, backgroundColor: bg, fontFamily: 'Consolas, monospace' }}>{c.localCols}</td>
-                        <td style={{ padding: '5px 12px', fontSize: '11px', border: '1px solid #000', color: textPrimary, backgroundColor: bg }}>{c.ref || '-'}</td>
+                        <td style={{ padding: '5px 12px', fontSize: '11px', border: cellBorder, color: textPrimary, backgroundColor: bg, fontWeight: 700 }}>{c.name}</td>
+                        <td style={{ padding: '5px 12px', fontSize: '11px', border: cellBorder, color: textPrimary, backgroundColor: bg }}>{c.type}</td>
+                        <td style={{ padding: '5px 12px', fontSize: '11px', border: cellBorder, color: textPrimary, backgroundColor: bg, fontFamily: 'Consolas, monospace' }}>{c.localCols}</td>
+                        <td style={{ padding: '5px 12px', fontSize: '11px', border: cellBorder, color: textPrimary, backgroundColor: bg }}>{c.ref || '-'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -544,7 +756,7 @@ export default function ExcelExportPreview({
                   <tr>
                     <td style={{
                       padding: '8px 12px', fontSize: '11px', fontStyle: 'italic',
-                      color: textSecondary, border: '1px solid #000', backgroundColor: bg,
+                      color: textSecondary, border: cellBorder, backgroundColor: bg,
                     }}>
                       No constraints defined
                     </td>
@@ -552,13 +764,14 @@ export default function ExcelExportPreview({
                 </tbody>
               )}
             </table>
+            </div>
 
             <div style={{ height: '20px' }} />
 
             {/* SECTION 3: Column Details */}
             <div style={{
               backgroundColor: sectionBg, color: '#ffffff', padding: '8px 16px',
-              fontSize: '12px', fontWeight: 700, border: '1px solid #000', borderBottom: 'none',
+              fontSize: '12px', fontWeight: 700, border: cellBorder, borderBottom: 'none',
             }}>
               Column Details
             </div>
@@ -573,7 +786,7 @@ export default function ExcelExportPreview({
                       <th key={col.key} style={{
                         padding: '6px 10px', fontSize: '11px', fontWeight: 600,
                         color: isDarkTheme ? '#e2e8f0' : '#1a202c',
-                        backgroundColor: headerBg, border: '1px solid #000', textAlign: 'left',
+                        backgroundColor: headerBg, border: cellBorder, textAlign: 'left',
                         width: `${col.width * 8}px`,
                       }}>{col.header}</th>
                     ))}
@@ -599,10 +812,10 @@ export default function ExcelExportPreview({
                       nonMigrationComment: col.nonMigrationComment || '',
                     };
                     return (
-                      <tr key={rowIdx} style={{ backgroundColor: table.explanationCompleted ? completedBg : bg }}>
+                      <tr key={rowIdx} style={{ backgroundColor: bg }}>
                         {activeCols.map(c => (
                           <td key={c.key} style={{
-                            padding: '5px 10px', fontSize: '11px', border: '1px solid #000',
+                            padding: '5px 10px', fontSize: '11px', border: cellBorder,
                             color: textPrimary, verticalAlign: 'top', wordBreak: 'break-word',
                             fontFamily: (c.key === 'column' || c.key === 'type') ? 'Consolas, monospace' : 'inherit',
                             fontWeight: (c.key === 'column' || c.key === 'type') ? 700 : 400,
@@ -616,6 +829,104 @@ export default function ExcelExportPreview({
                 </tbody>
               </table>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ==================== APPENDIX PAGE ==================== */}
+      {selectedTab === -2 && exportMasterCodes && exportMasterCodeList.length > 0 && (
+        <div style={{ flex: 1, overflow: 'auto', padding: '24px' }}>
+          <div style={{ maxWidth: '700px', margin: '0 auto' }}>
+            <button onClick={() => setSelectedTab(-1)} style={{
+              display: 'inline-flex', alignItems: 'center', gap: '6px',
+              padding: '6px 14px', marginBottom: '12px',
+              backgroundColor: 'transparent', border: `1px solid ${borderColor}`,
+              borderRadius: '5px', cursor: 'pointer', fontSize: '12px', fontWeight: 500, color: '#3b82f6',
+            }}>
+              <ArrowLeft size={14} />
+              Back to Index
+            </button>
+
+            <div style={{
+              backgroundColor: titleBg, color: '#ffffff', padding: '14px 20px',
+              fontSize: '16px', fontWeight: 700, borderRadius: '6px 6px 0 0',
+              border: cellBorder, borderBottom: 'none',
+            }}>
+              {scriptName} - Master Code Definitions ({exportMasterCodeList.length})
+            </div>
+            <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+              <thead>
+                <tr>
+                  <th style={{ ...thStyle, width: '200px' }}>Key</th>
+                  <th style={thStyle}>Definition</th>
+                </tr>
+              </thead>
+              <tbody>
+                {exportMasterCodeList.map((mc, idx) => (
+                  <tr key={idx}>
+                    <td style={{
+                      padding: '6px 12px', fontSize: '12px', fontWeight: 700,
+                      fontFamily: 'Consolas, monospace', color: textPrimary,
+                      backgroundColor: bg, border: cellBorder, verticalAlign: 'top',
+                    }}>{mc.key}</td>
+                    <td style={{
+                      padding: '6px 12px', fontSize: '12px', color: textPrimary,
+                      backgroundColor: bg, border: cellBorder, verticalAlign: 'top',
+                      wordBreak: 'break-word',
+                    }}>{mc.definition}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ==================== CATEGORIES PAGE ==================== */}
+      {selectedTab === -3 && exportMasterCodeCategories && exportCategoryList.length > 0 && (
+        <div style={{ flex: 1, overflow: 'auto', padding: '24px' }}>
+          <div style={{ maxWidth: '700px', margin: '0 auto' }}>
+            <button onClick={() => setSelectedTab(-1)} style={{
+              display: 'inline-flex', alignItems: 'center', gap: '6px',
+              padding: '6px 14px', marginBottom: '12px',
+              backgroundColor: 'transparent', border: `1px solid ${borderColor}`,
+              borderRadius: '5px', cursor: 'pointer', fontSize: '12px', fontWeight: 500, color: '#3b82f6',
+            }}>
+              <ArrowLeft size={14} />
+              Back to Index
+            </button>
+
+            <div style={{
+              backgroundColor: titleBg, color: '#ffffff', padding: '14px 20px',
+              fontSize: '16px', fontWeight: 700, borderRadius: '6px 6px 0 0',
+              border: cellBorder, borderBottom: 'none',
+            }}>
+              {scriptName} - Master Code Categories ({exportCategoryList.length})
+            </div>
+            <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+              <thead>
+                <tr>
+                  <th style={{ ...thStyle, width: '200px' }}>Key</th>
+                  <th style={thStyle}>Definition</th>
+                </tr>
+              </thead>
+              <tbody>
+                {exportCategoryList.map((mc, idx) => (
+                  <tr key={idx}>
+                    <td style={{
+                      padding: '6px 12px', fontSize: '12px', fontWeight: 700,
+                      fontFamily: 'Consolas, monospace', color: textPrimary,
+                      backgroundColor: bg, border: cellBorder, verticalAlign: 'top',
+                    }}>{mc.key}</td>
+                    <td style={{
+                      padding: '6px 12px', fontSize: '12px', color: textPrimary,
+                      backgroundColor: bg, border: cellBorder, verticalAlign: 'top',
+                      wordBreak: 'break-word',
+                    }}>{mc.definition}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}

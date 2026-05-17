@@ -43,7 +43,7 @@ def _format_columns_block(columns):
 def _comprehension_prompt(table_qualified, domain, columns):
     cols_block = _format_columns_block(columns)
     yaml_block = "\n".join(
-        f"    {c['name']}:\n      explanation: \"...\"\n      possible_values: \"...\"\n      notes: \"...\""
+        f"    {c['name']}:\n      explanation: |\n        ...\n      possible_values: |\n        ...\n      notes: |\n        ..."
         for c in columns
     )
     return f"""Comprehend every column on `{table_qualified}` ({domain}). For each column listed
@@ -56,7 +56,8 @@ below, respond with:
 Columns:
 {cols_block}
 
-Return your answer in YAML form so I can paste it into an archive:
+Return your answer in YAML form below. Use block-scalar (`|`) values so you
+can include colons, quotes, and multi-line content without escaping:
 
   column_explanations:
 {yaml_block}

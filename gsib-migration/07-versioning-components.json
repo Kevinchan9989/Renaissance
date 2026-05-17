@@ -1,0 +1,1113 @@
+{
+  "meta": {
+    "title": "Versioning Components Specification",
+    "description": "Complete specification for version history, comparison, badge, minimap, and popup components used in the DM Tool's script versioning system.",
+    "sourceFiles": [
+      "dm-tool/src/components/versioning/VersionBadge.tsx",
+      "dm-tool/src/components/versioning/VersionHistory.tsx",
+      "dm-tool/src/components/versioning/VersionHistoryPopup.tsx",
+      "dm-tool/src/components/versioning/VersionCompare.tsx",
+      "dm-tool/src/components/versioning/VersionMinimap.tsx",
+      "dm-tool/src/components/versioning/index.ts"
+    ],
+    "generatedDate": "2026-04-28"
+  },
+  "indexExports": {
+    "file": "index.ts",
+    "description": "Barrel file re-exporting all versioning components as named exports.",
+    "exports": [
+      { "exportName": "VersionBadge", "source": "./VersionBadge", "exportType": "default-as-named" },
+      { "exportName": "VersionHistory", "source": "./VersionHistory", "exportType": "default-as-named" },
+      { "exportName": "VersionCompare", "source": "./VersionCompare", "exportType": "default-as-named" },
+      { "exportName": "VersionMinimap", "source": "./VersionMinimap", "exportType": "default-as-named" },
+      { "exportName": "VersionHistoryPopup", "source": "./VersionHistoryPopup", "exportType": "default-as-named" }
+    ]
+  },
+  "components": {
+    "VersionBadge": {
+      "file": "VersionBadge.tsx",
+      "description": "A compact clickable badge that displays the current version number of a script, with optional unsaved-changes indicator and history icon. Returns null when versioning is not enabled on the script.",
+      "propsInterface": {
+        "name": "VersionBadgeProps",
+        "properties": [
+          {
+            "name": "script",
+            "type": "Script",
+            "required": true,
+            "description": "The script object whose version info is displayed."
+          },
+          {
+            "name": "onClick",
+            "type": "() => void",
+            "required": false,
+            "description": "Optional click handler; when provided, the badge becomes clickable and shows a history icon when multiple versions exist."
+          },
+          {
+            "name": "showUnsavedIndicator",
+            "type": "boolean",
+            "required": false,
+            "default": true,
+            "description": "Whether to show the unsaved-changes AlertCircle icon."
+          },
+          {
+            "name": "size",
+            "type": "'sm' | 'md' | 'lg'",
+            "required": false,
+            "default": "md",
+            "description": "Controls badge CSS class and icon pixel size."
+          }
+        ]
+      },
+      "stateVariables": [],
+      "derivedValues": [
+        { "name": "currentVersion", "source": "getCurrentVersion(script)", "description": "The active ScriptVersion object." },
+        { "name": "unsaved", "source": "showUnsavedIndicator && hasUnsavedChanges(script)", "description": "Boolean indicating unsaved changes." },
+        { "name": "versionCount", "source": "script.versions?.length || 0", "description": "Total number of saved versions." }
+      ],
+      "conditionalRendering": {
+        "returnsNull": "When script.versioningEnabled is falsy.",
+        "unsavedIcon": "Shown when unsaved is true.",
+        "historyIcon": "Shown when onClick is provided AND versionCount > 1."
+      },
+      "uiLayout": {
+        "rootElement": "button",
+        "children": [
+          { "element": "GitBranch icon", "description": "Branch icon sized per size prop." },
+          { "element": "span.version-badge-number", "content": "v{currentVersion?.versionNumber || 1}" },
+          { "element": "AlertCircle icon (conditional)", "description": "Unsaved indicator icon." },
+          { "element": "History icon (conditional)", "description": "History availability indicator." }
+        ]
+      },
+      "sizeConfiguration": {
+        "cssClassMap": {
+          "sm": "version-badge-sm",
+          "md": "version-badge-md",
+          "lg": "version-badge-lg"
+        },
+        "iconSizeMap": {
+          "sm": 10,
+          "md": 12,
+          "lg": 14
+        }
+      },
+      "styling": {
+        "rootTitle": "Version {n} of {total}{unsaved note}\\nClick to view history"
+      },
+      "cssClasses": [
+        "version-badge",
+        "version-badge-sm",
+        "version-badge-md",
+        "version-badge-lg",
+        "version-badge-unsaved",
+        "version-badge-clickable",
+        "version-badge-number",
+        "version-badge-unsaved-icon",
+        "version-badge-history-icon"
+      ],
+      "dependencies": {
+        "icons": ["GitBranch", "History", "AlertCircle"],
+        "types": ["Script"],
+        "utils": ["getCurrentVersion", "hasUnsavedChanges"]
+      }
+    },
+
+    "VersionHistory": {
+      "file": "VersionHistory.tsx",
+      "description": "A slide-out overlay panel displaying the full version history of a script. Supports setting a version as current, deleting versions, and comparing any version with the current version. Uses inline confirmation dialogs for destructive actions.",
+      "propsInterface": {
+        "name": "VersionHistoryProps",
+        "properties": [
+          {
+            "name": "script",
+            "type": "Script",
+            "required": true,
+            "description": "The script whose version history is shown."
+          },
+          {
+            "name": "onClose",
+            "type": "() => void",
+            "required": true,
+            "description": "Callback to close the history panel."
+          },
+          {
+            "name": "onScriptUpdate",
+            "type": "(script: Script) => void",
+            "required": true,
+            "description": "Callback when the script is mutated (version set/deleted)."
+          },
+          {
+            "name": "onCompareVersions",
+            "type": "(oldVersion: ScriptVersion, newVersion: ScriptVersion) => void",
+            "required": true,
+            "description": "Callback to open comparison view between two versions."
+          }
+        ]
+      },
+      "stateVariables": [
+        {
+          "name": "confirmDelete",
+          "type": "string | null",
+          "initialValue": null,
+          "description": "Version ID for which delete confirmation is showing."
+        },
+        {
+          "name": "confirmSetCurrent",
+          "type": "string | null",
+          "initialValue": null,
+          "description": "Version ID for which set-as-current confirmation is showing."
+        }
+      ],
+      "derivedValues": [
+        { "name": "versions", "source": "script.versions || []", "description": "Array of ScriptVersion objects." },
+        { "name": "currentVersion", "source": "getCurrentVersion(script)", "description": "The active version." },
+        { "name": "storageSize", "source": "getVersionsStorageSize(script)", "description": "Storage bytes used by all versions." }
+      ],
+      "handlers": {
+        "formatDate": {
+          "description": "Formats a timestamp to 'MMM DD, YYYY, HH:MM AM/PM' using en-US locale.",
+          "options": { "month": "short", "day": "numeric", "year": "numeric", "hour": "2-digit", "minute": "2-digit" }
+        },
+        "handleVersionClick": {
+          "description": "Compares the clicked version with the current version, always placing the older version on the left. Skips if clicking the current version."
+        },
+        "handleSetAsCurrent": {
+          "description": "Calls setCurrentVersion(script, versionId) and propagates via onScriptUpdate. Resets confirmSetCurrent."
+        },
+        "handleDelete": {
+          "description": "Calls deleteScriptVersion(script, versionId) and propagates via onScriptUpdate. Resets confirmDelete."
+        }
+      },
+      "uiLayout": {
+        "rootElement": "div.version-history-overlay",
+        "children": [
+          {
+            "element": "div.version-history-panel",
+            "children": [
+              {
+                "section": "Header (div.version-history-header)",
+                "children": [
+                  "div.version-history-title containing h3 'Version History' and span.version-history-count '{n} versions'",
+                  "Close button (btn btn-sm btn-icon) with X icon size 16"
+                ]
+              },
+              {
+                "section": "Storage Info (div.version-history-storage)",
+                "content": ["Storage: {formattedSize}", "Max versions: {script.maxVersions || 50}"]
+              },
+              {
+                "section": "Help Text (div.version-history-help)",
+                "content": "Click any version to compare with current"
+              },
+              {
+                "section": "Version List (div.version-history-list)",
+                "emptyState": {
+                  "container": "div.version-history-empty",
+                  "icon": "Save size 32",
+                  "text": "No versions saved yet",
+                  "hint": "Edit and save your script to create versions (p.version-history-empty-hint)"
+                },
+                "populatedState": {
+                  "container": "div.version-items",
+                  "itemStructure": {
+                    "rootElement": "div.version-item (+ .current when isCurrent)",
+                    "onClick": "handleVersionClick(version) when not current",
+                    "children": [
+                      {
+                        "element": "div.version-item-content",
+                        "children": [
+                          "div.version-item-header: span.version-item-number 'v{n}', span.version-item-current-badge 'Current' (conditional)",
+                          "div.version-item-meta: Clock icon size 12, date span, optional separator dot + message"
+                        ]
+                      },
+                      {
+                        "element": "div.version-item-actions",
+                        "children": [
+                          "Set-as-current button (RotateCcw icon 12) with inline Yes/No confirm (btn-xs btn-success)",
+                          "Delete button (Trash2 icon 12, btn-xs btn-danger) with inline Yes/No confirm, disabled if current+only version",
+                          "ChevronRight arrow icon 14 (shown for non-current)"
+                        ]
+                      }
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "interactionPatterns": {
+        "versionClick": "Clicking a non-current version triggers comparison with current (older on left, newer on right).",
+        "setAsCurrent": "Button click shows inline confirm (Yes/No). Clicking Yes calls handleSetAsCurrent. Click propagation stopped.",
+        "deleteVersion": "Button click shows inline confirm (Yes/No). Clicking Yes calls handleDelete. Delete disabled when only 1 version exists and it is current.",
+        "messageDisplay": "Version message is only shown if it differs from the default 'Version {n}' text."
+      },
+      "cssClasses": [
+        "version-history-overlay",
+        "version-history-panel",
+        "version-history-header",
+        "version-history-title",
+        "version-history-count",
+        "version-history-storage",
+        "version-history-help",
+        "version-history-list",
+        "version-history-empty",
+        "version-history-empty-hint",
+        "version-items",
+        "version-item",
+        "version-item current",
+        "version-item-content",
+        "version-item-header",
+        "version-item-number",
+        "version-item-current-badge",
+        "version-item-meta",
+        "version-item-separator",
+        "version-item-message",
+        "version-item-actions",
+        "version-history-confirm",
+        "version-item-arrow",
+        "btn btn-sm btn-icon",
+        "btn btn-xs",
+        "btn btn-xs btn-success",
+        "btn btn-xs btn-danger"
+      ],
+      "dependencies": {
+        "icons": ["X", "Clock", "RotateCcw", "Trash2", "Save", "ChevronRight"],
+        "types": ["Script", "ScriptVersion"],
+        "utils": ["getCurrentVersion", "setCurrentVersion", "deleteScriptVersion", "getVersionsStorageSize", "formatStorageSize"]
+      }
+    },
+
+    "VersionHistoryPopup": {
+      "file": "VersionHistoryPopup.tsx",
+      "description": "A full-screen popup combining a left-panel version list with a right-panel inline diff comparison view. Supports version selection, set-as-current, delete, and side-by-side character-level diff with keyboard navigation. This is the primary integrated version history + compare experience.",
+      "propsInterface": {
+        "name": "VersionHistoryPopupProps",
+        "properties": [
+          {
+            "name": "script",
+            "type": "Script",
+            "required": true,
+            "description": "The script whose version history is displayed."
+          },
+          {
+            "name": "onClose",
+            "type": "() => void",
+            "required": true,
+            "description": "Callback to close the popup."
+          },
+          {
+            "name": "onScriptUpdate",
+            "type": "(script: Script) => void",
+            "required": true,
+            "description": "Callback when the script is mutated."
+          },
+          {
+            "name": "isDarkTheme",
+            "type": "boolean",
+            "required": false,
+            "default": false,
+            "description": "Dark theme flag (currently prefixed with underscore, reserved for future use)."
+          }
+        ]
+      },
+      "stateVariables": [
+        { "name": "confirmDelete", "type": "string | null", "initialValue": null, "description": "Version ID showing delete confirmation." },
+        { "name": "confirmSetCurrent", "type": "string | null", "initialValue": null, "description": "Version ID showing set-as-current confirmation." },
+        { "name": "selectedVersionId", "type": "string | null", "initialValue": null, "description": "Currently selected version for comparison." },
+        { "name": "diffResult", "type": "VersionCompareResult | null", "initialValue": null, "description": "Computed diff result between selected and current versions." },
+        { "name": "currentChangeIndex", "type": "number", "initialValue": 0, "description": "Index of the currently focused change for navigation." }
+      ],
+      "refs": [
+        { "name": "diffContainerRef", "type": "HTMLDivElement", "description": "Ref to the diff table wrapper for scroll-to-line navigation." }
+      ],
+      "derivedValues": [
+        { "name": "versions", "source": "script.versions || []" },
+        { "name": "currentVersion", "source": "getCurrentVersion(script)" },
+        { "name": "storageSize", "source": "getVersionsStorageSize(script)" },
+        { "name": "selectedVersion", "source": "versions.find(v => v.id === selectedVersionId)" },
+        { "name": "totalChanges", "source": "countChanges(diffResult)" },
+        { "name": "allLines", "source": "diffResult.hunks.flatMap(h => h.lines)" },
+        { "name": "unifiedRows", "source": "buildUnifiedRows(allLines)" }
+      ],
+      "effects": [
+        {
+          "trigger": "[selectedVersion, currentVersion]",
+          "description": "When selection changes, computes diff using computeVersionDiff with contextLines=3, showAllLines=true, charDiff=true. Always places older version on left. Resets currentChangeIndex to 0."
+        },
+        {
+          "trigger": "[navigateToChange, onClose]",
+          "description": "Keyboard listener: Escape closes popup; Ctrl+J/ArrowDown navigates to next change; Ctrl+K/ArrowUp navigates to previous change."
+        }
+      ],
+      "handlers": {
+        "formatDate": "Same en-US locale format as VersionHistory.",
+        "handleVersionClick": "Toggles selection: if clicking current version, deselects; otherwise selects the version for comparison.",
+        "handleSetAsCurrent": "Sets version as current, clears confirmSetCurrent and selectedVersionId.",
+        "handleDelete": "Deletes version, clears confirmDelete, clears selectedVersionId if it was the deleted one.",
+        "navigateToChange": "Cycles through change hunks (wrapping). Scrolls the diff container to the target line.",
+        "scrollToLine": "Finds the first diff-table-row with data-old-line or data-new-line >= lineNumber and scrolls it into view with smooth behavior and center block alignment.",
+        "renderCharHighlightedContent": "Renders CharDiff array as spans. 'unchanged' spans are plain, 'added' spans get diff-char-added (new side only), 'deleted' spans get diff-char-deleted (old side only).",
+        "getAllLines": "Flattens hunks into a single LineDiff array."
+      },
+      "uiLayout": {
+        "rootElement": "div.version-popup-overlay (onClick closes popup)",
+        "children": [
+          {
+            "element": "div.version-popup-container (stopPropagation on click)",
+            "children": [
+              {
+                "section": "Header (div.version-popup-header)",
+                "children": [
+                  "div.version-popup-title: GitCompare icon 18, h3 'Version History - {script.name}', span.version-popup-count '{n} versions'",
+                  "Close button (btn btn-sm btn-icon) with X icon 18"
+                ]
+              },
+              {
+                "section": "Main Content (div.version-popup-content)",
+                "layout": "Two-panel side-by-side",
+                "children": [
+                  {
+                    "panel": "Left Panel - Version List (div.version-popup-list)",
+                    "children": [
+                      "div.version-popup-list-header: 'Versions' label, span.version-popup-storage '{formattedSize}'",
+                      {
+                        "element": "div.version-popup-list-items",
+                        "itemStructure": {
+                          "rootElement": "div.version-popup-item (+ .current + .selected modifiers)",
+                          "onClick": "handleVersionClick(version)",
+                          "children": [
+                            {
+                              "element": "div.version-popup-item-content",
+                              "children": [
+                                "div.version-popup-item-header: span.version-popup-item-name 'v{n}', span.version-popup-item-badge 'Current'",
+                                "div.version-popup-item-meta: Clock icon 12, date text",
+                                "div.version-popup-item-message (conditional, if message differs from default)"
+                              ]
+                            },
+                            {
+                              "element": "div.version-popup-item-actions",
+                              "children": [
+                                "Set-as-current: RotateCcw icon 12 / confirm with Yes (btn-xs btn-success) + No (btn-xs)",
+                                "Delete: Trash2 icon 12 (btn-xs btn-danger) / confirm with Yes + No",
+                                "ChevronRight icon 14 arrow (non-current only)"
+                              ]
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "panel": "Right Panel - Comparison (div.version-popup-compare)",
+                    "emptyState": {
+                      "container": "div.version-popup-compare-empty",
+                      "icon": "GitCompare size 48",
+                      "heading": "h4 'Select a version to compare'",
+                      "text": "p 'Click on any version from the list to compare it with the current version'"
+                    },
+                    "activeState": {
+                      "children": [
+                        {
+                          "section": "Comparison Header (div.version-popup-compare-header)",
+                          "children": [
+                            "div.version-popup-compare-info: span.version-popup-compare-label 'Comparing v{old} -> v{new}', div.version-popup-compare-stats: span.stat-added '+{n}', span.stat-deleted '-{n}'",
+                            "div.version-popup-compare-nav (if totalChanges > 0): ChevronUp prev button, span.version-popup-nav-info '{current}/{total}', ChevronDown next button"
+                          ]
+                        },
+                        {
+                          "section": "Diff Table (div.version-popup-diff-wrapper, ref=diffContainerRef)",
+                          "children": [
+                            {
+                              "element": "table.version-popup-diff-table",
+                              "colgroup": [
+                                "col.diff-col-num (old line number)",
+                                "col.diff-col-content (old content)",
+                                "col.diff-col-num (new line number)",
+                                "col.diff-col-content (new content)"
+                              ],
+                              "thead": {
+                                "row": "tr.version-popup-diff-header-row",
+                                "cells": [
+                                  "th[colSpan=2].version-popup-diff-header-cell.version-popup-diff-header-old: FileText icon 14, 'v{n}', span.version-popup-diff-header-date",
+                                  "th[colSpan=2].version-popup-diff-header-cell: FileText icon 14, 'v{n}', span.version-popup-diff-header-date"
+                                ]
+                              },
+                              "tbody": {
+                                "rowStructure": {
+                                  "element": "tr.diff-table-row.diff-row-{type}",
+                                  "dataAttributes": ["data-old-line", "data-new-line"],
+                                  "cells": [
+                                    "td.diff-cell-num (old): empty class when type=added, else diff-cell-{type}",
+                                    "td.diff-cell-content (old): marker span.diff-marker.diff-marker-deleted '−' for deleted/modified, code.diff-code with char highlights for modified",
+                                    "td.diff-cell-num (new): empty class when type=deleted, else diff-cell-{type}",
+                                    "td.diff-cell-content (new): marker span.diff-marker.diff-marker-added '+' for added/modified, code.diff-code with char highlights for modified"
+                                  ]
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "keyboardShortcuts": [
+        { "key": "Escape", "action": "Close popup" },
+        { "key": "Ctrl+J / Ctrl+ArrowDown", "action": "Navigate to next change" },
+        { "key": "Ctrl+K / Ctrl+ArrowUp", "action": "Navigate to previous change" }
+      ],
+      "interactionPatterns": {
+        "overlayClickToClose": "Clicking the overlay (outside container) closes the popup.",
+        "versionToggleSelection": "Clicking a version toggles selection; clicking current version deselects.",
+        "diffAutoCompute": "Diff is computed automatically via useEffect when selectedVersion changes.",
+        "changeNavigation": "Wrapping circular navigation through non-context hunks.",
+        "scrollToLine": "Smooth scroll to the first row matching or exceeding the target line number.",
+        "confirmDialogs": "Inline Yes/No confirmation for set-as-current and delete, with stopPropagation."
+      },
+      "cssClasses": [
+        "version-popup-overlay",
+        "version-popup-container",
+        "version-popup-header",
+        "version-popup-title",
+        "version-popup-count",
+        "version-popup-content",
+        "version-popup-list",
+        "version-popup-list-header",
+        "version-popup-storage",
+        "version-popup-list-items",
+        "version-popup-item",
+        "version-popup-item current",
+        "version-popup-item selected",
+        "version-popup-item-content",
+        "version-popup-item-header",
+        "version-popup-item-name",
+        "version-popup-item-badge",
+        "version-popup-item-meta",
+        "version-popup-item-message",
+        "version-popup-item-actions",
+        "version-popup-confirm",
+        "version-popup-item-arrow",
+        "version-popup-compare",
+        "version-popup-compare-empty",
+        "version-popup-compare-header",
+        "version-popup-compare-info",
+        "version-popup-compare-label",
+        "version-popup-compare-stats",
+        "version-popup-compare-nav",
+        "version-popup-nav-info",
+        "version-popup-diff-wrapper",
+        "version-popup-diff-table",
+        "version-popup-diff-header-row",
+        "version-popup-diff-header-cell",
+        "version-popup-diff-header-old",
+        "version-popup-diff-header-date",
+        "diff-col-num",
+        "diff-col-content",
+        "diff-table-row",
+        "diff-row-context",
+        "diff-row-added",
+        "diff-row-deleted",
+        "diff-row-modified",
+        "diff-cell-num",
+        "diff-cell-content",
+        "diff-cell-empty",
+        "diff-cell-context",
+        "diff-cell-added",
+        "diff-cell-deleted",
+        "diff-cell-modified",
+        "diff-marker",
+        "diff-marker-added",
+        "diff-marker-deleted",
+        "diff-code",
+        "diff-char-added",
+        "diff-char-deleted",
+        "stat-added",
+        "stat-deleted",
+        "btn btn-sm",
+        "btn btn-sm btn-icon",
+        "btn btn-xs",
+        "btn btn-xs btn-success",
+        "btn btn-xs btn-danger"
+      ],
+      "dependencies": {
+        "hooks": ["useState", "useEffect", "useRef", "useCallback"],
+        "icons": ["X", "Clock", "RotateCcw", "Trash2", "GitCompare", "ChevronRight", "ChevronUp", "ChevronDown", "FileText"],
+        "types": ["Script", "ScriptVersion", "VersionCompareResult", "LineDiff", "DiffHunk"],
+        "utils": [
+          "getCurrentVersion",
+          "setCurrentVersion",
+          "deleteScriptVersion",
+          "getVersionsStorageSize",
+          "formatStorageSize",
+          "computeVersionDiff",
+          "countChanges",
+          "buildUnifiedRows"
+        ],
+        "utilTypes": ["CharDiff"]
+      }
+    },
+
+    "VersionCompare": {
+      "file": "VersionCompare.tsx",
+      "description": "A standalone version comparison component that displays a GitHub-style split diff table with character-level highlights. Supports fullscreen toggle, keyboard navigation, and optional inline mode. Also displays schema diff summary when available.",
+      "propsInterface": {
+        "name": "VersionCompareProps",
+        "properties": [
+          {
+            "name": "oldVersion",
+            "type": "ScriptVersion",
+            "required": true,
+            "description": "The older version for the left side of the diff."
+          },
+          {
+            "name": "newVersion",
+            "type": "ScriptVersion",
+            "required": true,
+            "description": "The newer version for the right side of the diff."
+          },
+          {
+            "name": "onClose",
+            "type": "() => void",
+            "required": true,
+            "description": "Callback to close the comparison view."
+          },
+          {
+            "name": "isDarkTheme",
+            "type": "boolean",
+            "required": false,
+            "default": false,
+            "description": "Dark theme flag (reserved, underscore-prefixed internally)."
+          },
+          {
+            "name": "isInline",
+            "type": "boolean",
+            "required": false,
+            "default": false,
+            "description": "When true, renders inline (no overlay); when false, renders as overlay with optional fullscreen."
+          }
+        ]
+      },
+      "stateVariables": [
+        { "name": "diffResult", "type": "VersionCompareResult | null", "initialValue": null, "description": "Computed diff result." },
+        { "name": "isFullscreen", "type": "boolean", "initialValue": false, "description": "Fullscreen toggle state (overlay mode only)." },
+        { "name": "currentChangeIndex", "type": "number", "initialValue": 0, "description": "Index of currently focused change." }
+      ],
+      "refs": [
+        { "name": "tableContainerRef", "type": "HTMLDivElement", "description": "Ref to diff-table-wrapper for scroll navigation." }
+      ],
+      "derivedValues": [
+        { "name": "totalChanges", "source": "countChanges(diffResult)" },
+        { "name": "allLines", "source": "diffResult.hunks.flatMap(h => h.lines)" },
+        { "name": "unifiedRows", "source": "buildUnifiedRows(allLines)" },
+        {
+          "name": "wrapperClass",
+          "source": "isInline ? 'version-compare-inline' : `version-compare-overlay ${isFullscreen ? 'fullscreen' : ''}`"
+        }
+      ],
+      "effects": [
+        {
+          "trigger": "[oldVersion, newVersion]",
+          "description": "Computes diff on mount/prop change using computeVersionDiff(oldVersion, newVersion, 3, true)."
+        },
+        {
+          "trigger": "[navigateToChange, onClose]",
+          "description": "Keyboard listener: Escape closes; Ctrl+J/ArrowDown next change; Ctrl+K/ArrowUp prev change."
+        }
+      ],
+      "loadingState": {
+        "condition": "diffResult is null",
+        "render": "div.version-compare-loading containing div.spinner and span 'Computing diff...'"
+      },
+      "handlers": {
+        "navigateToChange": "Same circular wrapping logic as VersionHistoryPopup. Filters non-context hunks.",
+        "scrollToLine": "Queries diff-table-row elements by data-old-line/data-new-line attributes.",
+        "formatDate": "Same en-US locale format.",
+        "renderCharHighlightedContent": "Same CharDiff rendering logic."
+      },
+      "uiLayout": {
+        "rootElement": "div with dynamic class (version-compare-inline | version-compare-overlay [+ fullscreen])",
+        "children": [
+          {
+            "element": "div.version-compare-container",
+            "children": [
+              {
+                "section": "Header (div.version-compare-header)",
+                "children": [
+                  "div.version-compare-title: GitCompare icon 18, h3 'Compare Versions'",
+                  "div.version-compare-stats: span.stat-added '+{n}', span.stat-deleted '-{n}', span.stat-modified '~{n}' (conditional, if linesModified > 0)",
+                  "div.version-compare-actions: Fullscreen toggle button (Maximize2/Minimize2 icon 14, overlay mode only), Close button (X icon 16)"
+                ]
+              },
+              {
+                "section": "Navigation Bar (div.version-compare-nav, conditional on totalChanges > 0)",
+                "children": [
+                  "Prev button: ChevronUp icon 14 + 'Prev' text",
+                  "span.version-compare-nav-info 'Change {n} of {total}'",
+                  "Next button: 'Next' text + ChevronDown icon 14"
+                ]
+              },
+              {
+                "section": "Diff Table (div.diff-table-wrapper, ref=tableContainerRef)",
+                "children": [
+                  {
+                    "element": "table.diff-table",
+                    "colgroup": [
+                      "col.diff-col-num",
+                      "col.diff-col-content",
+                      "col.diff-col-num",
+                      "col.diff-col-content"
+                    ],
+                    "thead": {
+                      "row": "tr.diff-table-header-row",
+                      "cells": [
+                        "th[colSpan=2].diff-table-header-cell.diff-table-header-old: FileText 14, span.diff-header-version 'v{n}', span.diff-header-date",
+                        "th[colSpan=2].diff-table-header-cell.diff-table-header-new: FileText 14, span.diff-header-version 'v{n}', span.diff-header-date"
+                      ]
+                    },
+                    "tbody": {
+                      "rowStructure": "Same as VersionHistoryPopup diff table rows (tr.diff-table-row.diff-row-{type} with old/new side cells)"
+                    }
+                  }
+                ]
+              },
+              {
+                "section": "Schema Diff Summary (div.version-compare-schema, conditional on schemaDiff existing)",
+                "children": [
+                  "h4 'Schema Changes'",
+                  "div.version-compare-schema-stats: span.schema-stat.schema-stat-added '+{n} tables', span.schema-stat.schema-stat-deleted '-{n} tables', span.schema-stat.schema-stat-modified '~{n} tables'"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "keyboardShortcuts": [
+        { "key": "Escape", "action": "Close comparison" },
+        { "key": "Ctrl+J / Ctrl+ArrowDown", "action": "Navigate to next change" },
+        { "key": "Ctrl+K / Ctrl+ArrowUp", "action": "Navigate to previous change" }
+      ],
+      "cssClasses": [
+        "version-compare-inline",
+        "version-compare-overlay",
+        "version-compare-overlay fullscreen",
+        "version-compare-container",
+        "version-compare-header",
+        "version-compare-title",
+        "version-compare-stats",
+        "version-compare-actions",
+        "version-compare-nav",
+        "version-compare-nav-info",
+        "version-compare-loading",
+        "spinner",
+        "version-compare-schema",
+        "version-compare-schema-stats",
+        "schema-stat",
+        "schema-stat-added",
+        "schema-stat-deleted",
+        "schema-stat-modified",
+        "stat-added",
+        "stat-deleted",
+        "stat-modified",
+        "diff-table-wrapper",
+        "diff-table",
+        "diff-col-num",
+        "diff-col-content",
+        "diff-table-header-row",
+        "diff-table-header-cell",
+        "diff-table-header-old",
+        "diff-table-header-new",
+        "diff-header-version",
+        "diff-header-date",
+        "diff-table-row",
+        "diff-row-context",
+        "diff-row-added",
+        "diff-row-deleted",
+        "diff-row-modified",
+        "diff-cell-num",
+        "diff-cell-content",
+        "diff-cell-empty",
+        "diff-cell-context",
+        "diff-cell-added",
+        "diff-cell-deleted",
+        "diff-cell-modified",
+        "diff-marker",
+        "diff-marker-added",
+        "diff-marker-deleted",
+        "diff-code",
+        "diff-char-added",
+        "diff-char-deleted",
+        "btn btn-sm",
+        "btn btn-sm btn-icon"
+      ],
+      "dependencies": {
+        "hooks": ["useState", "useEffect", "useRef", "useCallback"],
+        "icons": ["X", "ChevronUp", "ChevronDown", "Maximize2", "Minimize2", "GitCompare", "FileText"],
+        "types": ["ScriptVersion", "VersionCompareResult", "DiffHunk", "LineDiff"],
+        "utils": ["computeVersionDiff", "countChanges", "buildUnifiedRows"],
+        "utilTypes": ["CharDiff"]
+      }
+    },
+
+    "VersionMinimap": {
+      "file": "VersionMinimap.tsx",
+      "description": "A vertical minimap component that visualizes diff changes as colored markers within a scrollable track. Supports click-to-navigate and drag-to-scroll via a viewport indicator. Designed to be placed alongside a diff table container.",
+      "propsInterface": {
+        "name": "VersionMinimapProps",
+        "properties": [
+          {
+            "name": "diffResult",
+            "type": "VersionCompareResult",
+            "required": true,
+            "description": "The diff result used to generate markers."
+          },
+          {
+            "name": "onMarkerClick",
+            "type": "(lineNumber: number) => void",
+            "required": true,
+            "description": "Callback when clicking a marker or the minimap track."
+          },
+          {
+            "name": "containerRef",
+            "type": "RefObject<HTMLDivElement>",
+            "required": true,
+            "description": "Ref to the scrollable diff container whose scroll position the minimap tracks."
+          }
+        ]
+      },
+      "stateVariables": [
+        { "name": "markers", "type": "DiffMarker[]", "initialValue": "[]", "description": "Array of positioned diff markers for rendering." },
+        {
+          "name": "viewportPosition",
+          "type": "{ top: number, height: number }",
+          "initialValue": "{ top: 0, height: 10 }",
+          "description": "Viewport indicator position as percentages."
+        },
+        { "name": "isDragging", "type": "boolean", "initialValue": false, "description": "Whether the user is dragging the viewport indicator." }
+      ],
+      "refs": [
+        { "name": "minimapRef", "type": "HTMLDivElement", "description": "Ref to the minimap container for coordinate calculations." }
+      ],
+      "derivedValues": [
+        { "name": "totalLines", "source": "diffResult.newVersion.content.split('\\n').length", "description": "Total number of lines in the new version." }
+      ],
+      "effects": [
+        {
+          "trigger": "[diffResult, totalLines]",
+          "description": "Regenerates diff markers using generateDiffMarkers(diffResult.hunks, totalLines)."
+        },
+        {
+          "trigger": "[containerRef]",
+          "description": "Listens to scroll events on the container to update viewport position. Calculates scrollPercent and viewportHeightPercent, enforcing minimum 5% viewport height."
+        },
+        {
+          "trigger": "[isDragging, containerRef]",
+          "description": "When dragging, adds global mousemove/mouseup listeners. Mousemove maps cursor position to container scrollTop. Mouseup stops dragging."
+        }
+      ],
+      "handlers": {
+        "handleMinimapClick": {
+          "description": "Calculates click position as percentage of minimap height, converts to line number, and calls onMarkerClick with max(1, lineNumber)."
+        },
+        "handleDragStart": {
+          "description": "Prevents default, sets isDragging to true."
+        },
+        "getMarkerColor": {
+          "description": "Returns CSS variable-based colors for marker types.",
+          "colorMap": {
+            "added": "var(--diff-added-marker, #2ea043)",
+            "deleted": "var(--diff-deleted-marker, #f85149)",
+            "modified": "var(--diff-modified-marker, #bb8009)",
+            "default": "#888"
+          }
+        }
+      },
+      "uiLayout": {
+        "rootElement": "div.version-minimap (ref=minimapRef, onClick=handleMinimapClick)",
+        "rootTitle": "Click to navigate, drag viewport to scroll",
+        "children": [
+          {
+            "element": "div.version-minimap-track",
+            "description": "Background track line."
+          },
+          {
+            "element": "div.version-minimap-marker.version-minimap-marker-{type} (repeated for each marker)",
+            "inlineStyle": {
+              "top": "{marker.startPercent}%",
+              "height": "max({endPercent - startPercent}, 0.5)%",
+              "backgroundColor": "getMarkerColor(marker.type)"
+            },
+            "onClick": "stopPropagation + onMarkerClick(marker.lineStart)",
+            "title": "{type}: lines {lineStart}-{lineEnd}"
+          },
+          {
+            "element": "div.version-minimap-viewport (+ .dragging when isDragging)",
+            "inlineStyle": {
+              "top": "{viewportPosition.top}%",
+              "height": "{viewportPosition.height}%"
+            },
+            "onMouseDown": "handleDragStart"
+          }
+        ]
+      },
+      "interactionPatterns": {
+        "clickOnTrack": "Click anywhere on the minimap to navigate to the corresponding line number.",
+        "clickOnMarker": "Click a specific marker to navigate to that change's start line (propagation stopped to avoid track click).",
+        "dragViewport": "Mouse-down on viewport indicator starts drag. Moving the mouse scrolls the container proportionally. Mouse-up ends drag.",
+        "viewportTracking": "Viewport position updates on every scroll event of the container."
+      },
+      "styling": {
+        "markerColors": {
+          "added": { "cssVar": "--diff-added-marker", "fallback": "#2ea043" },
+          "deleted": { "cssVar": "--diff-deleted-marker", "fallback": "#f85149" },
+          "modified": { "cssVar": "--diff-modified-marker", "fallback": "#bb8009" }
+        },
+        "minimumViewportHeight": "5%",
+        "minimumMarkerHeight": "0.5%"
+      },
+      "cssClasses": [
+        "version-minimap",
+        "version-minimap-track",
+        "version-minimap-marker",
+        "version-minimap-marker-added",
+        "version-minimap-marker-deleted",
+        "version-minimap-marker-modified",
+        "version-minimap-viewport",
+        "version-minimap-viewport dragging"
+      ],
+      "dependencies": {
+        "hooks": ["useRef", "useState", "useEffect", "useCallback"],
+        "icons": [],
+        "types": ["VersionCompareResult", "DiffMarker"],
+        "utils": ["generateDiffMarkers"]
+      }
+    }
+  },
+
+  "sharedPatterns": {
+    "diffTableStructure": {
+      "description": "A GitHub-style side-by-side (split) diff table structure shared by VersionCompare and VersionHistoryPopup.",
+      "layout": "4-column table: old line number | old content | new line number | new content",
+      "colgroup": ["diff-col-num", "diff-col-content", "diff-col-num", "diff-col-content"],
+      "rowTypes": ["context", "added", "deleted", "modified"],
+      "rowClassPattern": "diff-table-row diff-row-{type}",
+      "cellClassPattern": "diff-cell-num diff-cell-{type} | diff-cell-content diff-cell-{type}",
+      "emptyCell": "diff-cell-empty (used for added rows on old side, deleted rows on new side)",
+      "markers": {
+        "deleted": "span.diff-marker.diff-marker-deleted with text '−'",
+        "added": "span.diff-marker.diff-marker-added with text '+'"
+      },
+      "characterHighlighting": {
+        "addedChars": "span.diff-char-added",
+        "deletedChars": "span.diff-char-deleted",
+        "unchangedChars": "plain span"
+      },
+      "codeWrapper": "code.diff-code"
+    },
+    "confirmDialogPattern": {
+      "description": "Inline confirmation dialog used for destructive actions (set-as-current, delete).",
+      "structure": "Shows prompt text + Yes button + No button, replacing the action button.",
+      "buttonsUsed": ["btn btn-xs btn-success (Yes for set-as-current)", "btn btn-xs btn-danger (Yes for delete)", "btn btn-xs (No)"],
+      "eventHandling": "All buttons use e.stopPropagation() to prevent parent click handlers."
+    },
+    "changeNavigation": {
+      "description": "Circular change navigation with keyboard shortcuts, shared by VersionCompare and VersionHistoryPopup.",
+      "algorithm": "Filters hunks to non-context types, uses modular arithmetic for wrapping.",
+      "keyboardShortcuts": {
+        "nextChange": "Ctrl+J or Ctrl+ArrowDown",
+        "prevChange": "Ctrl+K or Ctrl+ArrowUp",
+        "close": "Escape"
+      },
+      "scrollBehavior": "smooth, block: center"
+    },
+    "dateFormatting": {
+      "locale": "en-US",
+      "options": {
+        "month": "short",
+        "day": "numeric",
+        "year": "numeric",
+        "hour": "2-digit",
+        "minute": "2-digit"
+      }
+    }
+  },
+
+  "allCssClassesConsolidated": [
+    "version-badge",
+    "version-badge-sm",
+    "version-badge-md",
+    "version-badge-lg",
+    "version-badge-unsaved",
+    "version-badge-clickable",
+    "version-badge-number",
+    "version-badge-unsaved-icon",
+    "version-badge-history-icon",
+    "version-history-overlay",
+    "version-history-panel",
+    "version-history-header",
+    "version-history-title",
+    "version-history-count",
+    "version-history-storage",
+    "version-history-help",
+    "version-history-list",
+    "version-history-empty",
+    "version-history-empty-hint",
+    "version-history-confirm",
+    "version-items",
+    "version-item",
+    "version-item-content",
+    "version-item-header",
+    "version-item-number",
+    "version-item-current-badge",
+    "version-item-meta",
+    "version-item-separator",
+    "version-item-message",
+    "version-item-actions",
+    "version-item-arrow",
+    "version-popup-overlay",
+    "version-popup-container",
+    "version-popup-header",
+    "version-popup-title",
+    "version-popup-count",
+    "version-popup-content",
+    "version-popup-list",
+    "version-popup-list-header",
+    "version-popup-storage",
+    "version-popup-list-items",
+    "version-popup-item",
+    "version-popup-item-content",
+    "version-popup-item-header",
+    "version-popup-item-name",
+    "version-popup-item-badge",
+    "version-popup-item-meta",
+    "version-popup-item-message",
+    "version-popup-item-actions",
+    "version-popup-confirm",
+    "version-popup-item-arrow",
+    "version-popup-compare",
+    "version-popup-compare-empty",
+    "version-popup-compare-header",
+    "version-popup-compare-info",
+    "version-popup-compare-label",
+    "version-popup-compare-stats",
+    "version-popup-compare-nav",
+    "version-popup-nav-info",
+    "version-popup-diff-wrapper",
+    "version-popup-diff-table",
+    "version-popup-diff-header-row",
+    "version-popup-diff-header-cell",
+    "version-popup-diff-header-old",
+    "version-popup-diff-header-date",
+    "version-compare-inline",
+    "version-compare-overlay",
+    "version-compare-container",
+    "version-compare-header",
+    "version-compare-title",
+    "version-compare-stats",
+    "version-compare-actions",
+    "version-compare-nav",
+    "version-compare-nav-info",
+    "version-compare-loading",
+    "version-compare-schema",
+    "version-compare-schema-stats",
+    "schema-stat",
+    "schema-stat-added",
+    "schema-stat-deleted",
+    "schema-stat-modified",
+    "version-minimap",
+    "version-minimap-track",
+    "version-minimap-marker",
+    "version-minimap-marker-added",
+    "version-minimap-marker-deleted",
+    "version-minimap-marker-modified",
+    "version-minimap-viewport",
+    "diff-table-wrapper",
+    "diff-table",
+    "diff-col-num",
+    "diff-col-content",
+    "diff-table-header-row",
+    "diff-table-header-cell",
+    "diff-table-header-old",
+    "diff-table-header-new",
+    "diff-header-version",
+    "diff-header-date",
+    "diff-table-row",
+    "diff-row-context",
+    "diff-row-added",
+    "diff-row-deleted",
+    "diff-row-modified",
+    "diff-cell-num",
+    "diff-cell-content",
+    "diff-cell-empty",
+    "diff-cell-context",
+    "diff-cell-added",
+    "diff-cell-deleted",
+    "diff-cell-modified",
+    "diff-marker",
+    "diff-marker-added",
+    "diff-marker-deleted",
+    "diff-code",
+    "diff-char-added",
+    "diff-char-deleted",
+    "stat-added",
+    "stat-deleted",
+    "stat-modified",
+    "spinner",
+    "btn",
+    "btn-sm",
+    "btn-xs",
+    "btn-icon",
+    "btn-success",
+    "btn-danger"
+  ],
+
+  "allDependencies": {
+    "reactHooks": ["useState", "useEffect", "useRef", "useCallback"],
+    "lucideIcons": [
+      "AlertCircle",
+      "ChevronDown",
+      "ChevronRight",
+      "ChevronUp",
+      "Clock",
+      "FileText",
+      "GitBranch",
+      "GitCompare",
+      "History",
+      "Maximize2",
+      "Minimize2",
+      "RotateCcw",
+      "Save",
+      "Trash2",
+      "X"
+    ],
+    "types": [
+      "DiffHunk",
+      "DiffMarker",
+      "LineDiff",
+      "Script",
+      "ScriptVersion",
+      "VersionCompareResult"
+    ],
+    "storageUtils": [
+      "getCurrentVersion",
+      "hasUnsavedChanges",
+      "setCurrentVersion",
+      "deleteScriptVersion",
+      "getVersionsStorageSize",
+      "formatStorageSize"
+    ],
+    "versionDiffUtils": [
+      "computeVersionDiff",
+      "countChanges",
+      "buildUnifiedRows",
+      "generateDiffMarkers"
+    ],
+    "versionDiffTypes": [
+      "CharDiff"
+    ]
+  }
+}

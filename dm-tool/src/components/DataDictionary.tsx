@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo, memo } from 'react';
 import { Script, Table, Column } from '../types';
 import { downloadJson, loadMappingProjects, loadDDVisibleColumns, saveDDVisibleColumns, loadDDColumnWidths, saveDDColumnWidths } from '../utils/storage';
 import { generateTableDDL, replaceTableDDL } from '../utils/ddlGenerator';
@@ -8,7 +8,9 @@ import ImportTableDescriptionsModal from './ImportTableDescriptionsModal';
 import ImportTablesModal from './ImportTablesModal';
 import AttachSampleDataModal from './AttachSampleDataModal';
 import ExcelExportPreview from './ExcelExportPreview';
-import { FileDown, Edit3, Save, X, Grid3X3, Table as TableIcon, Database, Rows3, List, Filter, ChevronDown, Settings2, ClipboardCopy, Eye, FileText, Paperclip, FileCode, Upload, MoreVertical } from 'lucide-react';
+import ImportMasterCodeModal from './ImportMasterCodeModal';
+import ImportMasterCodeCategoryModal from './ImportMasterCodeCategoryModal';
+import { FileDown, Edit3, Save, X, Grid3X3, Table as TableIcon, Database, Rows3, List, Filter, ChevronDown, Settings2, ClipboardCopy, Eye, FileText, Paperclip, FileCode, Upload, MoreVertical, BookOpen, Trash2 } from 'lucide-react';
 
 // Cell coordinate type for Excel-like selection
 interface CellCoord {
@@ -30,7 +32,7 @@ interface DataDictionaryProps {
   darkThemeVariant?: 'slate' | 'vscode-gray';
 }
 
-export default function DataDictionary({
+function DataDictionary({
   script,
   selectedTableId,
   onSelectTable,
@@ -44,7 +46,7 @@ export default function DataDictionary({
   const [editContent, setEditContent] = useState('');
 
   // View mode: 'tableList' for all tables, 'dictionary' for column definitions, 'data' for sample data rows, 'code' for DDL code view
-  const [viewMode, setViewMode] = useState<'tableList' | 'dictionary' | 'data' | 'code'>('dictionary');
+  const [viewMode, setViewMode] = useState<'tableList' | 'dictionary' | 'data' | 'code' | 'masterCodes'>('dictionary');
 
   // Table List filters
   // Multi-select filter state (arrays for Excel-like filtering)
@@ -136,6 +138,10 @@ export default function DataDictionary({
   const [showImportTableDescriptions, setShowImportTableDescriptions] = useState(false);
   const [showImportTables, setShowImportTables] = useState(false);
   const [showAttachSampleData, setShowAttachSampleData] = useState(false);
+  const [showImportMasterCode, setShowImportMasterCode] = useState(false);
+  const [showImportMasterCodeCategory, setShowImportMasterCodeCategory] = useState(false);
+  const [masterCodeSearch, setMasterCodeSearch] = useState('');
+  const [masterCodePanelTab, setMasterCodePanelTab] = useState<'codes' | 'categories'>('codes');
 
   // Code View state
   const [codeViewEditing, setCodeViewEditing] = useState(false);
@@ -394,37 +400,47 @@ export default function DataDictionary({
     });
   }, [allTablesCombined, tableListFilters]);
 
-  // Load mapping projects to show mapping info
-  const mappingProjects = loadMappingProjects();
+  // Load mapping projects once per render. loadMappingProjects() does a JSON
+  // parse, so don't call it in a deeper hot path.
+  const mappingProjects = useMemo(() => loadMappingProjects(), []);
 
-  // Find relevant mapping for current column
-  const getMappingInfo = (tableName: string, columnName: string) => {
+  // Pre-compute a Map<"table\0column", info-string> for this script.
+  // The previous implementation looped every project × every mapping per
+  // call; this rendered ~1M comparisons on a 1000-column table. Now it's
+  // built once per (script.id, mappingProjects) and lookup is O(1).
+  const mappingInfoByCol = useMemo(() => {
+    const m = new Map<string, string>();
+    const key = (table: string, col: string) => `${table} ${col}`;
     for (const project of mappingProjects) {
-      // Check if this script is source
-      if (project.sourceScriptId === script.id) {
-        const mapping = project.mappings.find(
-          m => m.sourceTable === tableName && m.sourceColumn === columnName
-        );
-        if (mapping) {
-          const targetInfo = `${mapping.targetTable}.${mapping.targetColumn}`;
-          const remarks = mapping.remarks || '';
-          return `Mapped to ${targetInfo}${remarks ? ` - ${remarks}` : ''}`;
+      const isSource = project.sourceScriptId === script.id;
+      const isTarget = project.targetScriptId === script.id;
+      if (!isSource && !isTarget) continue;
+      for (const mapping of project.mappings) {
+        if (isSource) {
+          const remarks = mapping.remarks ? ` - ${mapping.remarks}` : '';
+          m.set(
+            key(mapping.sourceTable, mapping.sourceColumn),
+            `Mapped to ${mapping.targetTable}.${mapping.targetColumn}${remarks}`
+          );
         }
-      }
-      // Check if this script is target
-      if (project.targetScriptId === script.id) {
-        const mapping = project.mappings.find(
-          m => m.targetTable === tableName && m.targetColumn === columnName
-        );
-        if (mapping) {
-          const sourceInfo = `${mapping.sourceTable}.${mapping.sourceColumn}`;
-          const remarks = mapping.remarks || '';
-          return `Mapped from ${sourceInfo}${remarks ? ` - ${remarks}` : ''}`;
+        if (isTarget) {
+          const remarks = mapping.remarks ? ` - ${mapping.remarks}` : '';
+          m.set(
+            key(mapping.targetTable, mapping.targetColumn),
+            `Mapped from ${mapping.sourceTable}.${mapping.sourceColumn}${remarks}`
+          );
         }
       }
     }
-    return null;
-  };
+    return m;
+  }, [mappingProjects, script.id]);
+
+  const getMappingInfo = useCallback(
+    (tableName: string, columnName: string): string | null => {
+      return mappingInfoByCol.get(`${tableName} ${columnName}`) ?? null;
+    },
+    [mappingInfoByCol]
+  );
 
   // Get PK, FK, UQ columns
   const getColumnTags = (table: Table, colName: string) => {
@@ -712,6 +728,50 @@ export default function DataDictionary({
     document.addEventListener('mouseup', handleMouseUp);
     return () => document.removeEventListener('mouseup', handleMouseUp);
   }, [isDragging]);
+
+  // Event delegation for Excel-mode cell handlers.
+  // Previously each <td> got its own onClick/onDoubleClick/onMouseDown/onMouseMove
+  // built via excelCellProps(colIndex). With ~50 columns × 9 grid cells × 4
+  // handlers, that's ~1800 fresh closures per render. By attaching one handler
+  // per event type to <tbody> and reading row/col from `data-*` attributes on
+  // the closest <td>, we drop the per-cell closure cost to zero — and React
+  // doesn't have to reconcile thousands of changing event-listener props.
+  const readCellCoords = (e: React.MouseEvent): { row: number; col: number } | null => {
+    const td = (e.target as HTMLElement).closest('td[data-row]') as HTMLElement | null;
+    if (!td) return null;
+    const row = Number(td.dataset.row);
+    const col = Number(td.dataset.col);
+    if (Number.isNaN(row) || Number.isNaN(col)) return null;
+    return { row, col };
+  };
+
+  const handleTbodyClick = useCallback((e: React.MouseEvent) => {
+    if (!excelMode) return;
+    const c = readCellCoords(e);
+    if (!c) return;
+    handleCellClick(c.row, c.col, e);
+  }, [excelMode, handleCellClick]);
+
+  const handleTbodyDoubleClick = useCallback((e: React.MouseEvent) => {
+    if (!excelMode) return;
+    const c = readCellCoords(e);
+    if (!c) return;
+    handleCellDoubleClick(c.row, c.col);
+  }, [excelMode, handleCellDoubleClick]);
+
+  const handleTbodyMouseDown = useCallback((e: React.MouseEvent) => {
+    if (!excelMode) return;
+    const c = readCellCoords(e);
+    if (!c) return;
+    handleCellMouseDown(c.row, c.col, e);
+  }, [excelMode, handleCellMouseDown]);
+
+  const handleTbodyMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!excelMode || !isDragging) return;
+    const c = readCellCoords(e);
+    if (!c) return;
+    handleCellMouseMove(c.row, c.col);
+  }, [excelMode, isDragging, handleCellMouseMove]);
 
   // Commit edit and move to next cell
   const commitEdit = useCallback((moveDirection?: 'down' | 'right' | 'up' | 'left') => {
@@ -1195,7 +1255,7 @@ export default function DataDictionary({
     );
   }
 
-  if (!selectedTable && viewMode !== 'tableList') {
+  if (!selectedTable && viewMode !== 'tableList' && viewMode !== 'masterCodes') {
     // In this block, viewMode is narrowed to 'dictionary' | 'data' | 'code'
     const isDict = viewMode === 'dictionary';
     const isData = viewMode === 'data';
@@ -1278,6 +1338,21 @@ export default function DataDictionary({
                 <FileCode size={16} />
                 Code View
               </button>
+              <button
+                className="btn"
+                onClick={() => setViewMode('masterCodes')}
+                style={{
+                  borderRadius: 0,
+                  border: 'none',
+                  borderLeft: `1px solid ${isDarkTheme ? '#4b5563' : '#d1d5db'}`,
+                  backgroundColor: 'transparent',
+                  color: undefined,
+                }}
+                title="Master codes & categories"
+              >
+                <BookOpen size={16} />
+                Master Codes
+              </button>
             </div>
             {/* Excel Mode - disabled when data/code view, enabled otherwise */}
             <button
@@ -1343,8 +1418,8 @@ export default function DataDictionary({
     );
   }
 
-  // For tableList view without selectedTable, we still render the main component
-  if (!selectedTable && viewMode === 'tableList') {
+  // For tableList/masterCodes view without selectedTable, we still render the main component
+  if (!selectedTable && (viewMode === 'tableList' || viewMode === 'masterCodes')) {
     const allTables = allTablesCombined;
     const filteredTables = filteredTablesCached;
 
@@ -1871,8 +1946,8 @@ export default function DataDictionary({
                 style={{
                   borderRadius: 0,
                   border: 'none',
-                  backgroundColor: isDarkTheme ? '#3b82f6' : '#2563eb',
-                  color: '#fff',
+                  backgroundColor: viewMode === 'tableList' ? (isDarkTheme ? '#3b82f6' : '#2563eb') : 'transparent',
+                  color: viewMode === 'tableList' ? '#fff' : undefined,
                 }}
                 title="All tables overview"
               >
@@ -1924,11 +1999,27 @@ export default function DataDictionary({
                 <FileCode size={16} />
                 Code View
               </button>
+              <button
+                className="btn"
+                onClick={() => setViewMode('masterCodes')}
+                style={{
+                  borderRadius: 0,
+                  border: 'none',
+                  borderLeft: `1px solid ${isDarkTheme ? '#4b5563' : '#d1d5db'}`,
+                  backgroundColor: viewMode === 'masterCodes' ? (isDarkTheme ? '#3b82f6' : '#2563eb') : 'transparent',
+                  color: viewMode === 'masterCodes' ? '#fff' : undefined,
+                }}
+                title="Master codes & categories"
+              >
+                <BookOpen size={16} />
+                Master Codes
+              </button>
             </div>
-            {/* Excel Mode - always enabled in tableList */}
+            {/* Excel Mode - disabled in masterCodes view */}
             <button
               className={`btn ${excelMode ? 'btn-success' : ''}`}
-              onClick={toggleExcelMode}
+              onClick={viewMode === 'masterCodes' ? undefined : toggleExcelMode}
+              style={viewMode === 'masterCodes' ? { opacity: 0.4, pointerEvents: 'none' as const } : undefined}
               title={excelMode ? 'Switch to normal view' : 'Switch to Excel-like edit mode (multi-select, copy/paste)'}
             >
               {excelMode ? <TableIcon size={16} /> : <Grid3X3 size={16} />}
@@ -1978,8 +2069,193 @@ export default function DataDictionary({
           </div>
         </div>
 
+        {/* Master Codes View */}
+        {viewMode === 'masterCodes' && (
+          <>
+            {/* Codes / Categories Toggle + Actions */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', gap: '12px' }}>
+              <div style={{ display: 'flex', gap: '0', borderRadius: '6px', overflow: 'hidden', border: `1px solid ${isDarkTheme ? '#4b5563' : '#d1d5db'}` }}>
+                {(['codes', 'categories'] as const).map(tab => (
+                  <button key={tab} className="btn" onClick={() => { setMasterCodePanelTab(tab); setMasterCodeSearch(''); }}
+                    style={{
+                      borderRadius: 0, border: 'none',
+                      borderLeft: tab === 'categories' ? `1px solid ${isDarkTheme ? '#4b5563' : '#d1d5db'}` : 'none',
+                      backgroundColor: masterCodePanelTab === tab ? (isDarkTheme ? '#3b82f6' : '#2563eb') : 'transparent',
+                      color: masterCodePanelTab === tab ? '#fff' : undefined,
+                      fontSize: '13px', fontWeight: masterCodePanelTab === tab ? 600 : 400,
+                    }}
+                  >
+                    {tab === 'codes' ? `Master Codes (${script.masterCodes?.length || 0})` : `Categories (${script.masterCodeCategories?.length || 0})`}
+                  </button>
+                ))}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, maxWidth: '400px' }}>
+                <input type="text"
+                  placeholder={masterCodePanelTab === 'codes' ? 'Search codes...' : 'Search categories...'}
+                  value={masterCodeSearch} onChange={e => setMasterCodeSearch(e.target.value)}
+                  style={{
+                    flex: 1, padding: '6px 12px', fontSize: '13px',
+                    border: `1px solid ${isDarkTheme ? '#4b5563' : '#d1d5db'}`, borderRadius: '6px',
+                    backgroundColor: isDarkTheme ? '#0f172a' : '#f9fafb',
+                    color: isDarkTheme ? '#e4e4e7' : '#18181b', outline: 'none',
+                  }}
+                />
+                <button className="btn" onClick={() => { if (masterCodePanelTab === 'codes') setShowImportMasterCode(true); else setShowImportMasterCodeCategory(true); }}>
+                  <Upload size={16} /> Import
+                </button>
+                <button className="btn" onClick={() => {
+                  const items = masterCodePanelTab === 'codes' ? (script.masterCodes || []) : (script.masterCodeCategories || []);
+                  navigator.clipboard.writeText(items.map(mc => `${mc.key}: ${mc.definition}`).join('\n'));
+                }} title={`Copy all ${masterCodePanelTab}`}>
+                  <ClipboardCopy size={16} /> Copy
+                </button>
+              </div>
+            </div>
+
+            {/* Section Header */}
+            <h3 style={{ fontSize: '14px', color: isDarkTheme ? '#e4e4e7' : '#2c3e50', marginBottom: '12px', borderBottom: `2px solid ${isDarkTheme ? '#334155' : '#eee'}`, paddingBottom: '8px' }}>
+              {masterCodePanelTab === 'codes' ? 'Master Code Definitions' : 'Master Code Categories'}
+              <span style={{ fontWeight: 'normal', fontSize: '12px', color: isDarkTheme ? '#a1a1aa' : '#6b7280', marginLeft: '8px' }}>
+                ({masterCodePanelTab === 'codes' ? (script.masterCodes?.length || 0) : (script.masterCodeCategories?.length || 0)} entries)
+              </span>
+            </h3>
+
+            {masterCodePanelTab === 'codes' ? (
+              (!script.masterCodes || script.masterCodes.length === 0) ? (
+                <div style={{ padding: '60px 20px', textAlign: 'center', color: isDarkTheme ? '#64748b' : '#9ca3af', fontSize: '14px', border: `1px dashed ${isDarkTheme ? '#334155' : '#d1d5db'}`, borderRadius: '8px' }}>
+                  No master codes imported yet.<br />
+                  <button onClick={() => setShowImportMasterCode(true)} style={{ marginTop: '12px', background: 'none', border: 'none', color: '#3b82f6', cursor: 'pointer', fontSize: '14px', textDecoration: 'underline' }}>Import Master Codes</button>
+                </div>
+              ) : (() => {
+                const q = masterCodeSearch.toLowerCase();
+                const filtered = q ? script.masterCodes!.filter(mc => mc.key.toLowerCase().includes(q) || mc.definition.toLowerCase().includes(q)) : script.masterCodes!;
+                return filtered.length === 0 ? (
+                  <div style={{ padding: '40px 20px', textAlign: 'center', color: isDarkTheme ? '#64748b' : '#9ca3af', fontSize: '13px' }}>No codes matching &quot;{masterCodeSearch}&quot;</div>
+                ) : (
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th style={{ width: '60px' }}>#</th>
+                        <th style={{ width: '220px' }}>Key</th>
+                        <th>Definition</th>
+                        <th style={{ width: '50px' }}></th>
+                      </tr>
+                    </thead>
+                    <tbody>{filtered.map((mc, idx) => {
+                      const origIdx = script.masterCodes!.indexOf(mc);
+                      return (
+                      <tr key={idx}>
+                        <td>{idx + 1}</td>
+                        <td className="code-cell"
+                          contentEditable suppressContentEditableWarning
+                          onBlur={(e) => {
+                            const newVal = e.currentTarget.textContent || '';
+                            if (newVal !== mc.key && onUpdateScriptPartial) {
+                              const updated = [...script.masterCodes!];
+                              updated[origIdx] = { ...updated[origIdx], key: newVal };
+                              onUpdateScriptPartial({ masterCodes: updated });
+                            }
+                          }}
+                        >{mc.key}</td>
+                        <td
+                          contentEditable suppressContentEditableWarning
+                          onBlur={(e) => {
+                            const newVal = e.currentTarget.textContent || '';
+                            if (newVal !== mc.definition && onUpdateScriptPartial) {
+                              const updated = [...script.masterCodes!];
+                              updated[origIdx] = { ...updated[origIdx], definition: newVal };
+                              onUpdateScriptPartial({ masterCodes: updated });
+                            }
+                          }}
+                        >{mc.definition}</td>
+                        <td style={{ textAlign: 'center' }}>
+                          <button onClick={() => {
+                            if (onUpdateScriptPartial) {
+                              const updated = [...script.masterCodes!];
+                              updated.splice(origIdx, 1);
+                              onUpdateScriptPartial({ masterCodes: updated });
+                            }
+                          }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', color: isDarkTheme ? '#a1a1aa' : '#71717a', display: 'inline-flex', alignItems: 'center' }} title="Remove">
+                            <Trash2 size={14} />
+                          </button>
+                        </td>
+                      </tr>
+                      );
+                    })}</tbody>
+                  </table>
+                );
+              })()
+            ) : (
+              (!script.masterCodeCategories || script.masterCodeCategories.length === 0) ? (
+                <div style={{ padding: '60px 20px', textAlign: 'center', color: isDarkTheme ? '#64748b' : '#9ca3af', fontSize: '14px', border: `1px dashed ${isDarkTheme ? '#334155' : '#d1d5db'}`, borderRadius: '8px' }}>
+                  No categories imported yet.<br />
+                  <button onClick={() => setShowImportMasterCodeCategory(true)} style={{ marginTop: '12px', background: 'none', border: 'none', color: '#3b82f6', cursor: 'pointer', fontSize: '14px', textDecoration: 'underline' }}>Import Master Code Categories</button>
+                </div>
+              ) : (() => {
+                const q = masterCodeSearch.toLowerCase();
+                const filtered = q ? script.masterCodeCategories!.filter(mc => mc.key.toLowerCase().includes(q) || mc.definition.toLowerCase().includes(q)) : script.masterCodeCategories!;
+                return filtered.length === 0 ? (
+                  <div style={{ padding: '40px 20px', textAlign: 'center', color: isDarkTheme ? '#64748b' : '#9ca3af', fontSize: '13px' }}>No categories matching &quot;{masterCodeSearch}&quot;</div>
+                ) : (
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th style={{ width: '60px' }}>#</th>
+                        <th style={{ width: '220px' }}>Key</th>
+                        <th>Definition</th>
+                        <th style={{ width: '50px' }}></th>
+                      </tr>
+                    </thead>
+                    <tbody>{filtered.map((mc, idx) => {
+                      const origIdx = script.masterCodeCategories!.indexOf(mc);
+                      return (
+                      <tr key={idx}>
+                        <td>{idx + 1}</td>
+                        <td className="code-cell"
+                          contentEditable suppressContentEditableWarning
+                          onBlur={(e) => {
+                            const newVal = e.currentTarget.textContent || '';
+                            if (newVal !== mc.key && onUpdateScriptPartial) {
+                              const updated = [...script.masterCodeCategories!];
+                              updated[origIdx] = { ...updated[origIdx], key: newVal };
+                              onUpdateScriptPartial({ masterCodeCategories: updated });
+                            }
+                          }}
+                        >{mc.key}</td>
+                        <td
+                          contentEditable suppressContentEditableWarning
+                          onBlur={(e) => {
+                            const newVal = e.currentTarget.textContent || '';
+                            if (newVal !== mc.definition && onUpdateScriptPartial) {
+                              const updated = [...script.masterCodeCategories!];
+                              updated[origIdx] = { ...updated[origIdx], definition: newVal };
+                              onUpdateScriptPartial({ masterCodeCategories: updated });
+                            }
+                          }}
+                        >{mc.definition}</td>
+                        <td style={{ textAlign: 'center' }}>
+                          <button onClick={() => {
+                            if (onUpdateScriptPartial) {
+                              const updated = [...script.masterCodeCategories!];
+                              updated.splice(origIdx, 1);
+                              onUpdateScriptPartial({ masterCodeCategories: updated });
+                            }
+                          }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', color: isDarkTheme ? '#a1a1aa' : '#71717a', display: 'inline-flex', alignItems: 'center' }} title="Remove">
+                            <Trash2 size={14} />
+                          </button>
+                        </td>
+                      </tr>
+                      );
+                    })}</tbody>
+                  </table>
+                );
+              })()
+            )}
+          </>
+        )}
+
         {/* Excel Mode Help Banner */}
-        {excelMode && (
+        {viewMode === 'tableList' && excelMode && (
           <div style={{
             backgroundColor: isDarkTheme ? '#1e3a5f' : '#dbeafe',
             padding: '8px 12px',
@@ -1994,6 +2270,7 @@ export default function DataDictionary({
           </div>
         )}
 
+        {viewMode === 'tableList' && (<>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', borderBottom: `2px solid ${isDarkTheme ? '#334155' : '#eee'}`, paddingBottom: '8px' }}>
           <h3 style={{ fontSize: '14px', color: isDarkTheme ? '#e4e4e7' : '#2c3e50', margin: 0 }}>
             All Tables
@@ -2277,6 +2554,7 @@ export default function DataDictionary({
             </tbody>
           </table>
         </div>
+        </>)}
       </div>
     );
   }
@@ -2364,12 +2642,29 @@ export default function DataDictionary({
               <FileCode size={16} />
               Code View
             </button>
+            <button
+              className="btn"
+              onClick={() => setViewMode('masterCodes')}
+              style={{
+                borderRadius: 0,
+                border: 'none',
+                borderLeft: `1px solid ${isDarkTheme ? '#4b5563' : '#d1d5db'}`,
+                backgroundColor: viewMode === 'masterCodes'
+                  ? (isDarkTheme ? '#3b82f6' : '#2563eb')
+                  : 'transparent',
+                color: viewMode === 'masterCodes' ? '#fff' : undefined,
+              }}
+              title="Master codes & categories"
+            >
+              <BookOpen size={16} />
+              Master Codes
+            </button>
           </div>
           <button
             className={`btn ${excelMode ? 'btn-success' : ''}`}
             onClick={(viewMode === 'dictionary' || viewMode === 'tableList') ? toggleExcelMode : undefined}
-            title={(viewMode === 'data' || viewMode === 'code') ? 'Excel Mode is not available in this view' : (excelMode ? 'Switch to normal view' : 'Switch to Excel-like edit mode (multi-select, copy/paste)')}
-            style={(viewMode === 'data' || viewMode === 'code') ? { opacity: 0.4, pointerEvents: 'none' as const } : undefined}
+            title={(viewMode === 'data' || viewMode === 'code' || viewMode === 'masterCodes') ? 'Excel Mode is not available in this view' : (excelMode ? 'Switch to normal view' : 'Switch to Excel-like edit mode (multi-select, copy/paste)')}
+            style={(viewMode === 'data' || viewMode === 'code' || viewMode === 'masterCodes') ? { opacity: 0.4, pointerEvents: 'none' as const } : undefined}
           >
             {excelMode ? <TableIcon size={16} /> : <Grid3X3 size={16} />}
             {excelMode ? 'Normal Mode' : 'Excel Mode'}
@@ -2435,6 +2730,57 @@ export default function DataDictionary({
                 <button className="btn" style={{ width: '100%', justifyContent: 'flex-start', borderRadius: 0, border: 'none', borderBottom: `1px solid ${isDarkTheme ? '#334155' : '#e5e7eb'}` }} onClick={() => { setShowImportExplanations(true); setShowActionsDropdown(false); }}>
                   <FileText size={16} />
                   Import Explanations
+                </button>
+                <button className="btn" style={{ width: '100%', justifyContent: 'flex-start', borderRadius: 0, border: 'none', borderBottom: `1px solid ${isDarkTheme ? '#334155' : '#e5e7eb'}` }} onClick={() => {
+                  const allTables = [...script.data.targets, ...script.data.sources];
+                  const lines: string[] = [];
+                  allTables.forEach(table => {
+                    table.columns.forEach(col => {
+                      if (col.explanation && col.explanation.trim()) {
+                        let line = `${table.tableName}.${col.name}: ${col.explanation}`;
+                        if (col.possibleValues && col.possibleValues.trim()) {
+                          line += ` | ${col.possibleValues}`;
+                        }
+                        lines.push(line);
+                      }
+                    });
+                  });
+                  navigator.clipboard.writeText(lines.join('\n'));
+                  setShowActionsDropdown(false);
+                }}>
+                  <ClipboardCopy size={16} />
+                  Copy All Explanations
+                </button>
+                <button
+                  className="btn"
+                  style={{ width: '100%', justifyContent: 'flex-start', borderRadius: 0, border: 'none', borderBottom: `1px solid ${isDarkTheme ? '#334155' : '#e5e7eb'}`, opacity: !selectedTable ? 0.4 : 1 }}
+                  onClick={() => {
+                    if (!selectedTable) return;
+                    const lines: string[] = [];
+                    selectedTable.columns.forEach(col => {
+                      if (col.explanation && col.explanation.trim()) {
+                        let line = `${selectedTable.tableName}.${col.name}: ${col.explanation}`;
+                        if (col.possibleValues && col.possibleValues.trim()) {
+                          line += ` | ${col.possibleValues}`;
+                        }
+                        lines.push(line);
+                      }
+                    });
+                    navigator.clipboard.writeText(lines.join('\n'));
+                    setShowActionsDropdown(false);
+                  }}
+                  title={selectedTable ? `Copy explanations for ${selectedTable.tableName}` : 'Select a table first'}
+                >
+                  <ClipboardCopy size={16} />
+                  Copy Table Explanations
+                </button>
+                <button className="btn" style={{ width: '100%', justifyContent: 'flex-start', borderRadius: 0, border: 'none', borderBottom: `1px solid ${isDarkTheme ? '#334155' : '#e5e7eb'}` }} onClick={() => { setShowImportMasterCode(true); setShowActionsDropdown(false); }}>
+                  <FileText size={16} />
+                  Import Master Codes
+                </button>
+                <button className="btn" style={{ width: '100%', justifyContent: 'flex-start', borderRadius: 0, border: 'none', borderBottom: `1px solid ${isDarkTheme ? '#334155' : '#e5e7eb'}` }} onClick={() => { setShowImportMasterCodeCategory(true); setShowActionsDropdown(false); }}>
+                  <FileText size={16} />
+                  Import Master Code Categories
                 </button>
                 <button
                   className="btn"
@@ -2518,6 +2864,191 @@ export default function DataDictionary({
           </div>
         </div>
       </div>
+
+      {/* Master Codes View Mode */}
+      {viewMode === 'masterCodes' && (
+        <>
+          {/* Codes / Categories Toggle + Actions */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', gap: '12px' }}>
+            <div style={{ display: 'flex', gap: '0', borderRadius: '6px', overflow: 'hidden', border: `1px solid ${isDarkTheme ? '#4b5563' : '#d1d5db'}` }}>
+              {(['codes', 'categories'] as const).map(tab => (
+                <button key={tab} className="btn" onClick={() => { setMasterCodePanelTab(tab); setMasterCodeSearch(''); }}
+                  style={{
+                    borderRadius: 0, border: 'none',
+                    borderLeft: tab === 'categories' ? `1px solid ${isDarkTheme ? '#4b5563' : '#d1d5db'}` : 'none',
+                    backgroundColor: masterCodePanelTab === tab ? (isDarkTheme ? '#3b82f6' : '#2563eb') : 'transparent',
+                    color: masterCodePanelTab === tab ? '#fff' : undefined,
+                    fontSize: '13px', fontWeight: masterCodePanelTab === tab ? 600 : 400,
+                  }}
+                >
+                  {tab === 'codes' ? `Master Codes (${script.masterCodes?.length || 0})` : `Categories (${script.masterCodeCategories?.length || 0})`}
+                </button>
+              ))}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, maxWidth: '400px' }}>
+              <input type="text"
+                placeholder={masterCodePanelTab === 'codes' ? 'Search codes...' : 'Search categories...'}
+                value={masterCodeSearch} onChange={e => setMasterCodeSearch(e.target.value)}
+                style={{
+                  flex: 1, padding: '6px 12px', fontSize: '13px',
+                  border: `1px solid ${isDarkTheme ? '#4b5563' : '#d1d5db'}`, borderRadius: '6px',
+                  backgroundColor: isDarkTheme ? '#0f172a' : '#f9fafb',
+                  color: isDarkTheme ? '#e4e4e7' : '#18181b', outline: 'none',
+                }}
+              />
+              <button className="btn" onClick={() => { if (masterCodePanelTab === 'codes') setShowImportMasterCode(true); else setShowImportMasterCodeCategory(true); }}>
+                <Upload size={16} /> Import
+              </button>
+              <button className="btn" onClick={() => {
+                const items = masterCodePanelTab === 'codes' ? (script.masterCodes || []) : (script.masterCodeCategories || []);
+                navigator.clipboard.writeText(items.map(mc => `${mc.key}: ${mc.definition}`).join('\n'));
+              }} title={`Copy all ${masterCodePanelTab}`}>
+                <ClipboardCopy size={16} /> Copy
+              </button>
+            </div>
+          </div>
+
+          {/* Section Header */}
+          <h3 style={{ fontSize: '14px', color: isDarkTheme ? '#e4e4e7' : '#2c3e50', marginBottom: '12px', borderBottom: `2px solid ${isDarkTheme ? '#334155' : '#eee'}`, paddingBottom: '8px' }}>
+            {masterCodePanelTab === 'codes' ? 'Master Code Definitions' : 'Master Code Categories'}
+            <span style={{ fontWeight: 'normal', fontSize: '12px', color: isDarkTheme ? '#a1a1aa' : '#6b7280', marginLeft: '8px' }}>
+              ({masterCodePanelTab === 'codes' ? (script.masterCodes?.length || 0) : (script.masterCodeCategories?.length || 0)} entries)
+            </span>
+          </h3>
+
+          {masterCodePanelTab === 'codes' ? (
+            (!script.masterCodes || script.masterCodes.length === 0) ? (
+              <div style={{ padding: '60px 20px', textAlign: 'center', color: isDarkTheme ? '#64748b' : '#9ca3af', fontSize: '14px', border: `1px dashed ${isDarkTheme ? '#334155' : '#d1d5db'}`, borderRadius: '8px' }}>
+                No master codes imported yet.<br />
+                <button onClick={() => setShowImportMasterCode(true)} style={{ marginTop: '12px', background: 'none', border: 'none', color: '#3b82f6', cursor: 'pointer', fontSize: '14px', textDecoration: 'underline' }}>Import Master Codes</button>
+              </div>
+            ) : (() => {
+              const q = masterCodeSearch.toLowerCase();
+              const filtered = q ? script.masterCodes!.filter(mc => mc.key.toLowerCase().includes(q) || mc.definition.toLowerCase().includes(q)) : script.masterCodes!;
+              return filtered.length === 0 ? (
+                <div style={{ padding: '40px 20px', textAlign: 'center', color: isDarkTheme ? '#64748b' : '#9ca3af', fontSize: '13px' }}>No codes matching &quot;{masterCodeSearch}&quot;</div>
+              ) : (
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th style={{ width: '60px' }}>#</th>
+                      <th style={{ width: '220px' }}>Key</th>
+                      <th>Definition</th>
+                      <th style={{ width: '50px' }}></th>
+                    </tr>
+                  </thead>
+                  <tbody>{filtered.map((mc, idx) => {
+                    const origIdx = script.masterCodes!.indexOf(mc);
+                    return (
+                    <tr key={idx}>
+                      <td>{idx + 1}</td>
+                      <td className="code-cell"
+                        contentEditable suppressContentEditableWarning
+                        onBlur={(e) => {
+                          const newVal = e.currentTarget.textContent || '';
+                          if (newVal !== mc.key && onUpdateScriptPartial) {
+                            const updated = [...script.masterCodes!];
+                            updated[origIdx] = { ...updated[origIdx], key: newVal };
+                            onUpdateScriptPartial({ masterCodes: updated });
+                          }
+                        }}
+                      >{mc.key}</td>
+                      <td
+                        contentEditable suppressContentEditableWarning
+                        onBlur={(e) => {
+                          const newVal = e.currentTarget.textContent || '';
+                          if (newVal !== mc.definition && onUpdateScriptPartial) {
+                            const updated = [...script.masterCodes!];
+                            updated[origIdx] = { ...updated[origIdx], definition: newVal };
+                            onUpdateScriptPartial({ masterCodes: updated });
+                          }
+                        }}
+                      >{mc.definition}</td>
+                      <td style={{ textAlign: 'center' }}>
+                        <button onClick={() => {
+                          if (onUpdateScriptPartial) {
+                            const updated = [...script.masterCodes!];
+                            updated.splice(origIdx, 1);
+                            onUpdateScriptPartial({ masterCodes: updated });
+                          }
+                        }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', color: isDarkTheme ? '#a1a1aa' : '#71717a', display: 'inline-flex', alignItems: 'center' }} title="Remove">
+                          <Trash2 size={14} />
+                        </button>
+                      </td>
+                    </tr>
+                    );
+                  })}</tbody>
+                </table>
+              );
+            })()
+          ) : (
+            (!script.masterCodeCategories || script.masterCodeCategories.length === 0) ? (
+              <div style={{ padding: '60px 20px', textAlign: 'center', color: isDarkTheme ? '#64748b' : '#9ca3af', fontSize: '14px', border: `1px dashed ${isDarkTheme ? '#334155' : '#d1d5db'}`, borderRadius: '8px' }}>
+                No categories imported yet.<br />
+                <button onClick={() => setShowImportMasterCodeCategory(true)} style={{ marginTop: '12px', background: 'none', border: 'none', color: '#3b82f6', cursor: 'pointer', fontSize: '14px', textDecoration: 'underline' }}>Import Master Code Categories</button>
+              </div>
+            ) : (() => {
+              const q = masterCodeSearch.toLowerCase();
+              const filtered = q ? script.masterCodeCategories!.filter(mc => mc.key.toLowerCase().includes(q) || mc.definition.toLowerCase().includes(q)) : script.masterCodeCategories!;
+              return filtered.length === 0 ? (
+                <div style={{ padding: '40px 20px', textAlign: 'center', color: isDarkTheme ? '#64748b' : '#9ca3af', fontSize: '13px' }}>No categories matching &quot;{masterCodeSearch}&quot;</div>
+              ) : (
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th style={{ width: '60px' }}>#</th>
+                      <th style={{ width: '220px' }}>Key</th>
+                      <th>Definition</th>
+                      <th style={{ width: '50px' }}></th>
+                    </tr>
+                  </thead>
+                  <tbody>{filtered.map((mc, idx) => {
+                    const origIdx = script.masterCodeCategories!.indexOf(mc);
+                    return (
+                    <tr key={idx}>
+                      <td>{idx + 1}</td>
+                      <td className="code-cell"
+                        contentEditable suppressContentEditableWarning
+                        onBlur={(e) => {
+                          const newVal = e.currentTarget.textContent || '';
+                          if (newVal !== mc.key && onUpdateScriptPartial) {
+                            const updated = [...script.masterCodeCategories!];
+                            updated[origIdx] = { ...updated[origIdx], key: newVal };
+                            onUpdateScriptPartial({ masterCodeCategories: updated });
+                          }
+                        }}
+                      >{mc.key}</td>
+                      <td
+                        contentEditable suppressContentEditableWarning
+                        onBlur={(e) => {
+                          const newVal = e.currentTarget.textContent || '';
+                          if (newVal !== mc.definition && onUpdateScriptPartial) {
+                            const updated = [...script.masterCodeCategories!];
+                            updated[origIdx] = { ...updated[origIdx], definition: newVal };
+                            onUpdateScriptPartial({ masterCodeCategories: updated });
+                          }
+                        }}
+                      >{mc.definition}</td>
+                      <td style={{ textAlign: 'center' }}>
+                        <button onClick={() => {
+                          if (onUpdateScriptPartial) {
+                            const updated = [...script.masterCodeCategories!];
+                            updated.splice(origIdx, 1);
+                            onUpdateScriptPartial({ masterCodeCategories: updated });
+                          }
+                        }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', color: isDarkTheme ? '#a1a1aa' : '#71717a', display: 'inline-flex', alignItems: 'center' }} title="Remove">
+                          <Trash2 size={14} />
+                        </button>
+                      </td>
+                    </tr>
+                    );
+                  })}</tbody>
+                </table>
+              );
+            })()
+          )}
+        </>
+      )}
 
       {/* Table List View Mode */}
       {viewMode === 'tableList' && (
@@ -3587,7 +4118,12 @@ export default function DataDictionary({
             ))}
           </tr>
         </thead>
-        <tbody>
+        <tbody
+          onClick={excelMode ? handleTbodyClick : undefined}
+          onDoubleClick={excelMode ? handleTbodyDoubleClick : undefined}
+          onMouseDown={excelMode ? handleTbodyMouseDown : undefined}
+          onMouseMove={excelMode ? handleTbodyMouseMove : undefined}
+        >
           {selectedTable.columns.map((col, rowIndex) => {
             const tags = getColumnTags(selectedTable, col.name);
             const mappingInfo = getMappingInfo(selectedTable.tableName, col.name);
@@ -3626,18 +4162,14 @@ export default function DataDictionary({
               return {};
             };
 
-            // Helper for Excel mode cell event handlers
-            const excelCellProps = (colIndex: number) => excelMode ? {
-              onClick: (e: React.MouseEvent) => handleCellClick(rowIndex, colIndex, e),
-              onDoubleClick: () => handleCellDoubleClick(rowIndex, colIndex),
-              onMouseDown: (e: React.MouseEvent) => handleCellMouseDown(rowIndex, colIndex, e),
-              onMouseMove: () => handleCellMouseMove(rowIndex, colIndex),
-              style: {
-                ...getSelectionStyle(colIndex),
-                cursor: 'cell',
-                userSelect: 'none' as const,
-              },
-            } : {};
+            // Per-cell handler creation has moved to <tbody>-level event
+            // delegation (see handleTbody* above). Cells advertise their
+            // grid coordinates via data-row / data-col attributes; the
+            // delegated handlers read those off the closest <td>.
+            const cellExcelStyle = (colIndex: number): React.CSSProperties =>
+              excelMode
+                ? { ...getSelectionStyle(colIndex), cursor: 'cell', userSelect: 'none' }
+                : {};
 
             return (
               <tr key={rowIndex}>
@@ -3645,13 +4177,13 @@ export default function DataDictionary({
                 {visibleColumns.has('column') && (
                 <td
                   className="code-cell"
-                  {...excelCellProps(0)}
+                  data-row={rowIndex}
+                  data-col={0}
                   style={{
                     wordBreak: 'break-word',
                     overflowWrap: 'break-word',
                     whiteSpace: 'normal',
-                    ...getSelectionStyle(0),
-                    ...(excelMode ? { cursor: 'cell', userSelect: 'none' } : {}),
+                    ...cellExcelStyle(0),
                   }}
                 >
                   {col.name}{tags.length > 0 ? ` (${tags.join(', ')})` : ''}
@@ -3662,13 +4194,13 @@ export default function DataDictionary({
                 {visibleColumns.has('type') && (
                 <td
                   className="code-cell"
-                  {...excelCellProps(1)}
+                  data-row={rowIndex}
+                  data-col={1}
                   style={{
                     wordBreak: 'break-word',
                     overflowWrap: 'break-word',
                     whiteSpace: 'normal',
-                    ...getSelectionStyle(1),
-                    ...(excelMode ? { cursor: 'cell', userSelect: 'none' } : {}),
+                    ...cellExcelStyle(1),
                   }}
                 >
                   {col.type}
@@ -3679,11 +4211,9 @@ export default function DataDictionary({
                 {visibleColumns.has('nullable') && (
                 <td
                   className="code-cell"
-                  {...excelCellProps(2)}
-                  style={{
-                    ...getSelectionStyle(2),
-                    ...(excelMode ? { cursor: 'cell', userSelect: 'none' } : {}),
-                  }}
+                  data-row={rowIndex}
+                  data-col={2}
+                  style={cellExcelStyle(2)}
                 >
                   {col.nullable?.toUpperCase() === 'YES' || col.nullable?.toUpperCase() === 'Y' ? 'NULL' : 'NOT NULL'}
                 </td>
@@ -3693,13 +4223,13 @@ export default function DataDictionary({
                 {visibleColumns.has('default') && (
                 <td
                   className="code-cell"
-                  {...excelCellProps(3)}
+                  data-row={rowIndex}
+                  data-col={3}
                   style={{
                     wordBreak: 'break-word',
                     overflowWrap: 'break-word',
                     whiteSpace: 'normal',
-                    ...getSelectionStyle(3),
-                    ...(excelMode ? { cursor: 'cell', userSelect: 'none' } : {}),
+                    ...cellExcelStyle(3),
                   }}
                 >
                   {col.default || '-'}
@@ -3709,11 +4239,9 @@ export default function DataDictionary({
                 {/* Explanation */}
                 {visibleColumns.has('explanation') && (
                 <td
-                  {...excelCellProps(4)}
-                  style={{
-                    ...getSelectionStyle(4),
-                    ...(excelMode ? { cursor: 'cell', userSelect: 'none' } : {}),
-                  }}
+                  data-row={rowIndex}
+                  data-col={4}
+                  style={cellExcelStyle(4)}
                 >
                   {excelMode ? (
                     <div
@@ -3759,11 +4287,9 @@ export default function DataDictionary({
                 {/* Mapping Logic */}
                 {visibleColumns.has('mapping') && (
                 <td
-                  {...excelCellProps(5)}
-                  style={{
-                    ...getSelectionStyle(5),
-                    ...(excelMode ? { cursor: 'cell', userSelect: 'none' } : {}),
-                  }}
+                  data-row={rowIndex}
+                  data-col={5}
+                  style={cellExcelStyle(5)}
                 >
                   {excelMode ? (
                     <div
@@ -3806,18 +4332,12 @@ export default function DataDictionary({
                 </td>
                 )}
 
-                {/* Sample Values (read-only) */}
+                {/* Sample Values (read-only — handled by delegated tbody listeners) */}
                 {visibleColumns.has('sampleValues') && (
                 <td
-                  {...(excelMode ? {
-                    onClick: (e: React.MouseEvent) => handleCellClick(rowIndex, 6, e),
-                    onMouseDown: (e: React.MouseEvent) => handleCellMouseDown(rowIndex, 6, e),
-                    onMouseMove: () => handleCellMouseMove(rowIndex, 6),
-                  } : {})}
-                  style={{
-                    ...getSelectionStyle(6),
-                    ...(excelMode ? { cursor: 'cell', userSelect: 'none' } : {}),
-                  }}
+                  data-row={rowIndex}
+                  data-col={6}
+                  style={cellExcelStyle(6)}
                 >
                   <div
                     style={{
@@ -3845,11 +4365,9 @@ export default function DataDictionary({
                 {/* Possible Values (editable, user-entered) */}
                 {visibleColumns.has('possibleValues') && (
                 <td
-                  {...excelCellProps(7)}
-                  style={{
-                    ...getSelectionStyle(7),
-                    ...(excelMode ? { cursor: 'cell', userSelect: 'none' } : {}),
-                  }}
+                  data-row={rowIndex}
+                  data-col={7}
+                  style={cellExcelStyle(7)}
                 >
                   {excelMode ? (
                     <div
@@ -3892,18 +4410,12 @@ export default function DataDictionary({
                 </td>
                 )}
 
-                {/* Mapped To (read-only, not selectable in Excel mode for editing but viewable) */}
+                {/* Mapped To (read-only — selection handled by delegated tbody listeners) */}
                 {visibleColumns.has('mappedTo') && (
                 <td
-                  {...(excelMode ? {
-                    onClick: (e: React.MouseEvent) => handleCellClick(rowIndex, 8, e),
-                    onMouseDown: (e: React.MouseEvent) => handleCellMouseDown(rowIndex, 8, e),
-                    onMouseMove: () => handleCellMouseMove(rowIndex, 8),
-                  } : {})}
-                  style={{
-                    ...getSelectionStyle(8),
-                    ...(excelMode ? { cursor: 'cell', userSelect: 'none' } : {}),
-                  }}
+                  data-row={rowIndex}
+                  data-col={8}
+                  style={cellExcelStyle(8)}
                 >
                   <div
                     dangerouslySetInnerHTML={{ __html: mappedToDisplay }}
@@ -4065,6 +4577,38 @@ export default function DataDictionary({
         />
       )}
 
+      {/* Import Master Code Modal */}
+      {showImportMasterCode && (
+        <ImportMasterCodeModal
+          script={script}
+          onClose={() => setShowImportMasterCode(false)}
+          onImport={(updatedScript) => {
+            if (onUpdateScriptPartial) {
+              onUpdateScriptPartial({ masterCodes: updatedScript.masterCodes });
+            }
+            setShowImportMasterCode(false);
+          }}
+          isDarkTheme={isDarkTheme}
+          darkThemeVariant={darkThemeVariant}
+        />
+      )}
+
+      {/* Import Master Code Category Modal */}
+      {showImportMasterCodeCategory && (
+        <ImportMasterCodeCategoryModal
+          script={script}
+          onClose={() => setShowImportMasterCodeCategory(false)}
+          onImport={(updatedScript) => {
+            if (onUpdateScriptPartial) {
+              onUpdateScriptPartial({ masterCodeCategories: updatedScript.masterCodeCategories });
+            }
+            setShowImportMasterCodeCategory(false);
+          }}
+          isDarkTheme={isDarkTheme}
+          darkThemeVariant={darkThemeVariant}
+        />
+      )}
+
       {showExcelPreview && (
         <ExcelExportPreview
           scriptName={script.name}
@@ -4073,8 +4617,19 @@ export default function DataDictionary({
           getColumnTags={getColumnTags}
           onClose={() => setShowExcelPreview(false)}
           isDarkTheme={isDarkTheme}
+          darkThemeVariant={darkThemeVariant}
+          masterCodes={script.masterCodes}
+          masterCodeCategories={script.masterCodeCategories}
         />
       )}
     </div>
   );
 }
+
+// React.memo'd default export. Skips re-render when props are reference-equal.
+// Critically depends on the App-level callbacks being wrapped in useCallback —
+// inline arrows would defeat this. The default shallow compare is sufficient
+// because all heavy props (script, mappingProjects via storage) are passed by
+// reference and React's immutable update pattern preserves refs of unchanged
+// items.
+export default memo(DataDictionary);

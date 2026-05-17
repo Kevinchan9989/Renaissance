@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Download, Upload, Trash2, FileDown, X, Copy, Check, Sun, Moon, Palette, GitBranch, FolderSync, Database, FileCode, Folder, RefreshCw, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
-import { exportWorkspace, importWorkspace, downloadJson, WorkspaceData, exportWorkspaceForGit, getWorkspaceSummary, GIT_WORKSPACE_FILENAME, getGitSyncSettings, setGitSyncPath, setGitSyncEnabled, triggerGitSync, subscribeToGitSyncStatus, GitSyncSettings } from '../utils/storage';
+import { Download, Upload, Trash2, FileDown, X, Copy, Check, Sun, Moon, Palette, GitBranch, FolderSync, Database, FileCode, Folder, RefreshCw, CheckCircle, AlertCircle, Loader2, HardDrive } from 'lucide-react';
+import { exportWorkspace, importWorkspace, downloadJson, WorkspaceData, exportWorkspaceForGit, getWorkspaceSummary, GIT_WORKSPACE_FILENAME, getGitSyncSettings, setGitSyncPath, setGitSyncEnabled, triggerGitSync, subscribeToGitSyncStatus, GitSyncSettings, isSqliteStorageEnabled, setSqliteStorageEnabled } from '../utils/storage';
 import { getLogs, clearLogs, subscribeToLogs, formatTimestamp, downloadLogs, exportLogsAsText } from '../utils/debugLogger';
-import { isElectron } from '../services/electronStorage';
+import { isElectron, type DbStatus } from '../services/electronStorage';
+import { dbStatus, dbMigrateFromShards, dbIntegrityCheck, dbVacuum } from '../services/dbStorage';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -13,7 +14,7 @@ interface SettingsModalProps {
   onToggleDarkThemeVariant: () => void;
 }
 
-type TabType = 'appearance' | 'workspace' | 'git-sync' | 'logs' | 'erd';
+type TabType = 'appearance' | 'workspace' | 'git-sync' | 'storage' | 'logs' | 'erd';
 
 export default function SettingsModal({ isOpen, onClose, theme, darkThemeVariant, onToggleTheme, onToggleDarkThemeVariant }: SettingsModalProps) {
   const [activeTab, setActiveTab] = useState<TabType>('appearance');
@@ -36,6 +37,22 @@ export default function SettingsModal({ isOpen, onClose, theme, darkThemeVariant
   const [gitSyncStatus, setGitSyncStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [gitSyncError, setGitSyncError] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
+
+  // Storage (SQLite) state
+  const [sqliteEnabled, setSqliteEnabled] = useState<boolean>(isSqliteStorageEnabled);
+  const [storageStatus, setStorageStatus] = useState<DbStatus | null>(null);
+  const [storageBusy, setStorageBusy] = useState<null | 'migrating' | 'integrity' | 'vacuuming'>(null);
+  const [storageMessage, setStorageMessage] = useState<{ type: 'info' | 'error' | 'success'; text: string } | null>(null);
+
+  const refreshStorageStatus = useCallback(async () => {
+    if (!isElectron()) return;
+    const s = await dbStatus();
+    setStorageStatus(s);
+  }, []);
+
+  useEffect(() => {
+    if (isOpen && activeTab === 'storage') void refreshStorageStatus();
+  }, [isOpen, activeTab, refreshStorageStatus]);
 
   // Refresh git sync settings when modal opens
   useEffect(() => {
@@ -407,6 +424,37 @@ export default function SettingsModal({ isOpen, onClose, theme, darkThemeVariant
             >
               <GitBranch size={16} />
               Git Sync
+            </button>
+            <button
+              onClick={() => setActiveTab('storage')}
+              style={{
+                padding: '12px 24px',
+                background: activeTab === 'storage' ? (isDark ? (isVscode ? '#37373d' : '#1e293b') : '#e5e7eb') : 'transparent',
+                border: 'none',
+                borderLeft: activeTab === 'storage' ? `3px solid #3b82f6` : '3px solid transparent',
+                color: activeTab === 'storage' ? textColor : textSecondary,
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: activeTab === 'storage' ? 600 : 500,
+                textAlign: 'left',
+                transition: 'all 0.2s',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+              }}
+              onMouseEnter={(e) => {
+                if (activeTab !== 'storage') {
+                  e.currentTarget.style.backgroundColor = hoverColor;
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (activeTab !== 'storage') {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }
+              }}
+            >
+              <HardDrive size={16} />
+              Storage
             </button>
             <button
               onClick={() => setActiveTab('erd')}
@@ -1313,6 +1361,24 @@ export default function SettingsModal({ isOpen, onClose, theme, darkThemeVariant
             </div>
           )}
 
+          {activeTab === 'storage' && (
+            <StorageTabContent
+              isDark={isDark}
+              textColor={textColor}
+              textSecondary={textSecondary}
+              borderColor={borderColor}
+              bgColor={bgColor}
+              sqliteEnabled={sqliteEnabled}
+              setSqliteEnabled={setSqliteEnabled}
+              storageStatus={storageStatus}
+              storageBusy={storageBusy}
+              setStorageBusy={setStorageBusy}
+              storageMessage={storageMessage}
+              setStorageMessage={setStorageMessage}
+              refreshStorageStatus={refreshStorageStatus}
+            />
+          )}
+
           {activeTab === 'logs' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', height: '100%' }}>
               {/* Logs toolbar */}
@@ -1419,6 +1485,230 @@ export default function SettingsModal({ isOpen, onClose, theme, darkThemeVariant
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+// =============================================================================
+// StorageTabContent — SQLite controls (toggle, status, re-migrate, integrity, vacuum).
+// Subcomponent kept inline so it can share the modal's color tokens via props.
+// =============================================================================
+
+interface StorageTabProps {
+  isDark: boolean;
+  textColor: string;
+  textSecondary: string;
+  borderColor: string;
+  bgColor: string;
+  sqliteEnabled: boolean;
+  setSqliteEnabled: (v: boolean) => void;
+  storageStatus: DbStatus | null;
+  storageBusy: null | 'migrating' | 'integrity' | 'vacuuming';
+  setStorageBusy: (v: null | 'migrating' | 'integrity' | 'vacuuming') => void;
+  storageMessage: { type: 'info' | 'error' | 'success'; text: string } | null;
+  setStorageMessage: (v: { type: 'info' | 'error' | 'success'; text: string } | null) => void;
+  refreshStorageStatus: () => Promise<void>;
+}
+
+function StorageTabContent({
+  isDark, textColor, textSecondary, borderColor, bgColor,
+  sqliteEnabled, setSqliteEnabled,
+  storageStatus, storageBusy, setStorageBusy,
+  storageMessage, setStorageMessage,
+  refreshStorageStatus,
+}: StorageTabProps) {
+  const electronMode = isElectron();
+
+  const handleToggle = useCallback(() => {
+    const next = !sqliteEnabled;
+    setSqliteStorageEnabled(next);
+    setSqliteEnabled(next);
+    setStorageMessage({
+      type: 'info',
+      text: next
+        ? 'SQLite storage enabled. Reload the app to apply.'
+        : 'SQLite storage disabled. The app will use shard files (workspace-shards/) on next reload.',
+    });
+  }, [sqliteEnabled, setSqliteEnabled, setStorageMessage]);
+
+  const handleReMigrate = useCallback(async () => {
+    setStorageBusy('migrating');
+    setStorageMessage(null);
+    const result = await dbMigrateFromShards();
+    if (result.ok) {
+      setStorageMessage({
+        type: 'success',
+        text: `Migration complete in ${result.durationMs ?? 0}ms — ${result.counts?.scripts ?? 0} scripts, ${result.counts?.columns ?? 0} columns. Reload to load the new data.`,
+      });
+      await refreshStorageStatus();
+    } else {
+      setStorageMessage({ type: 'error', text: result.error || 'Unknown error' });
+    }
+    setStorageBusy(null);
+  }, [setStorageBusy, setStorageMessage, refreshStorageStatus]);
+
+  const handleIntegrity = useCallback(async () => {
+    setStorageBusy('integrity');
+    setStorageMessage(null);
+    const r = await dbIntegrityCheck();
+    if (r.ok) setStorageMessage({ type: 'success', text: 'Database integrity OK.' });
+    else setStorageMessage({ type: 'error', text: r.error || 'Integrity check failed: ' + JSON.stringify(r.details) });
+    setStorageBusy(null);
+  }, [setStorageBusy, setStorageMessage]);
+
+  const handleVacuum = useCallback(async () => {
+    setStorageBusy('vacuuming');
+    setStorageMessage(null);
+    const ok = await dbVacuum();
+    setStorageMessage({
+      type: ok ? 'success' : 'error',
+      text: ok ? 'VACUUM complete.' : 'VACUUM failed.',
+    });
+    await refreshStorageStatus();
+    setStorageBusy(null);
+  }, [setStorageBusy, setStorageMessage, refreshStorageStatus]);
+
+  const messageColor = storageMessage?.type === 'error'
+    ? '#ef4444'
+    : storageMessage?.type === 'success'
+      ? '#10b981'
+      : textSecondary;
+
+  const cardStyle: React.CSSProperties = {
+    border: `1px solid ${borderColor}`,
+    borderRadius: 8,
+    padding: 16,
+    background: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)',
+  };
+
+  const labelStyle: React.CSSProperties = { color: textSecondary, fontSize: 12, fontWeight: 500 };
+  const valueStyle: React.CSSProperties = { color: textColor, fontSize: 14, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace' };
+  const buttonStyle: React.CSSProperties = {
+    padding: '8px 14px',
+    borderRadius: 6,
+    border: `1px solid ${borderColor}`,
+    background: bgColor,
+    color: textColor,
+    cursor: 'pointer',
+    fontSize: 13,
+    fontWeight: 500,
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 6,
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div>
+        <h3 style={{ margin: '0 0 4px', color: textColor, fontSize: 16, fontWeight: 600 }}>Storage</h3>
+        <p style={{ margin: 0, color: textSecondary, fontSize: 13 }}>
+          Control where your workspace lives on disk. SQLite is the new default —
+          shard files (workspace-shards/) are kept as a rollback safety net.
+        </p>
+      </div>
+
+      {!electronMode && (
+        <div style={{ ...cardStyle, color: textSecondary, fontSize: 13 }}>
+          SQLite is only available in the Electron app. The browser version uses IndexedDB.
+        </div>
+      )}
+
+      {electronMode && (
+        <>
+          {/* Toggle */}
+          <div style={cardStyle}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+              <div>
+                <div style={{ color: textColor, fontWeight: 500, fontSize: 14 }}>Use SQLite storage</div>
+                <div style={{ color: textSecondary, fontSize: 12, marginTop: 2 }}>
+                  When enabled, the app reads from SQLite first and dual-writes to both stores.
+                  Disable to roll back to shard-only storage. Reload required.
+                </div>
+              </div>
+              <button
+                onClick={handleToggle}
+                aria-pressed={sqliteEnabled}
+                style={{
+                  width: 44, height: 24, borderRadius: 12,
+                  background: sqliteEnabled ? '#10b981' : (isDark ? '#475569' : '#cbd5e1'),
+                  border: 'none', position: 'relative', cursor: 'pointer',
+                  transition: 'background 0.15s ease',
+                  flexShrink: 0,
+                }}
+              >
+                <span style={{
+                  position: 'absolute',
+                  top: 2,
+                  left: sqliteEnabled ? 22 : 2,
+                  width: 20, height: 20, borderRadius: '50%',
+                  background: '#fff',
+                  transition: 'left 0.15s ease',
+                }} />
+              </button>
+            </div>
+          </div>
+
+          {/* Status */}
+          <div style={cardStyle}>
+            <div style={{ color: textColor, fontWeight: 500, fontSize: 14, marginBottom: 12 }}>Database status</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', rowGap: 8, columnGap: 12 }}>
+              <span style={labelStyle}>Open</span>
+              <span style={valueStyle}>{storageStatus?.dbOpen ? 'yes' : 'no'}</span>
+              <span style={labelStyle}>Schema version</span>
+              <span style={valueStyle}>{storageStatus?.schemaVersion ?? '—'}</span>
+              <span style={labelStyle}>Scripts</span>
+              <span style={valueStyle}>{storageStatus?.scriptCount ?? '—'}</span>
+              <span style={labelStyle}>Columns</span>
+              <span style={valueStyle}>{storageStatus?.columnCount ?? '—'}</span>
+              <span style={labelStyle}>DB size</span>
+              <span style={valueStyle}>
+                {storageStatus?.dbSize != null ? `${(storageStatus.dbSize / (1024 * 1024)).toFixed(2)} MB` : '—'}
+              </span>
+              <span style={labelStyle}>Path</span>
+              <span style={{ ...valueStyle, fontSize: 12, wordBreak: 'break-all' }}>{storageStatus?.dbPath ?? '—'}</span>
+            </div>
+            <div style={{ marginTop: 12 }}>
+              <button onClick={refreshStorageStatus} style={buttonStyle}>
+                <RefreshCw size={14} /> Refresh
+              </button>
+            </div>
+          </div>
+
+          {/* Maintenance */}
+          <div style={cardStyle}>
+            <div style={{ color: textColor, fontWeight: 500, fontSize: 14, marginBottom: 4 }}>Maintenance</div>
+            <div style={{ color: textSecondary, fontSize: 12, marginBottom: 12 }}>
+              Re-migrate rebuilds the SQLite store from your existing shard files. Safe to
+              run any time; existing scripts in SQLite stay (UPSERT semantics).
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              <button onClick={handleReMigrate} disabled={!!storageBusy} style={{ ...buttonStyle, opacity: storageBusy ? 0.6 : 1 }}>
+                {storageBusy === 'migrating' ? <Loader2 size={14} className="spin" /> : <Database size={14} />}
+                Re-migrate from shards
+              </button>
+              <button onClick={handleIntegrity} disabled={!!storageBusy} style={{ ...buttonStyle, opacity: storageBusy ? 0.6 : 1 }}>
+                {storageBusy === 'integrity' ? <Loader2 size={14} className="spin" /> : <CheckCircle size={14} />}
+                Integrity check
+              </button>
+              <button onClick={handleVacuum} disabled={!!storageBusy} style={{ ...buttonStyle, opacity: storageBusy ? 0.6 : 1 }}>
+                {storageBusy === 'vacuuming' ? <Loader2 size={14} className="spin" /> : <HardDrive size={14} />}
+                Compact (VACUUM)
+              </button>
+            </div>
+          </div>
+
+          {storageMessage && (
+            <div style={{
+              ...cardStyle,
+              borderColor: storageMessage.type === 'error' ? '#ef4444' : storageMessage.type === 'success' ? '#10b981' : borderColor,
+              color: messageColor,
+              fontSize: 13,
+            }}>
+              {storageMessage.text}
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }

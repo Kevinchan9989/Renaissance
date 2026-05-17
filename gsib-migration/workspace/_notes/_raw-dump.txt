@@ -1,0 +1,475 @@
+====================================================================================================
+WORKBOOK SHEETS
+====================================================================================================
+  - 'Overview'                                         (rows=29, cols=5)
+  - 'List of Source Tables'                            (rows=146, cols=8)
+  - 'Migration Summary'                                (rows=15, cols=6)
+  - 'MAS-OMEGA-SECMST-001'                             (rows=12, cols=12)
+  - 'MAS-OMEGA-SECMST-002'                             (rows=52, cols=12)
+  - 'MAS-OMEGA-ISSCAL-001'                             (rows=27, cols=16)
+  - 'MAS-OMEGA-ISSCAL-002'                             (rows=32, cols=12)
+  - 'MAS-OMEGA-ISSCAL-003'                             (rows=49, cols=12)
+  - 'MAS-OMEGA-ISSCAL-004'                             (rows=25, cols=12)
+  - 'MAS-OMEGA-ISSANN-001'                             (rows=33, cols=12)
+  - 'MAS-OMEGA-BIDCOL-001'                             (rows=23, cols=12)
+  - 'MAS-OMEGA-BIDCOL-002'                             (rows=5, cols=12)
+  - 'MAS-OMEGA-BIDCOL-003'                             (rows=19, cols=12)
+  - 'Codes'                                            (rows=5, cols=8)
+
+====================================================================================================
+SHEET: 'Overview'    (rows=29, cols=5)
+====================================================================================================
+r001: MAS OMEGA - DM Conversion Mapping Specification |  |  |  | 
+r002: About this document : |  |  |  | 
+r003: Project Name | OMEGA – Open Market Execution Gateway  |  |  | 
+r004: Document Name | Data Migration Conversion Mapping Specification |  |  | 
+r005: Document Version | v0.01 |  |  | 
+r006: Source System | eApps, eAuction, SBA, ERF |  |  | 
+r007: Target System | Open Market Execution Gateway (OMEGA) |  |  | 
+r008: Prepared By | TECQ |  |  | 
+r009: Reviewed By | MAS ITD & MAS Users |  |  | 
+r010: Date | 2026-02-12 00:00:00 |  |  | 
+r012: Revision history |  |  |  | 
+r013: Date | Version | Description | Author | Remark
+r014: 2026-02-12 00:00:00 | 0.01 | Initial Document Creation | Kevin Chan | Included mapping for Issuance Calendar, Issuance Announcement & Bid Collation Module
+r019: Document Sign-off and Acceptance |  |  |  | 
+r020: Role | Name / Designation | Signature | Date | 
+r021: Prepared By (TECQ) | Kevin Chan (Data Migration Engineer)\nLim Wee Kiang (Solution Architect) |  |  | 
+r023: Verified By (MAS ITD) | [TBA] |  |  | 
+r024: Information Technology Dept |  |  |  | 
+r025: Approved By (MAS User) | [TBA] |  |  | 
+r026: Monetary & Domestic Markets |  |  |  | 
+r028: Additional Notes (if any) |  |  |  | 
+
+====================================================================================================
+SHEET: 'List of Source Tables'    (rows=146, cols=8)
+====================================================================================================
+r001: No. | Table Name | Module / Domain | Source Schema | To Migrate | Migrate in |  | 
+r002: 14 | ABA0011_DAILY_PRICE | Daily Price | MNETD | Y | R2 |  | 
+r003: 15 | ABA0012_DP_STATUS | Daily Price | MNETD | Y | R2 |  | 
+r004: 17 | ABA0015_PRICE_SPREAD | Daily Price | MNETD | Y | R2 |  | 
+r005: 18 | ABA0016_DAILY_EXTRA_DATA | Daily Price | MNETD | Y | R2 |  | 
+r006: 19 | ABA0017_FINAL_DAILY_PRICE | Daily Price | MNETD | Y | R2 |  | 
+r007: 20 | ABA0018_FINAL_EXTRA_PRICE | Daily Price | MNETD | Y | R2 |  | 
+r008: 27 | ABA0025_OUTSTANDING_SGS | Daily Price | MNETD | Y | R2 |  | 
+r009: 28 | ABA0026_OUTSTANDING_MAS | Daily Price | MNETD | Y | R2 |  | 
+r010: 31 | ABA0029_SORA_RATE | Daily Price | MNETD | Y | R2 |  | 
+r011: 33 | ABA0031_OUTSTANDING_FRN | Daily Price | MNETD | Y | R2 |  | 
+r012: 35 | ABA0033_ISSUANCE_REDEMPT_SGS | Daily Price | MNETD | Y | R2 |  | 
+r013: 40 | ABA0036_STAGE_SORA_AMMO | Daily Price | MNETD | Y | R2 |  | 
+r014: 1 | ABA0001_SECURITY_MASTER | eApps | MNETD & PRI1 | Y | R1 |  | 
+r015: 2 | ABA0002_FRN_ISSUE | eApps | MNETD | N | R1 |  | 
+r016: 3 | ABA0004_ENCRYPTED_TRANSACTION | eApps | MNETD | N | R1 |  | 
+r017: 4 | ABA0004_RETAIL_BID_TRANS | eApps | MNETD | N | R1 |  | 
+r018: 5 | ABA0005_RSA_TEXT_ENC_TRANS | eApps | MNETD | N | R1 |  | 
+r019: 6 | ABA0006_AUCTION_RESULT | eApps | MNETD & PRI1 | N | R1 |  | 
+r020: 7 | ABA0007_DETAIL_AUCTION_RESULT | eApps | MNETD & PRI1 | Y | R1 |  | 
+r021: 8 | ABA0008_AUCTION_AUDIT_LOG | eApps | PRI1 | N | R1 |  | 
+r022: 9 | ABA0008_STAGE_SECURITY_MASTER | eApps | MNETD | TBD | R1 |  | 
+r023: 10 | ABA0009_BANK_MASTER | eApps | MNETD | Y | R1 |  | 
+r024: 11 | ABA0009_EAUCTION_CONFIG | eApps | PRI1 | N | R1 |  | 
+r025: 12 | ABA0010_ANNOUNCE_TEXT | eApps | MNETD | Y | R1 |  | 
+r026: 13 | ABA0010_EAUCTION_AUCTION_CUTOFF_TIME | eApps | PRI1 | N | R1 |  | 
+r027: 16 | ABA0013_PRIMARY_DEALER | eApps | MNETD | Y | R1 |  | 
+r028: 21 | ABA0019_PUBLIC_HOLIDAY | eApps | MNETD | Y | R1 |  | 
+r029: 22 | ABA0020_STAGING_BANK_MASTER | eApps | MNETD | TBD | R1 |  | 
+r030: 23 | ABA0021_ISSUE_CALENDAR | eApps | MNETD | Y | R1 |  | 
+r031: 24 | ABA0022_NON_BENCHMARK | eApps | MNETD | TBD | R1 |  | 
+r032: 25 | ABA0023_AUDIT_ACTION | eApps | MNETD | N | R1 |  | 
+r033: 26 | ABA0024_USER_SESSION | eApps | MNETD | N | R1 |  | 
+r034: 32 | ABA0030_CORP_PASS_MAPPING | eApps | MNETD | Y | R1 |  | 
+r035: 34 | ABA0032_EAPPS_CONFIG | eApps | MNETD | N | R1 |  | 
+r036: 36 | ABA0034_EAPPS_SUBMISSION_CUTOFF_TIME | eApps | MNETD | N | R1 |  | 
+r037: 37 | ABA0035_RETAILBID_FILE | eApps | MNETD | N | R1 |  | 
+r038: 38 | ABA0035_SECURITY_MASTER_CTG_STG | eApps | PRI1 | N | R1 |  | 
+r039: 39 | ABA0036_RETAILBID_FILE | eApps | PRI1 | N | R1 |  | 
+r040: 102 | AQA0001_LIMIT | eApps | PRI1 | N | R1 |  | 
+r041: 103 | AQA0002_TRANSACTION | eApps | PRI1 | N | R1 |  | 
+r042: 104 | AQA0003_USER | eApps | PRI1 | Y | R1 |  | 
+r043: 105 | AQA0004_LEVEL_ACTION | eApps | PRI1 | Y | R1 |  | 
+r044: 106 | AQA0005_REPORT_COUNTER | eApps | PRI1 | N | R1 |  | 
+r045: 107 | AQA0006_EAPPS_TRANSACTION | eApps | PRI1 | N | R1 |  | 
+r046: 108 | AQA0007_COPY_SEC_MASTER_IND | eApps | PRI1 | N | R1 |  | 
+r047: 109 | AQA0008_SEC_AUCTION_PARA | eApps | MNETD & PRI1 | N | R1 |  | 
+r048: 110 | AQA0009_SEC_AUCTION_PARA_CTG_STG | eApps | PRI1 | N | R1 |  | 
+r049: 111 | AQA0010_ACTION_REF | eApps | PRI1 | Y | R1 |  | 
+r050: 112 | AQA0011_USER_SESSION | eApps | PRI1 | N | R1 |  | 
+r051: 118 | AQA0017_AUCTION_IND | eApps | PRI1 | N | R1 |  | 
+r052: 119 | AQA0018_RETAIL_BID_PROC_IND | eApps | PRI1 | N | R1 |  | 
+r053: 120 | AQA0019_AUCTION_REPORT_IND | eApps | PRI1 | N | R1 |  | 
+r054: 121 | AQA0020_AUCTION_RESULTS_REPORT | eApps | MNETD & PRI1 | N | R1 |  | 
+r055: 122 | AQA0021_AUCTION_RESULTS_REPORT_CTG_STG | eApps | PRI1 | N | R1 |  | 
+r056: 127 | AQA0104_SYSTEM_PARM | eApps | PRI1 | N | R1 |  | 
+r057: 128 | AQA0105_CYCLE | eApps | PRI1 | N | R1 |  | 
+r058: 130 | AQA0107_AUDIT_LOG | eApps | PRI1 | N | R1 |  | 
+r059: 133 | AQA0108_LOG_DETAIL | eApps | PRI1 | N | R1 |  | 
+r060: 89 | ABA0501_ENCRYPTED_REPO_TRANS | ERF | MNETD | Y | R2 |  | 
+r061: 90 | ABA0502_PUB_KEY | ERF | MNETD | Y | R2 |  | 
+r062: 91 | ABA0503_OPEN_ISSUES | ERF | MNETD | Y | R2 |  | 
+r063: 92 | ABA0504_AUCTION_SUMMARY | ERF | MNETD | Y | R2 |  | 
+r064: 93 | ABA0505_AUCTION_DETAILS | ERF | MNETD | Y | R2 |  | 
+r065: 94 | ABA0506_SYSTEM_PARM | ERF | MNETD | Y | R2 |  | 
+r066: 95 | ABA0507_SPLIT_BIDS | ERF | MNETD | Y | R2 |  | 
+r067: 96 | ABA0601_ENCRYPTED_REPO_TRANS | ERF | MNETD | Y | R2 |  | 
+r068: 97 | ABA0603_OPEN_ISSUES | ERF | MNETD | Y | R2 |  | 
+r069: 98 | ABA0605_TRADE_DETAILS | ERF | MNETD | Y | R2 |  | 
+r070: 99 | ABA0606_SYSTEM_PARM | ERF | MNETD | Y | R2 |  | 
+r071: 100 | ABA0608_LEGAL_LOG | ERF | MNETD | Y | R2 |  | 
+r072: 101 | ABA0610_REJECTED_ISSUES | ERF | MNETD | Y | R2 |  | 
+r073: 123 | AQA0101_REPO_TRANS | ERF | PRI1 | Y | R2 |  | 
+r074: 124 | AQA0102_USER | ERF | PRI1 | Y | R2 |  | 
+r075: 125 | AQA0103_PRIVATE_KEY | ERF | PRI1 | Y | R2 |  | 
+r076: 126 | AQA0104_ERF_SYSTEM_PARM | ERF | PRI1 | Y | R2 |  | 
+r077: 129 | AQA0105_ERF_CYCLE | ERF | PRI1 | Y | R2 |  | 
+r078: 131 | AQA0107_ERF_AUDIT_LOG | ERF | PRI1 | Y | R2 |  | 
+r079: 132 | AQA0108_ERF_LOG_DETAIL | ERF | PRI1 | Y | R2 |  | 
+r080: 134 | AQA0111_CANCEL_TRADE | ERF | PRI1 | Y | R2 |  | 
+r081: 135 | AQA0112_DUR_RATE | ERF | PRI1 | Y | R2 |  | 
+r082: 136 | AQA0113_USER_SESSION | ERF | PRI1 | Y | R2 |  | 
+r083: 143 | MLOG$_ABA0001_SECURITY_MAS | MLOG | MNETD & PRI1 | N | R1 |  | 
+r084: 144 | MLOG$_ABA0017_FINAL_DAILY | MLOG | MNETD | N | R1 |  | 
+r085: 145 | MLOG$_ABA0018_FINAL_EXTRA | MLOG | MNETD | N | R1 |  | 
+r086: 41 | ABA0101_SB_SECURITY_MASTER | SBA | MNETD | TBD | R1 |  | 
+r087: 42 | ABA0108_SB_STAGE_SEC_MASTER | SBA | MNETD | TBD | R1 |  | 
+r088: 43 | ABA0110_SB_ANNOUNCE_TEXT | SBA | MNETD | TBD | R1 |  | 
+r089: 44 | ABA0121_SB_ISSUE_CALENDAR | SBA | MNETD | TBD | R1 |  | 
+r090: 45 | ABA0124_SB_COUPON_RATE_DETAILS | SBA | MNETD | TBD | R1 |  | 
+r091: 46 | ABA0125_SB_STAGE_COUPON_RATE | SBA | MNETD | TBD | R1 |  | 
+r092: 47 | ABA0126_SB_REDEMPTION_RESULT | SBA | MNETD | TBD | R1 |  | 
+r093: 48 | ABA0127_SB_SYSTEM_CONFIG | SBA | MNETD | TBD | R1 |  | 
+r094: 49 | ABA0212_SB_REPORT | SBA | PRI1 | TBD | R1 |  | 
+r095: 50 | ABA0213_SB_REPORT_FILE | SBA | PRI1 | TBD | R1 |  | 
+r096: 51 | ABA0214_SB_CD_FILE_TYPE | SBA | MNETD & PRI1 | TBD | R1 |  | 
+r097: 52 | ABA0215_SB_CD_FILE_STATUS | SBA | PRI1 | TBD | R1 |  | 
+r098: 53 | ABA0216_SB_CD_RECORD_STATUS | SBA | PRI1 | TBD | R1 |  | 
+r099: 54 | ABA0217_SB_CD_NATION | SBA | PRI1 | TBD | R1 |  | 
+r100: 55 | ABA0218_SB_CD_NATION_CTY | SBA | PRI1 | TBD | R1 |  | 
+r101: 56 | ABA0219_SB_CD_FILE_ERROR_DESC | SBA | PRI1 | TBD | R1 |  | 
+r102: 57 | ABA0220_SB_CD_RECORD_ERR_DESC | SBA | PRI1 | TBD | R1 |  | 
+r103: 58 | ABA0221_SB_CD_BATCHJOB_STATUS | SBA | PRI1 | TBD | R1 |  | 
+r104: 59 | ABA0222_SB_ORG | SBA | MNETD & PRI1 | TBD | R1 |  | 
+r105: 60 | ABA0223_SB_APPLICANT | SBA | PRI1 | TBD | R1 |  | 
+r106: 61 | ABA0223_SB_PGP_CONFIG | SBA | MNETD | TBD | R1 |  | 
+r107: 62 | ABA0224_SB_SUBSCRIPT | SBA | PRI1 | TBD | R1 |  | 
+r108: 63 | ABA0225_SB_SUBSCRIPT_DT | SBA | PRI1 | TBD | R1 |  | 
+r109: 64 | ABA0226_SB_SUBSCRIPT_DT_ERR | SBA | PRI1 | TBD | R1 |  | 
+r110: 65 | ABA0227_SB_REDEMPTION | SBA | PRI1 | TBD | R1 |  | 
+r111: 66 | ABA0228_SB_REDEMPTION_DT | SBA | PRI1 | TBD | R1 |  | 
+r112: 67 | ABA0229_SB_REDEMPTION_DT_ERR | SBA | PRI1 | TBD | R1 |  | 
+r113: 68 | ABA0230_SB_HLD_INFO | SBA | PRI1 | TBD | R1 |  | 
+r114: 69 | ABA0231_SB_HLD_INFO_DT | SBA | PRI1 | TBD | R1 |  | 
+r115: 70 | ABA0232_SB_ALLOTMENT_RESULT | SBA | PRI1 | TBD | R1 |  | 
+r116: 71 | ABA0233_SB_BATCH_JOB | SBA | PRI1 | TBD | R1 |  | 
+r117: 72 | ABA0234_SB_BATCH_JOB_EXECUTION | SBA | PRI1 | TBD | R1 |  | 
+r118: 73 | ABA0235_SB_SUBMISSION_SUMMARY | SBA | PRI1 | TBD | R1 |  | 
+r119: 74 | ABA0236_SB_HLD_INFO_DT_ERR | SBA | PRI1 | TBD | R1 |  | 
+r120: 75 | ABA0237_SB_USER | SBA | PRI1 | TBD | R1 |  | 
+r121: 76 | ABA0238_SB_LEVEL_ACTION | SBA | PRI1 | TBD | R1 |  | 
+r122: 77 | ABA0239_SB_ACTION_REF | SBA | PRI1 | TBD | R1 |  | 
+r123: 78 | ABA0240_SB_CD_SUBMISSION_TYPE | SBA | PRI1 | TBD | R1 |  | 
+r124: 79 | ABA0241_SB_RESULT_FILE | SBA | PRI1 | TBD | R1 |  | 
+r125: 80 | ABA0250_SB_AUDIT_LOG | SBA | PRI1 | TBD | R1 |  | 
+r126: 81 | ABA0251_SB_CONT_MAKE_CHECK | SBA | PRI1 | TBD | R1 |  | 
+r127: 82 | ABA0252_SB_SYSCONF_MAKE_CHECK | SBA | PRI1 | TBD | R1 |  | 
+r128: 83 | ABA0280_SB_TEMP_APP_SUB_DT | SBA | PRI1 | TBD | R1 |  | 
+r129: 84 | ABA0281_SB_TEMP_HOLDING | SBA | PRI1 | TBD | R1 |  | 
+r130: 85 | ABA0282_SB_CD_APPLICATION_TYPE | SBA | PRI1 | TBD | R1 |  | 
+r131: 86 | ABA0283_SB_COUPON_RESULT_FILE | SBA | PRI1 | TBD | R1 |  | 
+r132: 87 | ABA0284_SB_PORTAL_SYNC | SBA | PRI1 | TBD | R1 |  | 
+r133: 88 | ABA0285_SB_USER_SESSION | SBA | PRI1 | TBD | R1 |  | 
+r134: 113 | AQA0012_SYNDICATION_INS_RET_DT | Syndication | PRI1 | TBD | R1 |  | 
+r135: 114 | AQA0013_SYNDICATION_COUPON_DT | Syndication | PRI1 | TBD | R1 |  | 
+r136: 115 | AQA0014_SYNDICATION_RPT_COUNT | Syndication | PRI1 | TBD | R1 |  | 
+r137: 116 | AQA0015_COPY_SYND_SEC_MAST_IND | Syndication | PRI1 | TBD | R1 |  | 
+r138: 117 | AQA0016_SYNDICATED_SEC_MAST_DT | Syndication | PRI1 | TBD | R1 |  | 
+r139: 29 | ABA0027_BATCH_JOB | System Batch Job | MNETD | N | R1 |  | 
+r140: 30 | ABA0028_BATCH_JOB_EXECUTION | System Batch Job | MNETD | N | R1 |  | 
+r141: 137 | BATCH_JOB_EXECUTION | System Batch Job | PRI1 | N | R1 |  | 
+r142: 138 | BATCH_JOB_EXECUTION_CONTEXT | System Batch Job | PRI1 | N | R1 |  | 
+r143: 139 | BATCH_JOB_EXECUTION_PARAMS | System Batch Job | PRI1 | N | R1 |  | 
+r144: 140 | BATCH_JOB_INSTANCE | System Batch Job | PRI1 | N | R1 |  | 
+r145: 141 | BATCH_STEP_EXECUTION | System Batch Job | PRI1 | N | R1 |  | 
+r146: 142 | BATCH_STEP_EXECUTION_CONTEXT | System Batch Job | PRI1 | N | R1 |  | 
+
+====================================================================================================
+SHEET: 'Migration Summary'    (rows=15, cols=6)
+====================================================================================================
+r001: Migration Sequence | Module Name | Source Table(s) | Target Table(s) | Dependency | Filter Rule / Selection Logic
+r002: 10 | MAS-OMEGA-SECMST-001 | ABA0001_SECURITY_MASTER | sec.sec_security_master | - | To migrate record with MAX(ABA0001_ISSUE_NO) There will only be one record per security 
+r003: 20 | MAS-OMEGA-SECMST-002 | ABA0001_SECURITY_MASTER | iss.iss_issuance | Must run after MAS-OMEGA-SECMST-001 | To migrate record via composite key (ABA0001_SECURITY_CODE, ABA0001_ISSUE_NO)
+r004: 30 | MAS-OMEGA-ISSCAL-001 | ABA0021_ISSUE_CALENDAR | iss.iss_calendar_listing | - | To migrate one record per year extracted from ABA0021_ISSUE_DATETIME
+r005: 40 | MAS-OMEGA-ISSCAL-002 | ABA0121_SB_ISSUE_CALENDAR | iss.iss_calendar_listing | - | To migrate one record per year extracted from ABA0121_ISSUE_DATETIME 
+r006: 50 | MAS-OMEGA-ISSCAL-003 | ABA0021_ISSUE_CALENDAR | iss.iss_calendar_data | Must run after MAS-OMEGA-ISSCAL-001 | To migrate record linked to iss_calendar_listing_uuid via year 
+r007: 60 | MAS-OMEGA-ISSCAL-004 | ABA0121_SB_ISSUE_CALENDAR | iss.iss_calendar_data | Must run after MAS-OMEGA-ISSCAL-002 | To migrate record linked to iss_calendar_listing_uuid via year 
+r008: 70 | MAS-OMEGA-ISSANN-001 | ABA0001_SECURITY_MASTER | iss.iss_announcement_details | Must run after MAS-OMEGA-ISSCAL-003/004 and MAS-OMEGA-SECMST-002 | To migrate record via composite key (ABA0001_SECURITY_CODE, ABA0001_ISSUE_NO)
+r009: 80 | MAS-OMEGA-BIDCOL-001 | ABA0007_DETAIL_AUCTION_RESULT | iss.iss_bid_retail | Must run after MAS-OMEGA-SECMST-002 | To migrate records where ABA0007_TYPE_OF_APPLN= 'IND'
+r010: 100 | MAS-OMEGA-BIDCOL-002 | ABA0004_RETAIL_BID_TRANS | iss.iss_bid_retail | Must run after MAS-OMEGA-BIDCOL-001  | To migrate via unique composite key (ABA0004_BANK_REF_NO + ABA0004_RECEIVED_DATE + ABA0004_FILE_TYPE)
+r011: 110 | MAS-OMEGA-BIDCOL-003 | ABA0007_DETAIL_AUCTION_RESULT | iss.iss_bid_institutional | Must run after MAS-OMEGA-SECMST-002 | To migrate records where ABA0007_TYPE_OF_APPLN is not 'IND'
+
+====================================================================================================
+SHEET: 'MAS-OMEGA-SECMST-001'    (rows=12, cols=12)
+====================================================================================================
+r001: MAS-OMEGA-SECMST-001 |  |  |  |  |  |  |  |  |  |  | 
+r002: Module ID | Source Table | Source Column | Source Datatype | Source Nullable | To migrate | Target Table | Target Column | Target Datatype | Target Nullable | Transformation/Mapping Logic | Remarks
+r003: MAS-OMEGA-SECMST-001 | - | - | - | - | Y | sec.sec_security_master | uuid | VARCHAR(36) | N | Generate UUID: Create a unique UUID for every distinct SECURITY_CODE. | This is to migrate per security code, multiple issuances with different issue_no will be migrated to iss.iss_issuance
+r004: MAS-OMEGA-SECMST-001 | ABA0001_SECURITY_MASTER | ABA0001_SECURITY_CODE | CHAR(8) | N | Y | sec.sec_security_master | security_code | VARCHAR(8) | N | Transformation:\n\nSELECT DISTINCT ABA0001_SECURITY_CODE\n\nIF duplicates exist (due to multiple Issue Nos) -> SELECT record with MAX(ABA0001_ISSUE_NO) | To migrate the most recent security code details.
+r005: MAS-OMEGA-SECMST-001 | ABA0001_SECURITY_MASTER | ABA0001_ISIN_CODE | CHAR(12) | Y | Y | sec.sec_security_master | isin_code | VARCHAR(12) | Y | Direct Mapping | -
+r006: MAS-OMEGA-SECMST-001 | ABA0001_SECURITY_MASTER | ABA0001_SECURITY_NAME | VARCHAR2(30) | N | Y | sec.sec_security_master | security_name | VARCHAR(50) | Y | Direct Mapping | -
+r007: MAS-OMEGA-SECMST-001 | ABA0001_SECURITY_MASTER | ABA0001_TAX_STATUS | CHAR(1) | Y | Y | sec.sec_security_master | tax_status | VARCHAR(1) | Y | Direct Mapping | -
+r008: MAS-OMEGA-SECMST-001 | ABA0001_SECURITY_MASTER | ABA0001_ETENDER_IND | CHAR(1) | Y | Y | sec.sec_security_master | etender_ind | VARCHAR(1) | Y | Direct Mapping | -
+r009: MAS-OMEGA-SECMST-001 | ABA0001_SECURITY_MASTER | ABA0001_CURR | CHAR(3) | Y | Y | sec.sec_security_master | currency | VARCHAR(3) | Y | Direct Mapping | -
+r010: MAS-OMEGA-SECMST-001 | ABA0001_SECURITY_MASTER | ABA0001_SECURITY_CODE | CHAR(8) | N | Y | sec.sec_security_master | sgs_type | VARCHAR(20) | Y | Transformation:\n\nIF Starts with 'N' AND 4th last char is '2' -> 'SGSTYPE_INFRA'\nIF Starts with 'N' AND 4th last char is '3' -> 'SGSTYPE_GREEN_INFRA'\nIF Starts with 'N' (and 4th last char not '2' or '3') -> 'SGSTYPE_MD' | To derive specific SGS Type based on legacy naming conventions.
+r011: MAS-OMEGA-SECMST-001 | ABA0001_SECURITY_MASTER | ABA0001_FIRST_CPN_PAYM_DATE | DATE | Y | Y | sec.sec_security_master | first_coupon_payment_dt | TIMESTAMP | Y | Direct Mapping | -
+r012: MAS-OMEGA-SECMST-001 | ABA0001_SECURITY_MASTER | ABA0001_SECURITY_CODE | CHAR(8) | N | Y | sec.sec_security_master | coupon_pay_frequency | VARCHAR(20) | Y | Transformation:\n\nIF SECURITY_CODE Starts with 'N' -> 'SEMI_ANNUAL'\nIF SECURITY_CODE Starts with 'M1' -> 'SEMI_ANNUAL'\nELSE -> 'AT_MATURITY' | To derive coupon payment frequency based on Security Type
+
+====================================================================================================
+SHEET: 'MAS-OMEGA-SECMST-002'    (rows=52, cols=12)
+====================================================================================================
+r001: MAS-OMEGA-SECMST-002 |  |  |  |  |  |  |  |  |  |  | 
+r002: Module ID | Source Table | Source Column | Source Datatype | Source Nullable | To migrate | Target Table | Target Column | Target Datatype | Target Nullable | Transformation/Mapping Logic | Remarks
+r003: MAS-OMEGA-SECMST-002 | - | - | - | - | Y | iss.iss_issuance | uuid | VARCHAR(36) | N | Generate UUID: Create a new UUID for every unique combination of SECURITY_CODE + ISSUE_NO. | Primary Key for OMEGA Issuance table.
+r004: MAS-OMEGA-SECMST-002 | ABA0001_SECURITY_MASTER | ABA0001_SECURITY_CODE | CHAR(8) | N | Y | iss.iss_issuance | sec_security_master_uuid | VARCHAR(36) | N | Lookup: Query sec.sec_security_master.uuid where security_code matches ABA0001_SECURITY_CODE. | Mandatory Foreign Key. Ensure Security Master is migrated first.
+r005: MAS-OMEGA-SECMST-002 | ABA0001_SECURITY_MASTER | ABA0001_ISSUE_NO | CHAR(1) | N | Y | iss.iss_issuance | issue_no | NUMERIC(2,0) | N | Direct Mapping | -
+r006: MAS-OMEGA-SECMST-002 | ABA0001_SECURITY_MASTER | ABA0001_SECURITY_CODE | CHAR(8) | N | Y | iss.iss_issuance | security_type | VARCHAR(50) | N | Transformation:\n\nIF Starts with 'BA' -> 'SECTYPE_CMTB'\nIF Starts with 'B' (and not 'BA') -> 'SECTYPE_TBILL'\nIF Starts with 'N' AND 4th last char is '2' -> 'SECTYPE_SGS'\nIF Starts with 'N' AND 4th last char is '3' -> 'SECTYPE_SGS'\nIF Starts with 'N' (and 4th last char not '2' or '3') -> 'SECTYPE_SGS'\nIF Starts with 'M1' -> 'SECTYPE_MAS_FRN'\nIF Starts with 'M' (and not 'M1') -> 'SECTYPE_MASBILL' | To map security type based on security code prefix
+r007: MAS-OMEGA-SECMST-002 | ABA0001_SECURITY_MASTER | ABA0001_TENDER_DATE | DATE | N | Y | iss.iss_issuance | issuance_type | VARCHAR(50) | N | Transformation:\n\nWHEN ABA0001_TENDER_DATE < ABA0001_ANNOUNCE_DATE THEN 'ISSTYPE_SYNDICATION': | To determine issuance_type = 'ISSTYPE_SYNDICATION' based on condition if ABA0001_TENDER_DATE < ABA0001_ANNOUNCE_DATE
+r008: MAS-OMEGA-SECMST-002 | ABA0001_SECURITY_MASTER | ABA0001_TENDER_DATE | DATE | N | Y | iss.iss_issuance | status | VARCHAR(50) | N | Transformation:\n\nIF ABA0001_TENDER_DATE < SYSDATE -> 'ISSSTAT_PUBLISHED' | Derived status based on ABA0001_TENDER_DATE. 
+r009: MAS-OMEGA-SECMST-002 | - | - | - | - | N | iss.iss_issuance | auction_status | VARCHAR(50) | Y | Map to NULL | -
+r010: MAS-OMEGA-SECMST-002 | ABA0001_SECURITY_MASTER | ABA0001_ISSUE_NO | CHAR(1) | N | Y | iss.iss_issuance | new_reopen_flag | VARCHAR(1) | Y | Transformation:\n\nIF '1' -> 'N'\nELSE -> 'R' | Any ABA0001_ISSUE_NO > 1 indicates its an reopen issue
+r011: MAS-OMEGA-SECMST-002 | ABA0001_SECURITY_MASTER | ABA0001_BENCHMARK_IND | CHAR(1) | Y | Y | iss.iss_issuance | is_benchmark | VARCHAR(1) | Y | Direct Mapping | -
+r012: MAS-OMEGA-SECMST-002 | ABA0001_SECURITY_MASTER | ABA0001_ISSUE_DATE | DATE | N | Y | iss.iss_issuance | issue_dt | TIMESTAMP | N | Direct Mapping | -
+r013: MAS-OMEGA-SECMST-002 | ABA0001_SECURITY_MASTER | ABA0001_TENDER_DATE | DATE | N | Y | iss.iss_issuance | auction_dt | TIMESTAMP | N | Direct Mapping | -
+r014: MAS-OMEGA-SECMST-002 | ABA0001_SECURITY_MASTER | ABA0001_MATURITY_DATE | DATE | N | Y | iss.iss_issuance | maturity_dt | TIMESTAMP | N | Direct Mapping | -
+r015: MAS-OMEGA-SECMST-002 | ABA0001_SECURITY_MASTER | ABA0001_ANNOUNCE_DATE | DATE | Y | Y | iss.iss_issuance | announcement_dt | TIMESTAMP | Y | Direct Mapping | -
+r016: MAS-OMEGA-SECMST-002 | ABA0001_SECURITY_MASTER | ABA0001_TENDER_DATE | DATE | N | Y | iss.iss_issuance | bid_submission_end_dt | TIMESTAMP | Y | Direct Mapping | -
+r017: MAS-OMEGA-SECMST-002 | ABA0001_SECURITY_MASTER | ABA0001_LAST_INT_DATE | DATE | Y | Y | iss.iss_issuance | last_coupon_payment_dt | TIMESTAMP | Y | Direct Mapping | -
+r018: MAS-OMEGA-SECMST-002 | ABA0001_SECURITY_MASTER | ABA0001_NEXT_INT_DATE | DATE | Y | Y | iss.iss_issuance | next_coupon_payment_dt | TIMESTAMP | Y | Direct Mapping | -
+r019: MAS-OMEGA-SECMST-002 | ABA0001_SECURITY_MASTER | ABA0001_EX_INT_DATE | DATE | Y | Y | iss.iss_issuance | ex_int_dt | TIMESTAMP | Y | Direct Mapping | -
+r020: MAS-OMEGA-SECMST-002 | - | - | - | - | N | iss.iss_issuance | pricing_dt | TIMESTAMP | Y | TBD  | For Syndication, will provide the mapping in next revision.
+r021: MAS-OMEGA-SECMST-002 | ABA0001_SECURITY_MASTER | ABA0001_ANNOUNCE_DATE | DATE | Y | Y | iss.iss_issuance | public_offer_start_dt | TIMESTAMP | Y | TBD  | For Syndication, will provide the mapping in next revision.
+r022: MAS-OMEGA-SECMST-002 | ABA0001_SECURITY_MASTER | ABA0001_TENDER_DATE | DATE | N | Y | iss.iss_issuance | public_offer_end_dt | TIMESTAMP | Y | TBD  | For Syndication, will provide the mapping in next revision.
+r023: MAS-OMEGA-SECMST-002 | - | - | - | - | N | iss.iss_issuance | app_closing_dt | TIMESTAMP | Y | Map to NULL | Derived from submission end.
+r024: MAS-OMEGA-SECMST-002 | ABA0001_SECURITY_MASTER | ABA0001_ISSUE_DATE | DATE | N | Y | iss.iss_issuance | settlement_dt | TIMESTAMP | Y | Direct Mapping | -
+r025: MAS-OMEGA-SECMST-002 | ABA0001_SECURITY_MASTER | ABA0001_INT_DATE1 | DATE | Y | Y | iss.iss_issuance | int_date1 | TIMESTAMP | Y | Direct Mapping | -
+r026: MAS-OMEGA-SECMST-002 | ABA0001_SECURITY_MASTER | ABA0001_INT_DATE2 | DATE | Y | Y | iss.iss_issuance | int_date2 | TIMESTAMP | Y | Direct Mapping | -
+r027: MAS-OMEGA-SECMST-002 | ABA0001_SECURITY_MASTER | ABA0001_ISSUE_SIZE | NUMBER(13,0) | N | Y | iss.iss_issuance | total_amount_offered | NUMERIC(20,2) | N | Direct Mapping | -
+r028: MAS-OMEGA-SECMST-002 | - | - | - | - | N | iss.iss_issuance | denomination | NUMERIC(10,0) | Y | Default map to '1000' | This value is currently hardcoded in system logic as '1000' for SGS Bonds/T-Bills/MAS-Bills,  propose to default map to 1000
+r029: MAS-OMEGA-SECMST-002 | ABA0001_SECURITY_MASTER | ABA0001_QTY_APPLIED | NUMBER(13,0) | Y | Y | iss.iss_issuance | total_amount_applied | NUMERIC(20,2) | Y | Direct Mapping | -
+r030: MAS-OMEGA-SECMST-002 | ABA0001_SECURITY_MASTER | ABA0001_QTY_APPLIED | NUMBER(13,0) | Y | Y | iss.iss_issuance | total_amount_allotted | NUMERIC(20,2) | Y | Direct Mapping | Note: ABA0001 lacks explicit 'Total Allotted' col, usually implies QTY_OFFERED if fully sub, or derived. Use ABA0504_TOT_AMT_ALLOTED if available. [Source 78]
+r031: MAS-OMEGA-SECMST-002 | ABA0001_SECURITY_MASTER | ABA0001_QTY_APP_COMP | NUMBER(13,0) | Y | Y | iss.iss_issuance | total_amount_applied_comp | NUMERIC(20,2) | Y | Direct Mapping | -
+r032: MAS-OMEGA-SECMST-002 | ABA0001_SECURITY_MASTER | ABA0001_QTY_APP_NONCOMP | NUMBER(13,0) | Y | Y | iss.iss_issuance | total_amount_applied_noncomp | NUMERIC(20,2) | Y | Direct Mapping | -
+r033: MAS-OMEGA-SECMST-002 | ABA0001_SECURITY_MASTER | ABA0001_MAS_APPLIED | NUMBER(13,0) | Y | Y | iss.iss_issuance | mas_intended_tender_amount | NUMERIC(20,2) | Y | Direct Mapping | -
+r034: MAS-OMEGA-SECMST-002 | ABA0001_SECURITY_MASTER | ABA0001_MAS_ALLOTTED | NUMBER(13,0) | Y | Y | iss.iss_issuance | mas_amount_allotted | NUMERIC(20,2) | Y | Direct Mapping | -
+r035: MAS-OMEGA-SECMST-002 | ABA0001_SECURITY_MASTER | ABA0001_NC_QTY_ALLOT | NUMBER(13,0) | Y | Y | iss.iss_issuance | noncomp_amount_allotted | NUMERIC(20,2) | Y | Direct Mapping | -
+r036: MAS-OMEGA-SECMST-002 | ABA0001_SECURITY_MASTER | ABA0001_INTEREST_RATE | NUMBER(7,4) | Y | Y | iss.iss_issuance | coupon_rate | NUMERIC(7,4) | Y | Direct Mapping | -
+r037: MAS-OMEGA-SECMST-002 | ABA0001_SECURITY_MASTER | ABA0001_CUTOFF_YIELD | NUMBER(5,2) | Y | Y | iss.iss_issuance | cutoff_yield | NUMERIC(5,2) | Y | Direct Mapping | -
+r038: MAS-OMEGA-SECMST-002 | ABA0001_SECURITY_MASTER | ABA0001_AVE_YIELD | NUMBER(5,2) | Y | Y | iss.iss_issuance | average_yield | NUMERIC(5,2) | Y | Direct Mapping | -
+r039: MAS-OMEGA-SECMST-002 | ABA0001_SECURITY_MASTER | ABA0001_MEDIAN_YIELD | NUMBER(5,2) | Y | Y | iss.iss_issuance | median_yield | NUMERIC(5,2) | Y | Direct Mapping | -
+r040: MAS-OMEGA-SECMST-002 | ABA0001_SECURITY_MASTER | ABA0001_COY_PRICE | NUMBER(7,4) | Y | Y | iss.iss_issuance | cutoff_price | NUMERIC(7,4) | Y | Direct Mapping | -
+r041: MAS-OMEGA-SECMST-002 | ABA0001_SECURITY_MASTER | ABA0001_AVE_PRICE | NUMBER(7,4) | Y | Y | iss.iss_issuance | average_price | NUMERIC(7,4) | Y | Direct Mapping | -
+r042: MAS-OMEGA-SECMST-002 | ABA0001_SECURITY_MASTER | ABA0001_MEDIAN_PRICE | NUMBER(7,4) | Y | Y | iss.iss_issuance | median_price | NUMERIC(7,4) | Y | Direct Mapping | -
+r043: MAS-OMEGA-SECMST-002 | ABA0001_SECURITY_MASTER | ABA0001_CLOSING_PRICE | NUMBER(9,4) | Y | Y | iss.iss_issuance | closing_price | NUMERIC(9,4) | Y | Direct Mapping | -
+r044: MAS-OMEGA-SECMST-002 | ABA0001_SECURITY_MASTER | ABA0001_ACCRUED_INT | NUMBER(7,4) | Y | Y | iss.iss_issuance | accrued_interest_value | NUMERIC(7,4) | Y | Direct Mapping | -
+r045: MAS-OMEGA-SECMST-002 | ABA0001_SECURITY_MASTER | ABA0001_ACCRUED_INT_DAYS | NUMBER(3,0) | Y | Y | iss.iss_issuance | accrued_interest_days | NUMERIC(3,0) | Y | Direct Mapping | -
+r046: MAS-OMEGA-SECMST-002 | ABA0001_SECURITY_MASTER | ABA0001_PERCENT_COY | NUMBER(5,2) | Y | Y | iss.iss_issuance | comp_cutoff_allotment_pct | NUMERIC(5,2) | Y | Direct Mapping | -
+r047: MAS-OMEGA-SECMST-002 | ABA0001_SECURITY_MASTER | ABA0001_NC_PERCENT | NUMBER(5,2) | Y | Y | iss.iss_issuance | noncomp_allotment_pct | NUMERIC(5,2) | Y | Direct Mapping | -
+r048: MAS-OMEGA-SECMST-002 | ABA0001_SECURITY_MASTER | ABA0001_PERCENT_SUB | NUMBER(5,2) | Y | Y | iss.iss_issuance | bid_to_cover_ratio | NUMERIC(6,2) | Y | Direct Mapping | -
+r049: MAS-OMEGA-SECMST-002 | ABA0001_SECURITY_MASTER | ABA0001_TENOR | NUMBER(3,0) | Y | Y | iss.iss_issuance | tenor_value | NUMERIC(3,0) | Y | Direct Mapping | -
+r050: MAS-OMEGA-SECMST-002 | ABA0001_SECURITY_MASTER | ABA0001_TENOR_UNIT | CHAR(1) | Y | Y | iss.iss_issuance | tenor_unit | VARCHAR(1) | N | Direct Mapping | -
+r051: MAS-OMEGA-SECMST-002 | ABA0001_SECURITY_MASTER | ABA0001_INT_PAID_IND | CHAR(1) | Y | Y | iss.iss_issuance | int_paid_ind | VARCHAR(1) | Y | Direct Mapping | -
+r052: MAS-OMEGA-SECMST-002 | - | - | - | - | N | iss.iss_issuance | meps_tenor | NUMERIC(3,0) | Y | Map to NULL | Only applicable specifically to OMEGA 
+
+====================================================================================================
+SHEET: 'MAS-OMEGA-ISSCAL-001'    (rows=27, cols=16)
+====================================================================================================
+r001: MAS-OMEGA-ISSCAL-001 |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 
+r002: Module ID | Source Table | Source Column | Source Datatype | Source Nullable | To migrate | Target Table | Target Column | Target Datatype | Target Nullable | Transformation/Mapping Logic | Remarks |  |  |  | 
+r003: MAS-OMEGA-ISSCAL-001 | ABA0021_ISSUE_CALENDAR | ABA0021_ISSUE_DATETIME | DATE | Y | Y | iss.iss_calendar_listing | year | NUMERIC(4,0) | N | To select distinct and map to year extracted from Issue Datetime | There should only be one record migrated per year. |  |  |  | 
+r004: MAS-OMEGA-ISSCAL-001 | ABA0021_ISSUE_CALENDAR | ABA0021_ISSUE_TYPE | VARCHAR2(1) | Y | Y | iss.iss_calendar_listing | security_type | VARCHAR(50) | N | Transformation:\n\nIF 'T' -> 'SECTYPE_TBILL' \nIF 'B' or 'I' or 'G' -> 'SECTYPE_SGS' | Transformed into OMEGA specific mastercode |  |  |  | 
+r005: MAS-OMEGA-ISSCAL-001 | - | - | - | - | Y | iss.iss_calendar_listing | publication_dt | TIMESTAMP | Y | Map to NULL | The issue calendar publication date is stored as part of audit table under ABA0023_AUDIT_ACTION, propose to map this to NULL for migrated records |  |  |  | 
+r006: MAS-OMEGA-ISSCAL-001 | - | - | - | - | Y | iss.iss_calendar_listing | period | VARCHAR(50) | N | Map to constant value: 'CALPERIOD_YEARLY' | - |  |  |  | 
+r007: MAS-OMEGA-ISSCAL-001 | - | - | - | - | Y | iss.iss_calendar_listing | status | VARCHAR(50) | N | Map to constant value: 'ISSCALSTAT_PUBLISHED' | - |  |  |  | 
+r008: MAS-OMEGA-ISSCAL-001 | - | - | - | - | Y | iss.iss_calendar_listing | version | NUMERIC(5,0) | NOT NULL | Map to constant value: 1 | - |  |  |  | 
+r009: MAS-OMEGA-ISSCAL-001 | ABA0021_ISSUE_CALENDAR | ABA0021_SECURITY_CODE | VARCHAR2(8) | N | N | - | - | - | - | - | Migrated to iss.iss_calendar_data |  |  |  | 
+r010: MAS-OMEGA-ISSCAL-001 | ABA0021_ISSUE_CALENDAR | ABA0021_ISSUE_NO | VARCHAR2(1) | N | N | - | - | - | - | - | Not applicable to OMEGA |  |  |  | 
+r011: MAS-OMEGA-ISSCAL-001 | ABA0021_ISSUE_CALENDAR | ABA0021_ISIN_CODE | VARCHAR2(12) | Y | N | - | - | - | - | - | Migrated to iss.iss_calendar_data |  |  |  | 
+r012: MAS-OMEGA-ISSCAL-001 | ABA0021_ISSUE_CALENDAR | ABA0021_TENOR | NUMBER(3,0) | Y | N | - | - | - | - | - | Migrated to iss.iss_calendar_data |  |  |  | 
+r013: MAS-OMEGA-ISSCAL-001 | ABA0021_ISSUE_CALENDAR | ABA0021_TENOR_UNIT | VARCHAR2(1) | Y | N | - | - | - | - | - | Migrated to iss.iss_calendar_data |  |  |  | 
+r014: MAS-OMEGA-ISSCAL-001 | ABA0021_ISSUE_CALENDAR | ABA0021_CURR | VARCHAR2(3) | Y | N | - | - | - | - | - | Not applicable to OMEGA |  |  |  | 
+r015: MAS-OMEGA-ISSCAL-001 | ABA0021_ISSUE_CALENDAR | ABA0021_NEW_REOPEN | VARCHAR2(1) | Y | N | - | - | - | - | - | Migrated to iss.iss_calendar_data |  |  |  | 
+r016: MAS-OMEGA-ISSCAL-001 | ABA0021_ISSUE_CALENDAR | ABA0121_OPEN_DATETIME | DATE | Y | N | - | - | - | - | - | Migrated to iss.iss_calendar_data |  |  |  | 
+r017: MAS-OMEGA-ISSCAL-001 | ABA0021_ISSUE_CALENDAR | ABA0021_CLOSE_DATETIME | DATE | Y | N | - | - | - | - | - | Migrated to iss.iss_calendar_data |  |  |  | 
+r018: MAS-OMEGA-ISSCAL-001 | ABA0021_ISSUE_CALENDAR | ABA0021_FLAG | VARCHAR2(1) | Y | N | - | - | - | - | - | Not applicable to OMEGA |  |  |  | 
+r019: MAS-OMEGA-ISSCAL-001 | ABA0021_ISSUE_CALENDAR | ABA0021_PD_ISSUE_TYPE | VARCHAR2(1) | Y | N | - | - | - | - | - | Not applicable to OMEGA |  |  |  | 
+
+====================================================================================================
+SHEET: 'MAS-OMEGA-ISSCAL-002'    (rows=32, cols=12)
+====================================================================================================
+r001: MAS-OMEGA-ISSCAL-002 |  |  |  |  |  |  |  |  |  |  | 
+r002: Module ID | Source Table | Source Column | Source Datatype | Source Nullable | To migrate | Target Table | Target Column | Target Datatype | Target Nullable | Transformation/Mapping Logic | Remarks
+r003: MAS-OMEGA-ISSCAL-002 | ABA0121_SB_ISSUE_CALENDAR | ABA0121_ISSUE_DATETIME | DATE | NULL | Y | iss.iss_calendar_listing | year | NUMERIC(4,0) | NOT NULL | To select distinct and map to year extracted from Issue Datetime. | There should only be one record migrated per year.
+r004: MAS-OMEGA-ISSCAL-002 | ABA0121_SB_ISSUE_CALENDAR | ABA0121_ISSUE_TYPE | VARCHAR2(1) | NULL | Y | iss.iss_calendar_listing | security_type | VARCHAR(50) | NOT NULL | Transformation:\n\nIF 'S' -> 'SECTYPE_SSB' | Transformed into OMEGA specific mastercode
+r005: MAS-OMEGA-ISSCAL-002 | - | - | - | - | Y | iss.iss_calendar_listing | publication_dt | TIMESTAMP | NULL | Map to NULL for migrated records | -
+r006: MAS-OMEGA-ISSCAL-002 | - | - | - | - | Y | iss.iss_calendar_listing | period | VARCHAR(50) | NOT NULL | Map to constant value: 'CALPERIOD_YEARLY' | -
+r007: MAS-OMEGA-ISSCAL-002 | - | - | - | - | Y | iss.iss_calendar_listing | status | VARCHAR(50) | NOT NULL | Map to constant value: 'ISSCALSTAT_PUBLISHED' | -
+r008: MAS-OMEGA-ISSCAL-002 | - | - | - | - | Y | iss.iss_calendar_listing | version | NUMERIC(5,0) | NOT NULL | Map to constant value: 1 | -
+r009: MAS-OMEGA-ISSCAL-002 | ABA0121_SB_ISSUE_CALENDAR | ABA0121_SECURITY_CODE | VARCHAR2(8) | NOT NULL | N | - | - | - | - | - | Migrated to iss.iss_calendar_data
+r010: MAS-OMEGA-ISSCAL-002 | ABA0121_SB_ISSUE_CALENDAR | ABA0121_ISSUE_NO | VARCHAR2(1) | NOT NULL | N | - | - | - | - | - | Not applicable to OMEGA
+r011: MAS-OMEGA-ISSCAL-002 | ABA0121_SB_ISSUE_CALENDAR | ABA0121_ISIN_CODE | VARCHAR2(12) | NULL | N | - | - | - | - | - | Migrated to iss.iss_calendar_data
+r012: MAS-OMEGA-ISSCAL-002 | ABA0121_SB_ISSUE_CALENDAR | ABA0121_TENOR | NUMBER(3,0) | NULL | N | - | - | - | - | - | Migrated to iss.iss_calendar_data
+r013: MAS-OMEGA-ISSCAL-002 | ABA0121_SB_ISSUE_CALENDAR | ABA0121_TENOR_UNIT | VARCHAR2(1) | NULL | N | - | - | - | - | - | Migrated to iss.iss_calendar_data
+r014: MAS-OMEGA-ISSCAL-002 | ABA0121_SB_ISSUE_CALENDAR | ABA0121_CURR | VARCHAR2(3) | NULL | N | - | - | - | - | - | Not applicable to OMEGA
+r015: MAS-OMEGA-ISSCAL-002 | ABA0121_SB_ISSUE_CALENDAR | ABA0121_NEW_REOPEN | VARCHAR2(1) | NULL | N | - | - | - | - | - | Migrated to iss.iss_calendar_data
+r016: MAS-OMEGA-ISSCAL-002 | ABA0121_SB_ISSUE_CALENDAR | ABA0121_OPEN_DATETIME | DATE | NULL | N | - | - | - | - | - | Migrated to iss.iss_calendar_data
+r017: MAS-OMEGA-ISSCAL-002 | ABA0121_SB_ISSUE_CALENDAR | ABA0121_CLOSE_DATETIME | DATE | NULL | N | - | - | - | - | - | Migrated to iss.iss_calendar_data
+r018: MAS-OMEGA-ISSCAL-002 | ABA0121_SB_ISSUE_CALENDAR | ABA0121_FLAG | VARCHAR2(1) | NULL | N | - | - | - | - | - | Not applicable to OMEGA
+
+====================================================================================================
+SHEET: 'MAS-OMEGA-ISSCAL-003'    (rows=49, cols=12)
+====================================================================================================
+r001: MAS-OMEGA-ISSCAL-003 |  |  |  |  |  |  |  |  |  |  | 
+r002: Module ID | Source Table | Source Column | Source Datatype | Source Nullable | To migrate | Target Table | Target Column | Target Datatype | Target Nullable | Transformation/Mapping Logic | Remarks
+r003: MAS-OMEGA-ISSCAL-003 | ABA0021_ISSUE_CALENDAR | - | - | - | Y | iss.iss_calendar_data | iss_calendar_listing_uuid | VARCHAR(36) | NOT NULL | Lookup UUID from iss.iss_calendar_listing where year = Extracted Source Year and security_type matches Source logic. | Mandatory linkage to Parent Listing table
+r004: MAS-OMEGA-ISSCAL-003 | ABA0021_ISSUE_CALENDAR | ABA0021_SECURITY_CODE | VARCHAR2(8) | NOT NULL | Y | iss.iss_calendar_data | security_code | VARCHAR(8) | NULL | Direct Mapping | -
+r005: MAS-OMEGA-ISSCAL-003 | ABA0021_ISSUE_CALENDAR | ABA0021_ISSUE_NO | VARCHAR2(1) | NOT NULL | N | - | - | - | - | - | Replaced by number of issuances in ississ_issuance table tied under same sec_security_master_uuid
+r006: MAS-OMEGA-ISSCAL-003 | ABA0021_ISSUE_CALENDAR | ABA0021_ISIN_CODE | VARCHAR2(12) | NULL | Y | iss.iss_calendar_data | isin_code | VARCHAR(12) | NULL | Direct Mapping | -
+r007: MAS-OMEGA-ISSCAL-003 | ABA0021_ISSUE_CALENDAR | ABA0021_ISSUE_TYPE | VARCHAR2(1) | NULL | Y | iss.iss_calendar_data | security_type | VARCHAR(50) | NOT NULL | Transformation:\n\nIF 'T' -> 'SECTYPE_TBILL'\nIF 'B', 'I', or 'G' -> 'SECTYPE_SGS' | -
+r008: MAS-OMEGA-ISSCAL-003 | ABA0021_ISSUE_CALENDAR | ABA0021_ISSUE_TYPE | VARCHAR2(1) | NULL | Y | iss.iss_calendar_data | sgs_type | VARCHAR(50) | NULL | Transformation:\n\nIF 'B' -> 'SGSTYPE_MD'\nIF 'I' -> 'SGSTYPE_INFRA'\nIF 'G' -> 'SGSTYPE_GREEN_INFRA'\nIF 'T' -> NULL | Derived from the ABA0021_ISSUE_TYPE column
+r009: MAS-OMEGA-ISSCAL-003 | - | - | - | - | Y | iss.iss_calendar_data | issuance_type | VARCHAR(50) | NOT NULL | Transformation:\n\nLookup from iss.iss_issuance using composite key (ABA0021_SECURITY_CODE, ABA0021_ISSUE_NO)\n\nIF iss.iss_issuance.issuance_type = 'ISSTYPE_SYNDICATION' -> 'ISSTYPE_SYNDICATION'\nELSE -> 'ISSTYPE_AUCTION' | -
+r010: MAS-OMEGA-ISSCAL-003 | ABA0021_ISSUE_CALENDAR | ABA0021_TENOR | NUMBER(3,0) | NULL | Y | iss.iss_calendar_data | tenor_value | NUMERIC(3,0) | NULL | Direct Mapping | -
+r011: MAS-OMEGA-ISSCAL-003 | ABA0021_ISSUE_CALENDAR | ABA0021_TENOR_UNIT | VARCHAR2(1) | NULL | Y | iss.iss_calendar_data | tenor_unit | VARCHAR(1) | NOT NULL | Direct Mapping  | Possible values are \n'Y' - Year\n'M' - Month\n'D' - Day
+r012: MAS-OMEGA-ISSCAL-003 | ABA0021_ISSUE_CALENDAR | ABA0021_CURR | VARCHAR2(3) | NULL | N | - | - | - | - | - | Not applicable to OMEGA
+r013: MAS-OMEGA-ISSCAL-003 | ABA0021_ISSUE_CALENDAR | ABA0021_NEW_REOPEN | VARCHAR2(1) | NULL | Y | iss.iss_calendar_data | new_reopen_flag | VARCHAR(1) | NULL | Direct Mapping  | Possible values are \n'N' - New\n'R' - Reopen
+r014: MAS-OMEGA-ISSCAL-003 | ABA0021_ISSUE_CALENDAR | ABA0021_OPEN_DATETIME | DATE | NULL | Y | iss.iss_calendar_data | announcement_dt | TIMESTAMP | NULL | Direct Mapping  | -
+r015: MAS-OMEGA-ISSCAL-003 | ABA0021_ISSUE_CALENDAR | ABA0021_CLOSE_DATETIME | DATE | NULL | Y | iss.iss_calendar_data | auction_dt | TIMESTAMP | NULL | Direct Mapping  | -
+r016: MAS-OMEGA-ISSCAL-003 | ABA0021_ISSUE_CALENDAR | ABA0021_ISSUE_DATETIME | DATE | NULL | Y | iss.iss_calendar_data | issue_dt | TIMESTAMP | NULL | Direct Mapping  | -
+r017: MAS-OMEGA-ISSCAL-003 | ABA0021_ISSUE_CALENDAR | ABA0021_FLAG | VARCHAR2(1) | NULL | N | - | - | - | - | - | Not applicable to OMEGA
+r018: MAS-OMEGA-ISSCAL-003 | ABA0021_ISSUE_CALENDAR | ABA0021_PD_ISSUE_TYPE | VARCHAR2(1) | NULL | N | - | - | - | - | - | Not applicable to OMEGA
+
+====================================================================================================
+SHEET: 'MAS-OMEGA-ISSCAL-004'    (rows=25, cols=12)
+====================================================================================================
+r001: MAS-OMEGA-ISSCAL-004 |  |  |  |  |  |  |  |  |  |  | 
+r002: Module ID | Source Table | Source Column | Source Datatype | Source Nullable | To migrate | Target Table | Target Column | Target Datatype | Target Nullable | Transformation/Mapping Logic | Remarks
+r003: MAS-OMEGA-ISSCAL-004 | ABA0121_SB_ISSUE_CALENDAR | - | - | - | Y | iss.iss_calendar_data | iss_calendar_listing_uuid | VARCHAR(36) | N | Lookup UUID from iss.iss_calendar_listing where year = extracted Source Year and security_type = 'SECTYPE_SSB'. | Mandatory linkage to Parent Listing table
+r004: MAS-OMEGA-ISSCAL-004 | ABA0121_SB_ISSUE_CALENDAR | ABA0121_SECURITY_CODE | VARCHAR2(8) | N | Y | iss.iss_calendar_data | security_code | VARCHAR(8) | Y | Direct Mapping | -
+r005: MAS-OMEGA-ISSCAL-004 | ABA0121_SB_ISSUE_CALENDAR | ABA0121_ISSUE_NO | VARCHAR2(1) | N | N | - | - | - | - | - | Replaced by number of issuances in ississ_issuance table tied under same sec_security_master_uuid
+r006: MAS-OMEGA-ISSCAL-004 | ABA0121_SB_ISSUE_CALENDAR | ABA0121_ISIN_CODE | VARCHAR2(12) | Y | Y | iss.iss_calendar_data | isin_code | VARCHAR(12) | Y | Direct Mapping | -
+r007: MAS-OMEGA-ISSCAL-004 | ABA0121_SB_ISSUE_CALENDAR | ABA0121_ISSUE_TYPE | VARCHAR2(1) | Y | Y | iss.iss_calendar_data | security_type | VARCHAR(50) | N | Map to constant value: 'SECTYPE_SSB' | All records in this source table are Savings Bonds
+r008: MAS-OMEGA-ISSCAL-004 | ABA0121_SB_ISSUE_CALENDAR | ABA0121_ISSUE_TYPE | VARCHAR2(1) | Y | Y | iss.iss_calendar_data | sgs_type | VARCHAR(50) | Y | Map to NULL | Not applicable for Savings Bonds
+r009: MAS-OMEGA-ISSCAL-004 | - | - | - | - | Y | iss.iss_calendar_data | issuance_type | VARCHAR(50) | N | Map to constant value: 'ISSTYPE_AUCTION' | -
+r010: MAS-OMEGA-ISSCAL-004 | ABA0121_SB_ISSUE_CALENDAR | ABA0121_TENOR | NUMBER(3,0) | Y | Y | iss.iss_calendar_data | tenor_value | NUMERIC(3,0) | Y | Direct Mapping | -
+r011: MAS-OMEGA-ISSCAL-004 | ABA0121_SB_ISSUE_CALENDAR | ABA0121_TENOR_UNIT | VARCHAR2(1) | Y | Y | iss.iss_calendar_data | tenor_unit | VARCHAR(1) | N | Direct Mapping | "Possible values are \n'Y' - Year\n'M' - Month\n'D' - Day"
+r012: MAS-OMEGA-ISSCAL-004 | ABA0121_SB_ISSUE_CALENDAR | ABA0121_CURR | VARCHAR2(3) | Y | N | - | - | - | - | - | Not applicable to OMEGA
+r013: MAS-OMEGA-ISSCAL-004 | ABA0121_SB_ISSUE_CALENDAR | ABA0121_NEW_REOPEN | VARCHAR2(1) | Y | Y | iss.iss_calendar_data | new_reopen_flag | VARCHAR(1) | Y | Direct Mapping | "Possible values are\n'N' - New
+r014: MAS-OMEGA-ISSCAL-004 | ABA0121_SB_ISSUE_CALENDAR | ABA0121_OPEN_DATETIME | DATE | Y | Y | iss.iss_calendar_data | announcement_dt | TIMESTAMP | Y | Direct Mapping | -
+r015: MAS-OMEGA-ISSCAL-004 | - | - | - | - | N | iss.iss_calendar_data | public_offer_start_dt | TIMESTAMP | Y | Map to NULL | -
+r016: MAS-OMEGA-ISSCAL-004 | ABA0121_SB_ISSUE_CALENDAR | ABA0121_CLOSE_DATETIME | DATE | Y | Y | iss.iss_calendar_data | app_closing_dt | TIMESTAMP | Y | Direct Mapping | -
+r017: c | - | - | - | - | N | iss.iss_calendar_data | auction_dt | TIMESTAMP | Y | Transformation:\n\nLookup from ABA0101_SB_SECURITY_MASTER using composite key (ABA0121_SECURITY_CODE, ABA0121_ISSUE_NO)\n\nResult -> ABA0101_TENDER_DATE | -
+r018: MAS-OMEGA-ISSCAL-004 | ABA0121_SB_ISSUE_CALENDAR | ABA0121_ISSUE_DATETIME | DATE | Y | Y | iss.iss_calendar_data | issue_dt | TIMESTAMP | Y | Direct Mapping | -
+r019: MAS-OMEGA-ISSCAL-004 | ABA0121_SB_ISSUE_CALENDAR | ABA0121_FLAG | VARCHAR2(1) | Y | N | - | - | - | - | - | Not applicable to OMEGA
+
+====================================================================================================
+SHEET: 'MAS-OMEGA-ISSANN-001'    (rows=33, cols=12)
+====================================================================================================
+r001: MAS-OMEGA-ISSANN-001 |  |  |  |  |  |  |  |  |  |  | 
+r002: Module ID | Source Table | Source Column | Source Datatype | Source Nullable | To migrate | Target Table | Target Column | Target Datatype | Target Nullable | Transformation/Mapping Logic | Remarks
+r003: MAS-OMEGA-ISSANN-001 | ABA0001_SECURITY_MASTER | - | - | - | N | iss.iss_announcement_details | iss_calendar_data_uuid | VARCHAR(36) | NOT NULL | Lookup UUID from iss.iss_calendar_data where security_code matches composite key (ABA0001_SECURITY_CODE + ABA0001_ISSUE_NO) | Mandatory linkage to Calendar Data.
+r004: MAS-OMEGA-ISSANN-001 | ABA0001_SECURITY_MASTER | - | - | - | N | iss.iss_announcement_details | iss_issuance_uuid | VARCHAR(36) | NULL | Lookup UUID from iss.iss_issuance where security_code matches composite key (ABA0001_SECURITY_CODE + ABA0001_ISSUE_NO) | -
+r005: MAS-OMEGA-ISSANN-001 | ABA0001_SECURITY_MASTER | ABA0001_SECURITY_CODE | VARCHAR2(8) | NOT NULL | Y | iss.iss_announcement_details | security_code | VARCHAR(8) | NOT NULL | Direct Mapping | -
+r006: MAS-OMEGA-ISSANN-001 | ABA0001_SECURITY_MASTER | ABA0001_ISIN_CODE | VARCHAR2(12) | NULL | Y | iss.iss_announcement_details | isin_code | VARCHAR(12) | NOT NULL | Direct Mapping | -
+r007: MAS-OMEGA-ISSANN-001 | ABA0001_SECURITY_MASTER | ABA0001_SECURITY_CODE | VARCHAR2(8) | NOT NULL | Y | iss.iss_announcement_details | security_type | VARCHAR(50) | NULL | Transformation:\n\nIF Starts with 'BA' -> 'SECTYPE_CMTB'\nIF Starts with 'B' (and not 'BA') -> 'SECTYPE_TBILL'\nIF Starts with 'N' AND 4th last char is '2' -> 'SECTYPE_SGS'\nIF Starts with 'N' AND 4th last char is '3' -> 'SECTYPE_SGS'\nIF Starts with 'N' (and 4th last char not '2' or '3') -> 'SECTYPE_SGS'\nIF Starts with 'M1' -> 'SECTYPE_MAS_FRN'\nIF Starts with 'M' (and not 'M1') -> 'SECTYPE_MASBILL' | -
+r008: MAS-OMEGA-ISSANN-001 | ABA0001_SECURITY_MASTER | ABA0001_TENDER_DATE | DATE | N | Y | iss.iss_announcement_details | issuance_type | VARCHAR(50) | NULL | Transformation:\n\nWHEN ABA0001_TENDER_DATE < ABA0001_ANNOUNCE_DATE THEN 'ISSTYPE_SYNDICATION': | -
+r009: MAS-OMEGA-ISSANN-001 | - | - | - | - | N | iss.iss_announcement_details | sgs_type | VARCHAR(50) | NULL | Lookup iss.iss_calendar_data via iss_calendar_data_uuid established to map to sgs_type | -
+r010: MAS-OMEGA-ISSANN-001 | ABA0001_SECURITY_MASTER | ABA0001_ISSUE_NO | CHAR(1) | N | Y | iss.iss_announcement_details | new_reopen_flag | VARCHAR(1) | Y | Transformation:\n\nIF '1' -> 'N'\nELSE -> 'R' | Any ABA0001_ISSUE_NO > 1 indicates its an reopen issue
+r011: MAS-OMEGA-ISSANN-001 | ABA0001_SECURITY_MASTER | ABA0001_BENCHMARK_IND | CHAR(1) | NULL | Y | iss.iss_announcement_details | is_benchmark | VARCHAR(1) | NULL | Direct Mapping | -
+r012: MAS-OMEGA-ISSANN-001 | ABA0001_SECURITY_MASTER | ABA0001_TENOR | NUMBER(3,0) | NULL | Y | iss.iss_announcement_details | tenor_value | NUMERIC(3,0) | NULL | Direct Mapping | -
+r013: MAS-OMEGA-ISSANN-001 | ABA0001_SECURITY_MASTER | ABA0001_TENOR_UNIT | VARCHAR2(1) | NULL | Y | iss.iss_announcement_details | tenor_unit | VARCHAR(1) | NULL | Direct Mapping | Possible values are \n'Y' - Year\n'M' - Month\n'D' - Day"
+r014: MAS-OMEGA-ISSANN-001 | ABA0001_SECURITY_MASTER | ABA0001_ANNOUNCE_DATE | DATE | NULL | Y | iss.iss_announcement_details | announcement_dt | TIMESTAMP | NULL | Direct Mapping | -
+r015: MAS-OMEGA-ISSANN-001 | - | - | - | - | N | iss.iss_announcement_details | publication_dt | TIMESTAMP | NULL | Map to NULL | The issue calendar publication date is stored as part of audit table under ABA0023_AUDIT_ACTION, propose to map this to NULL for migrated records
+r016: MAS-OMEGA-ISSANN-001 | ABA0001_SECURITY_MASTER | ABA0001_TENDER_DATE | DATE | NOT NULL | Y | iss.iss_announcement_details | auction_dt | TIMESTAMP | NULL | Direct Mapping | -
+r017: MAS-OMEGA-ISSANN-001 | ABA0001_SECURITY_MASTER | ABA0001_ISSUE_DATE | DATE | NOT NULL | Y | iss.iss_announcement_details | issue_dt | TIMESTAMP | NOT NULL | Direct Mapping | -
+r018: MAS-OMEGA-ISSANN-001 | ABA0001_SECURITY_MASTER | ABA0001_MATURITY_DATE | DATE | NOT NULL | Y | iss.iss_announcement_details | maturity_dt | TIMESTAMP | NOT NULL | Direct Mapping | -
+r019: MAS-OMEGA-ISSANN-001 | ABA0001_SECURITY_MASTER | ABA0001_FIRST_CPN_PAYM_DATE | DATE | NULL | Y | iss.iss_announcement_details | first_coupon_payment_dt | TIMESTAMP | NULL | Direct Mapping | -
+r020: MAS-OMEGA-ISSANN-001 | ABA0001_SECURITY_MASTER | ABA0001_NEXT_INT_DATE | DATE | NULL | Y | iss.iss_announcement_details | next_coupon_payment_dt | TIMESTAMP | NULL | Direct Mapping | -
+r021: MAS-OMEGA-ISSANN-001 | - | - | - | - | N | iss.iss_announcement_details | pricing_dt | TIMESTAMP | NULL | TBD  | For Syndication, will provide the mapping in next revision.
+r022: MAS-OMEGA-ISSANN-001 | ABA0001_SECURITY_MASTER | ABA0001_ANNOUNCE_DATE | DATE | NULL | Y | iss.iss_announcement_details | public_offer_start_dt | TIMESTAMP | NULL | TBD  | For Syndication, will provide the mapping in next revision.
+r023: MAS-OMEGA-ISSANN-001 | ABA0001_SECURITY_MASTER | ABA0001_TENDER_DATE | DATE | NOT NULL | Y | iss.iss_announcement_details | public_offer_end_dt | TIMESTAMP | NULL | TBD  | For Syndication, will provide the mapping in next revision.
+r024: MAS-OMEGA-ISSANN-001 | ABA0001_SECURITY_MASTER | ABA0001_TENDER_DATE | DATE | NOT NULL | Y | iss.iss_announcement_details | app_closing_dt | TIMESTAMP | NULL | TBD | -
+r025: MAS-OMEGA-ISSANN-001 | ABA0001_SECURITY_MASTER | ABA0001_ISSUE_SIZE | NUMBER(13,0) | NOT NULL | Y | iss.iss_announcement_details | total_amount_offered | NUMERIC(13,0) | NOT NULL | Direct Mapping | -
+r026: MAS-OMEGA-ISSANN-001 | ABA0001_SECURITY_MASTER | ABA0001_MAS_APPLIED | NUMBER(13,0) | NULL | Y | iss.iss_announcement_details | mas_intended_tender_amount | NUMERIC(13,0) | NULL | Direct Mapping | -
+r027: MAS-OMEGA-ISSANN-001 | ABA0001_SECURITY_MASTER | ABA0001_INTEREST_RATE | NUMBER(7,4) | NULL | Y | iss.iss_announcement_details | coupon_rate | NUMBER(7,4) | NULL | Direct Mapping | -
+r028: MAS-OMEGA-ISSANN-001 | ABA0001_SECURITY_MASTER | ABA0001_ACCRUED_INT_DAYS | NUMBER(3,0) | NULL | Y | iss.iss_announcement_details | accrued_interest_days | NUMERIC(3,0) | NULL | Direct Mapping | -
+r029: MAS-OMEGA-ISSANN-001 | - | - | - | - | N | iss.iss_announcement_details | footnotes | VARCHAR(10000) | NOT NULL | TBD | Footnotes is current stored as config in legacy eApps system, to discuss and decide whether to migrate footnotes for legacy records
+r030: MAS-OMEGA-ISSANN-001 | - | - | - | - | N | iss.iss_announcement_details | remarks | VARCHAR(4000) | NULL | Map to NULL | Not applicable in legacy eApps system
+r031: MAS-OMEGA-ISSANN-001 | - | - | - | - | N | iss.iss_announcement_details | status | VARCHAR(50) | NULL | Transformation:\n\nIF 'Y' -> 'PUBLISHED'\nIF 'N' -> 'TBD' | -
+r032: MAS-OMEGA-ISSANN-001 | - | - | - | - | N | iss.iss_announcement_details | user_action | VARCHAR(50) | NULL | Map to NULL | Not applicable in legacy eApps system
+r033: MAS-OMEGA-ISSANN-001 | - | - | - | - | N | iss.iss_announcement_details | is_published_immediately | VARCHAR(1) | NULL | Map to NULL | Not applicable in legacy eApps system
+
+====================================================================================================
+SHEET: 'MAS-OMEGA-BIDCOL-001'    (rows=23, cols=12)
+====================================================================================================
+r001: MAS-OMEGA-BIDCOL-001 |  |  |  |  |  |  |  |  |  |  | 
+r002: Module ID | Source Table | Source Column | Source Datatype | Source Nullable | To migrate | Target Table | Target Column | Target Datatype | Target Nullable | Transformation/Mapping Logic | Remarks
+r003: MAS-OMEGA-BIDCOL-001 | ABA0007_DETAIL_AUCTION_RESULT | ABA0007_SECURITY_CODE | VARCHAR2(8) | N | Y | iss.iss_bid_retail | iss_issuance_uuid | VARCHAR(36) | N | Lookup iss.iss_issuance.uuid where security_code matches ABA0007_SECURITY_CODE and ABA0007_ISSUE_NO. | Mandatory Linkage. To ensure iss_issuance is migrated first.
+r004: MAS-OMEGA-BIDCOL-001 | ABA0007_DETAIL_AUCTION_RESULT | ABA0007_PRI_DLR_CODE | NUMBER(4) | N | Y | iss.iss_bid_retail | cm_bank_master_uuid | VARCHAR(36) | N | Lookup cm.cm_bank_master.uuid where bank_code matches ABA0007_PRI_DLR_CODE. | -
+r005: MAS-OMEGA-BIDCOL-001 | - | - | - | - | N | iss.iss_bid_retail | iss_bid_file_registry_uuid | VARCHAR(36) | Y | Map to NULL | Propose to skip physical file migration as currently the interface bids are stored in both ABA0005_RSA_TEXT_ENC_TRANS & ABA0035_RETAILBID_FILE, OMEGA is currently storing as S3 File and the bids records will be extracted and parsed into the respective staging tables
+r006: MAS-OMEGA-BIDCOL-001 | - | - | - | - | N | iss.iss_bid_retail | iss_allotment_run_uuid | VARCHAR(36) | Y | Map to NULL | Not applicable to legacy eApps schema
+r007: MAS-OMEGA-BIDCOL-001 | ABA0007_DETAIL_AUCTION_RESULT | ABA0007_BANK_REF_NO | VARCHAR2(12) | Y | Y | iss.iss_bid_retail | bank_ref_no | VARCHAR(16) | N | Direct Mapping | -
+r008: MAS-OMEGA-BIDCOL-001 | ABA0007_DETAIL_AUCTION_RESULT | ABA0007_IC_PASSPORT | VARCHAR2(14) | Y | Y | iss.iss_bid_retail | nric_passport | VARCHAR(20) | N | Direct Mapping | -
+r009: MAS-OMEGA-BIDCOL-001 | ABA0007_DETAIL_AUCTION_RESULT | ABA0007_NAME_OF_APPLN | VARCHAR2(30) | Y | Y | iss.iss_bid_retail | applicant_name | VARCHAR(100) | N | Direct Mapping | -
+r010: MAS-OMEGA-BIDCOL-001 | ABA0007_DETAIL_AUCTION_RESULT | ABA0007_NATIONALITY | VARCHAR2(1) | Y | Y | iss.iss_bid_retail | nationality_code | VARCHAR(2) | N | Transformation:\n\nIF 'S' -> 'NATIONLTY_SG_CITIZEN'\nIF 'P' -> 'NATIONLTY_SG_PR'\nIF 'F' -> 'NATIONLTY_FOREIGNER' | Transformed into OMEGA specific mastercode
+r011: MAS-OMEGA-BIDCOL-001 | ABA0007_DETAIL_AUCTION_RESULT | ABA0007_CDP_ACC_NO | VARCHAR2(16) | Y | Y | iss.iss_bid_retail | cdp_account_no | VARCHAR(16) | Y | Direct Mapping | Only populated if Application Type is CASH.
+r012: MAS-OMEGA-BIDCOL-001 | ABA0007_DETAIL_AUCTION_RESULT | ABA0007_CPF_ACNO | CHAR(16) | Y | Y | iss.iss_bid_retail | cpf_srs_account_no | VARCHAR(16) | Y | Direct Mapping | Only populated if Application Type is CPFIS/SRS.
+r013: MAS-OMEGA-BIDCOL-001 | ABA0007_DETAIL_AUCTION_RESULT | ABA0007_TYPE_OF_APPLN | VARCHAR2(3) | Y | Y | iss.iss_bid_retail | type_of_applicant | VARCHAR(50) | Y | Transformation:\n\nIF 'IND' -> 'APPLNTYPE_IND' | Only records with ABA0007_TYPE_OF_APPLN = 'IND' will be inserted into iss.iss_bid_retail
+r014: MAS-OMEGA-BIDCOL-001 | ABA0007_DETAIL_AUCTION_RESULT | ABA0007_APPLIED_AMT | NUMBER(11) | Y | Y | iss.iss_bid_retail | nominal_amount | NUMERIC(13,0) | N | Direct Mapping | -
+r015: MAS-OMEGA-BIDCOL-001 | ABA0007_DETAIL_AUCTION_RESULT | ABA0007_COMP_NONCOMP | VARCHAR2(1) | Y | Y | iss.iss_bid_retail | is_competitive | VARCHAR(1) | Y | Transformation:\n\nIF 'C' -> 'Y',\nELSE -> 'N' | -
+r016: MAS-OMEGA-BIDCOL-001 | ABA0007_DETAIL_AUCTION_RESULT | ABA0007_BID_YIELD | NUMBER(5,2) | Y | Y | iss.iss_bid_retail | bid_yield | NUMERIC(5,2) | Y | Direct Mapping | -
+r017: MAS-OMEGA-BIDCOL-001 | - | - | - | - | N | iss.iss_bid_retail | application_source | VARCHAR(50) | N | Default map to 'APPSRC_INTERFACE' | To consider legacy file uploads as Interface submissions
+r018: MAS-OMEGA-BIDCOL-001 | ABA0007_DETAIL_AUCTION_RESULT | ABA0007_SUB_MTD | CHAR(1) | Y | Y | iss.iss_bid_retail | submission_method | VARCHAR(50) | N | Transformation:\n\nIF 'A' -> 'ISSSUBMTH_A'\nIF 'B' -> 'ISSSUBMTH_B'\nIF 'C' -> 'ISSSUBMTH_C'\nIF 'M' -> 'ISSSUBMTH_M' | Only submission types with ABA0007_TYPE_OF_APPLN = 'IND' will be pushed into iss.iss_bid_retail
+r019: MAS-OMEGA-BIDCOL-001 | ABA0007_DETAIL_AUCTION_RESULT | ABA0007_CUST_BANK_BC | VARCHAR2(1) | Y | Y | iss.iss_bid_retail | custody_code | VARCHAR(50) | Y | Transformation:\n\nIF 'C' -> 'CUSTCD_CUS'\nIF 'B' -> 'CUSTCD_TRD' | Transformed into OMEGA specific mastercode
+r020: MAS-OMEGA-BIDCOL-001 | - | - | - | - | N | iss.iss_bid_retail | status | VARCHAR(50) | N | Default map to 'BIDCOLSTAT_CLOSED' | -
+r021: MAS-OMEGA-BIDCOL-001 | ABA0007_DETAIL_AUCTION_RESULT | ABA0007_ALLOTED_AMT | NUMBER(11) | Y | Y | iss.iss_bid_retail | allotted_amount | NUMERIC(13,0) | Y | Direct Mapping | -
+r022: MAS-OMEGA-BIDCOL-001 | - | - | - | - | - | iss.iss_bid_retail | accepted_amount | NUMERIC(13,0) | Y | Map to NULL | This is amount calculated for auction run purposes. Propose to keep NULL for legacy migrated records
+r023: MAS-OMEGA-BIDCOL-001 | ABA0007_DETAIL_AUCTION_RESULT | ABA0007_SETTLEMENT_AMT | NUMBER(15,2) | Y | Y | iss.iss_bid_retail | settlement_amount | NUMBER(15,2) | Y | Direct Mapping | -
+
+====================================================================================================
+SHEET: 'MAS-OMEGA-BIDCOL-002'    (rows=5, cols=12)
+====================================================================================================
+r001: MAS-OMEGA-BIDCOL-001 |  |  |  |  |  |  |  |  |  |  | 
+r002: Module ID | Source Table | Source Column | Source Datatype | Source Nullable | To migrate | Target Table | Target Column | Target Datatype | Target Nullable | Transformation/Mapping Logic | Remarks
+r003: MAS-OMEGA-BIDCOL-002 | ABA0004_RETAIL_BID_TRANS | ABA0004_BANK_REF_NO\nABA0004_RECEIVED_DATE\nABA0004_FILE_TYPE | - | - | Y | iss.iss_bid_retail | submission_ref_uuid | VARCHAR(36) | Y | To assign a grouping submission_ref_uuid using identifier below\n\n(SUBSTR(ABA0004_BANK_REF_NO, 1, 4) + ABA0004_RECEIVED_DATE + ABA0004_FILE_TYPE) | Used to group bids under a unique Submission ID (Batch) as legacy did not have a single UUID for this.
+r004: MAS-OMEGA-BIDCOL-002 | ABA0004_RETAIL_BID_TRANS | ABA0004_FILE_TYPE | VARCHAR2(3) | N | Y | iss.iss_bid_retail | application_type | VARCHAR(50) | Y | Transformation:\n\nIF 'AP1' -> 'APPTYPE_CASH'\nIF 'AP2' -> 'APPTYPE_CPFIS'\nIF 'AP3' -> 'APPTYPE_SRS' | Transformed into OMEGA specific mastercode
+r005: MAS-OMEGA-BIDCOL-002 | ABA0004_RETAIL_BID_TRANS | ABA0004_RECEIVED_DATE | DATE | Y | Y | iss.iss_bid_retail | received_dt | TIMESTAMP | Y | Transformation: \n\nExtract and merge ABA0004_RECEIVED_DATE + ABA0004_RECEIVED_TIME | -
+
+====================================================================================================
+SHEET: 'MAS-OMEGA-BIDCOL-003'    (rows=19, cols=12)
+====================================================================================================
+r001: MAS-OMEGA-BIDCOL-002 |  |  |  |  |  |  |  |  |  |  | 
+r002: Module ID | Source Table | Source Column | Source Datatype | Source Nullable | To migrate | Target Table | Target Column | Target Datatype | Target Nullable | Transformation/Mapping Logic | Remarks
+r003: MAS-OMEGA-BIDCOL-001 | ABA0007_DETAIL_AUCTION_RESULT | ABA0007_SECURITY_CODE | VARCHAR2(8) | N | Y | iss.iss_bid_institutional | iss_issuance_uuid | VARCHAR(36) | N | Lookup iss.iss_issuance.uuid where security_code matches ABA0007_SECURITY_CODE and ABA0007_ISSUE_NO. | Mandatory Linkage. To ensure iss_issuance is migrated first.
+r004: MAS-OMEGA-BIDCOL-001 | ABA0007_DETAIL_AUCTION_RESULT | ABA0007_PRI_DLR_CODE | NUMBER(4) | N | Y | iss.iss_bid_institutional | cm_bank_master_uuid | VARCHAR(36) | N | Lookup cm.cm_bank_master.uuid where bank_code matches ABA0007_PRI_DLR_CODE. | -
+r005: MAS-OMEGA-BIDCOL-001 | - | - | - | - | Y | iss.iss_bid_institutional | iss_bid_file_registry_uuid | VARCHAR(36) | Y | Map to NULL | -
+r006: MAS-OMEGA-BIDCOL-001 | - | - | - | - | N | iss.iss_bid_institutional | iss_allotment_run_uuid | VARCHAR(36) | Y | Map to NULL | Not applicable to legacy eApps schema.
+r007: MAS-OMEGA-BIDCOL-001 | ABA0007_DETAIL_AUCTION_RESULT | ABA0007_BANK_REF_NO\nABA0007_TENDER_DATE | - | - | Y | iss.iss_bid_institutional | submission_ref_uuid | VARCHAR(36) | Y | To assign a grouping submission_ref_uuid using identifier below\n\n(SUBSTR(ABA0007_BANK_REF_NO, 1, 4) + ABA0007_TENDER_DATE) | Used to group bids under a unique Submission ID. For institutional, the Bank Ref No is unique per submission form.
+r008: MAS-OMEGA-BIDCOL-001 | ABA0007_DETAIL_AUCTION_RESULT | ABA0007_BANK_REF_NO | VARCHAR2(12) | Y | Y | iss.iss_bid_institutional | bank_ref_no | VARCHAR(16) | N | Direct Mapping | -
+r009: MAS-OMEGA-BIDCOL-001 | ABA0007_DETAIL_AUCTION_RESULT | ABA0007_NAME_OF_APPLN | VARCHAR2(30) | Y | Y | iss.iss_bid_institutional | applicant_name | VARCHAR(100) | N | Direct Mapping | -
+r010: MAS-OMEGA-BIDCOL-001 | ABA0007_DETAIL_AUCTION_RESULT | ABA0007_TYPE_OF_APPLN | VARCHAR2(3) | Y | Y | iss.iss_bid_institutional | type_of_applicant | VARCHAR(50) | Y | Transformation:\n\nIF 'PD' -> 'APPLNTYPE_PD'\nIF 'FB' -> 'APPLNTYPE_FB'\nIF 'RB' -> 'APPLNTYPE_RB'\nIF 'OB' -> 'APPLNTYPE_OB'\nIF 'NB' -> 'APPLNTYPE_NB'\nIF 'MB' -> 'APPLNTYPE_MB'\nIF 'IA' -> 'APPLNTYPE_IA'\nIF 'FC' -> 'APPLNTYPE_FC'\nIF 'INS' -> 'APPLNTYPE_INS'\nIF 'SB' -> 'APPLNTYPE_SB'\nIF 'SGX' -> 'APPLNTYPE_SGX'\nIF 'MAS' -> 'APPLNTYPE_MAS'\nELSE -> 'APPLNTYPE_OTH' | Only submission types with ABA0007_TYPE_OF_APPLN = 'IND' will be pushed into iss.iss_bid_institutional
+r011: MAS-OMEGA-BIDCOL-001 | ABA0007_DETAIL_AUCTION_RESULT | ABA0007_APPLIED_AMT | NUMBER(11) | Y | Y | iss.iss_bid_institutional | nominal_amount | NUMERIC(13,0) | N | Direct Mapping | -
+r012: MAS-OMEGA-BIDCOL-001 | ABA0007_DETAIL_AUCTION_RESULT | ABA0007_COMP_NONCOMP | VARCHAR2(1) | Y | Y | iss.iss_bid_institutional | is_competitive | VARCHAR(1) | Y | Transformation:\n\nIF 'C' -> 'Y',\nELSE -> 'N' | -
+r013: MAS-OMEGA-BIDCOL-001 | ABA0007_DETAIL_AUCTION_RESULT | ABA0007_BID_YIELD | NUMBER(5,2) | Y | Y | iss.iss_bid_institutional | yield_pct | NUMERIC(5,2) | Y | Direct Mapping | -
+r014: MAS-OMEGA-BIDCOL-001 | ABA0007_DETAIL_AUCTION_RESULT | ABA0007_CUST_BANK_CODE | NUMBER(4) | Y | Y | iss.iss_bid_institutional | settlement_bank_code | VARCHAR(4) | N | Direct Mapping | -
+r015: MAS-OMEGA-BIDCOL-001 | ABA0007_DETAIL_AUCTION_RESULT | ABA0007_CUST_BANK_BC | VARCHAR2(1) | Y | Y | iss.iss_bid_institutional | custody_code | VARCHAR(50) | Y | Transformation:\n\nIF 'C' -> 'CUSTCD_CUS'\nIF 'B' -> 'CUSTCD_TRD' | Transformed into OMEGA specific mastercode
+r016: MAS-OMEGA-BIDCOL-001 | ABA0007_DETAIL_AUCTION_RESULT | ABA0007_SUB_MTD | CHAR(1) | Y | Y | iss.iss_bid_institutional | submission_method | VARCHAR(50) | N | Transformation:\n\nIF 'E' -> 'ISSSUBMTH_E'\nIF 'M' -> 'ISSSUBMTH_M' | Transformed into OMEGA specific mastercode\n\nOnly institutional bids with 'E' (Electronic/Web) or 'M' (Manual Contingency) will be migrated into iss.iss_bid_institutional
+r017: MAS-OMEGA-BIDCOL-001 | - | - | - | - | N | iss.iss_bid_institutional | application_source | VARCHAR(50) | N | Default map to 'APPSRC_MANUAL ENTRY' | Assuming majority of institutional bids are web-entered.
+r018: MAS-OMEGA-BIDCOL-001 | ABA0007_DETAIL_AUCTION_RESULT | ABA0007_ALLOTED_AMT | NUMBER(11) | Y | Y | iss.iss_bid_institutional | allotted_amount | NUMERIC(13,0) | Y | Direct Mapping | -
+r019: MAS-OMEGA-BIDCOL-001 | ABA0007_DETAIL_AUCTION_RESULT | ABA0007_SETTLEMENT_AMT | NUMBER(15,2) | Y | Y | iss.iss_bid_institutional | settlement_amount | NUMERIC(13,0) | Y | Direct Mapping | -
+
+====================================================================================================
+SHEET: 'Codes'    (rows=5, cols=8)
+====================================================================================================
+r001: title2 | Requirement ID | Service Req No |  |  |  |  | 
+r002: test_script | UT | SIT | SSAT | Performance Test | Security Test | Pre-UAT | UAT
+r003: test_type | Boundary Testing | Business Rule | Data Validation | Date Range Validation | Mandatory Field Validation | Storage Testing | UI Validation
+r004: flow_type | Positive Testing | Negative Testing |  |  |  |  | 
+r005: test_crit | High | Medium | Low |  |  |  | 
+

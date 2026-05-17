@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Script, ScriptType, AppView, Table, MappingProject, FlowchartScript } from './types';
-import { loadScripts, saveScripts, generateId, loadTheme, saveTheme, saveMappingProject, loadDarkThemeVariant, saveDarkThemeVariant, DarkThemeVariant, loadWorkspaceFromElectron, getSortedScripts, loadFlowchartScripts, saveFlowchartScripts } from './utils/storage';
+import { loadScripts, saveScripts, generateId, loadTheme, saveTheme, saveMappingProject, loadDarkThemeVariant, saveDarkThemeVariant, DarkThemeVariant, loadWorkspaceFromElectron, getSortedScripts, loadFlowchartScripts, saveFlowchartScripts, flushElectronSaves, initStorage, isSqliteStorageEnabled, ensureSqliteStorageDefault, loadActiveScriptId, saveActiveScriptId } from './utils/storage';
 import { parseScript, reparseScript, parsePUML } from './utils/parsers';
 import Sidebar from './components/Sidebar';
 import DataDictionary from './components/DataDictionary';
@@ -11,9 +11,17 @@ import ColumnMapper, { MappingStateForSidebar } from './components/ColumnMapper'
 import FlowchartViewer from './components/FlowchartViewer';
 import { Database, PanelLeftClose, PanelLeft, ChevronDown, GripVertical, Settings } from 'lucide-react';
 // Storage functions imported for workspace management (used in settings modal)
-import { isElectron } from './services/electronStorage';
+import { isElectron, getStorageMtimes } from './services/electronStorage';
+import { dbStatus } from './services/dbStorage';
 import { initDebugLogger } from './utils/debugLogger';
 import SettingsModal from './components/SettingsModal';
+import MigrationSplash from './components/MigrationSplash';
+
+// Migration gate states.
+//   'checking'  — deciding whether the splash needs to run (typically <50ms)
+//   'splash'    — MigrationSplash is rendered; main app is hidden
+//   'ready'     — proceed with normal startup
+type MigrationGate = 'checking' | 'splash' | 'ready';
 
 // Mapping state interface for sidebar - includes callbacks from ColumnMapper
 interface MappingState {
@@ -31,7 +39,13 @@ interface MappingState {
 export default function App() {
   const [scripts, setScripts] = useState<Script[]>([]);
   const [flowchartScripts, setFlowchartScripts] = useState<FlowchartScript[]>([]);
-  const [activeScriptId, setActiveScriptId] = useState<string | null>(null);
+  // Lazy init: read the persisted active-script id BEFORE the persist effect
+  // runs at mount. Otherwise the effect would fire with the initial `null`,
+  // call saveActiveScriptId(null) → localStorage.removeItem(), and wipe the
+  // saved value before initializeApp ever gets a chance to read it.
+  // The id may not yet exist in the loaded scripts; initializeApp validates
+  // membership and falls back to scripts[0] if it's stale.
+  const [activeScriptId, setActiveScriptId] = useState<string | null>(() => loadActiveScriptId());
   const [view, setView] = useState<AppView>('dictionary');
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [darkThemeVariant, setDarkThemeVariant] = useState<DarkThemeVariant>('slate');
@@ -50,15 +64,86 @@ export default function App() {
   // Settings modal
   const [showSettings, setShowSettings] = useState(false);
 
+  // SQLite migration gate. Resolves to 'ready' as soon as the app decides
+  // whether MigrationSplash should run. Initial render is gated on this
+  // so the user never sees a flash of empty workspace before the splash.
+  const [migrationGate, setMigrationGate] = useState<MigrationGate>('checking');
+
   // Initialize debug logger on mount
   useEffect(() => {
     initDebugLogger();
     console.log('🚀 Renaissance DM Tool initialized');
   }, []);
 
-  // Load initial data
+  // Decide whether to show MigrationSplash. Runs once, before the main load.
+  // Logic:
+  //   - Set the SQLite flag default ON for first-run users (no-op if already set).
+  //   - In Electron with the flag ON: open the DB, ask its status.
+  //     - DB has scripts → migration already done; gate = 'ready'.
+  //     - DB empty + shards exist → first-run migration; gate = 'splash'.
+  //     - DB empty + no shards → fresh install; gate = 'ready' (start blank).
+  //   - In web mode or with flag OFF: gate = 'ready' immediately.
+  //
+  // On any error querying the DB (e.g. native module not rebuilt), fall back
+  // to 'ready' so the existing shard path keeps working — the splash is a
+  // best-effort upgrade, not a hard requirement.
   useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        ensureSqliteStorageDefault();
+
+        if (!isElectron() || !isSqliteStorageEnabled()) {
+          if (!cancelled) setMigrationGate('ready');
+          return;
+        }
+
+        const status = await dbStatus();
+        const dbHasData = !!status && (status.scriptCount || 0) > 0;
+        if (dbHasData) {
+          if (!cancelled) setMigrationGate('ready');
+          return;
+        }
+
+        const mtimes = await getStorageMtimes();
+        const shardsExist = mtimes.shardsMs !== null || mtimes.workspaceMs !== null;
+
+        if (!cancelled) setMigrationGate(shardsExist ? 'splash' : 'ready');
+      } catch (err) {
+        console.error('[migration-gate] failed to decide; defaulting to ready', err);
+        if (!cancelled) setMigrationGate('ready');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Flush any pending shard / consolidated writes before window close so
+  // the last edits aren't lost in flight.
+  useEffect(() => {
+    const handler = () => { flushElectronSaves(); };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, []);
+
+  // Persist the active script selection so the same one is restored on the
+  // next launch. Single useEffect catches every setActiveScriptId caller —
+  // dropdown picker, sidebar list, createScript, deleteScript fallback, etc.
+  // — without having to thread a save into each one. Initial mount fires
+  // once with the just-loaded id (a no-op rewrite of the same value).
+  useEffect(() => {
+    saveActiveScriptId(activeScriptId);
+  }, [activeScriptId]);
+
+  // Load initial data — gated on migrationGate === 'ready' so the splash
+  // (when shown) finishes before we touch the storage layer.
+  useEffect(() => {
+    if (migrationGate !== 'ready') return;
+
     const initializeApp = async () => {
+      // Hydrate IDB-backed cache for large keys before any sync read
+      // (loadScripts, loadFlowchartScripts, loadMappingProjects).
+      await initStorage();
+
       // Try to load from Electron file first if running in Electron
       if (isElectron()) {
         console.log('🚀 Running in Electron, attempting to load from local file...');
@@ -77,7 +162,13 @@ export default function App() {
           setDarkThemeVariant(savedVariant);
 
           if (savedScripts.length > 0) {
-            setActiveScriptId(savedScripts[0].id);
+            // Prefer the last-selected script; if it no longer exists
+            // (deleted, renamed, etc.) fall back to the first one.
+            const lastActive = loadActiveScriptId();
+            const restored = lastActive && savedScripts.some(s => s.id === lastActive)
+              ? lastActive
+              : savedScripts[0].id;
+            setActiveScriptId(restored);
           }
 
           if (savedTheme === 'dark') {
@@ -101,7 +192,12 @@ export default function App() {
       setDarkThemeVariant(savedVariant);
 
       if (savedScripts.length > 0) {
-        setActiveScriptId(savedScripts[0].id);
+        // Same restoration as the Electron branch: last-selected or first.
+        const lastActive = loadActiveScriptId();
+        const restored = lastActive && savedScripts.some(s => s.id === lastActive)
+          ? lastActive
+          : savedScripts[0].id;
+        setActiveScriptId(restored);
       }
 
       if (savedTheme === 'dark') {
@@ -113,7 +209,7 @@ export default function App() {
     };
 
     initializeApp();
-  }, []);
+  }, [migrationGate]);
 
   // Listen for storage events to reload scripts when updated
   useEffect(() => {
@@ -365,6 +461,43 @@ export default function App() {
   // Rules dialog state - used in sidebar callback
   const [, setShowRulesDialog] = useState(false);
 
+  // Stable callbacks for heavy children. Inline arrows on the JSX would
+  // create a new function ref every render of App and defeat React.memo on
+  // DataDictionary / ERDViewer — meaning theme toggle, sidebar resize, and
+  // every dropdown click would fully re-render those components.
+  const handleDictionaryUpdateScript = useCallback(
+    (rawContent: string) => {
+      if (!activeScript) return;
+      const data = reparseScript(rawContent, activeScript.type, activeScript.data);
+      updateScript(activeScript.id, { rawContent, data });
+    },
+    [activeScript, updateScript]
+  );
+
+  const handleDictionaryUpdateScriptPartial = useCallback(
+    (updates: Partial<Script>) => {
+      if (!activeScript) return;
+      updateScript(activeScript.id, updates);
+    },
+    [activeScript, updateScript]
+  );
+
+  const handleERDRefresh = useCallback(() => {
+    if (!activeScript) return;
+    const data = reparseScript(activeScript.rawContent, activeScript.type, activeScript.data);
+    updateScript(activeScript.id, { data });
+  }, [activeScript, updateScript]);
+
+  const handleSchemaCompareUpdateScript = useCallback(
+    (scriptId: string, rawContent: string) => {
+      const target = scripts.find(s => s.id === scriptId);
+      if (!target) return;
+      const data = reparseScript(rawContent, target.type, target.data);
+      updateScript(scriptId, { rawContent, data });
+    },
+    [scripts, updateScript]
+  );
+
   // Render main content based on view
   const renderContent = () => {
     // Scripts view doesn't require an active script
@@ -433,11 +566,8 @@ export default function App() {
             selectedTableId={selectedTableId}
             onSelectTable={setSelectedTableId}
             onUpdateTable={updateTable}
-            onUpdateScript={(rawContent) => {
-              const data = reparseScript(rawContent, activeScript.type, activeScript.data);
-              updateScript(activeScript.id, { rawContent, data });
-            }}
-            onUpdateScriptPartial={(updates) => updateScript(activeScript.id, updates)}
+            onUpdateScript={handleDictionaryUpdateScript}
+            onUpdateScriptPartial={handleDictionaryUpdateScriptPartial}
             isDarkTheme={theme === 'dark'}
             darkThemeVariant={darkThemeVariant}
           />
@@ -447,12 +577,7 @@ export default function App() {
           <SchemaCompare
             scripts={scripts}
             activeScript={activeScript}
-            onUpdateScript={(scriptId, rawContent) => {
-              const script = scripts.find(s => s.id === scriptId);
-              if (!script) return;
-              const data = reparseScript(rawContent, script.type, script.data);
-              updateScript(scriptId, { rawContent, data });
-            }}
+            onUpdateScript={handleSchemaCompareUpdateScript}
             cache={compareCacheRef}
           />
         );
@@ -464,10 +589,7 @@ export default function App() {
             darkThemeVariant={darkThemeVariant}
             scriptId={activeScript.id}
             scriptName={activeScript.name}
-            onRefresh={() => {
-              const data = reparseScript(activeScript.rawContent, activeScript.type, activeScript.data);
-              updateScript(activeScript.id, { data });
-            }}
+            onRefresh={handleERDRefresh}
           />
         );
       default:
@@ -477,6 +599,22 @@ export default function App() {
 
   // Check if current view needs a script
   const viewNeedsScript = view !== 'scripts' && view !== 'mapping';
+
+  // Render the splash before the main app when the migration gate has decided
+  // a one-shot upgrade is needed. 'checking' renders nothing briefly (typically
+  // <50ms while the gate decides) — this matches the existing empty-app loading
+  // experience and avoids a flash of "no scripts" before the splash appears.
+  if (migrationGate === 'checking') {
+    return null;
+  }
+  if (migrationGate === 'splash') {
+    return (
+      <MigrationSplash
+        isDarkTheme={theme === 'dark'}
+        onComplete={() => setMigrationGate('ready')}
+      />
+    );
+  }
 
   return (
     <div className="app-container">

@@ -1,0 +1,5767 @@
+{
+  "version": "1.1.0",
+  "exportDate": "2026-04-09T03:08:30.464Z",
+  "theme": "dark",
+  "themeVariant": "vscode-gray",
+  "erdPositions": {
+    "1765936888739-vujpfmtow": {
+      "ISS_ISSUANCE": {
+        "x": -62.5,
+        "y": 26.25
+      },
+      "SEC_SECURITY_MASTER": {
+        "x": 615,
+        "y": 183.75
+      },
+      "ISS_ISSUANCE_T": {
+        "x": 1176.25,
+        "y": 250.75
+      }
+    },
+    "1765851568151-05zvcmw1e": {
+      "ABA0212_SB_REPORT": {
+        "x": 540,
+        "y": 135
+      },
+      "ABA0213_SB_REPORT_FILE": {
+        "x": 60,
+        "y": 60
+      },
+      "ABA0214_SB_CD_FILE_TYPE": {
+        "x": 1500,
+        "y": 3917.5
+      },
+      "ABA0215_SB_CD_FILE_STATUS": {
+        "x": 1500,
+        "y": 1511
+      },
+      "ABA0216_SB_CD_RECORD_STATUS": {
+        "x": 1020,
+        "y": 264.5
+      },
+      "ABA0217_SB_CD_NATION": {
+        "x": 1500,
+        "y": 5465.5
+      },
+      "ABA0219_SB_CD_FILE_ERROR_DESC": {
+        "x": 1977.5000000000002,
+        "y": 2633.25
+      },
+      "ABA0220_SB_CD_RECORD_ERR_DESC": {
+        "x": 1305,
+        "y": 614.5
+      },
+      "ABA0222_SB_ORG": {
+        "x": 1831.25,
+        "y": 1734.25
+      },
+      "ABA0223_SB_APPLICANT": {
+        "x": 1020,
+        "y": 5390.5
+      },
+      "ABA0224_SB_SUBSCRIPT": {
+        "x": 1020,
+        "y": 1839.5
+      },
+      "ABA0225_SB_SUBSCRIPT_DT": {
+        "x": 540,
+        "y": 3083
+      },
+      "ABA0226_SB_SUBSCRIPT_DT_ERR": {
+        "x": 521.2500000000001,
+        "y": 663.25
+      },
+      "ABA0227_SB_REDEMPTION": {
+        "x": 1513.7500000000002,
+        "y": 2644.75
+      },
+      "ABA0228_SB_REDEMPTION_DT": {
+        "x": 540,
+        "y": 3975
+      },
+      "ABA0229_SB_REDEMPTION_DT_ERR": {
+        "x": 540,
+        "y": 1569
+      },
+      "ABA0230_SB_HLD_INFO": {
+        "x": 1948.7500000000002,
+        "y": 3424.25
+      },
+      "ABA0231_SB_HLD_INFO_DT": {
+        "x": 540,
+        "y": 4897
+      },
+      "ABA0232_SB_ALLOTMENT_RESULT": {
+        "x": 60,
+        "y": 1547
+      },
+      "ABA0233_SB_BATCH_JOB": {
+        "x": 1500,
+        "y": 5177.5
+      },
+      "ABA0235_SB_SUBMISSION_SUMMARY": {
+        "x": 1020,
+        "y": 3910
+      },
+      "ABA0236_SB_HLD_INFO_DT_ERR": {
+        "x": 540,
+        "y": 2551
+      },
+      "ABA0240_SB_CD_SUBMISSION_TYPE": {
+        "x": 1020,
+        "y": 4772
+      },
+      "BATCH_JOB_EXECUTION": {
+        "x": 1020,
+        "y": 5921
+      },
+      "BATCH_JOB_EXECUTION_CONTEXT": {
+        "x": 568.125,
+        "y": 5632.5
+      },
+      "BATCH_JOB_EXECUTION_PARAMS": {
+        "x": 583.75,
+        "y": 5834.5
+      },
+      "BATCH_JOB_INSTANCE": {
+        "x": 1551.5625,
+        "y": 6026
+      },
+      "BATCH_STEP_EXECUTION": {
+        "x": 568.125,
+        "y": 6186.5
+      },
+      "BATCH_STEP_EXECUTION_CONTEXT": {
+        "x": 88.125,
+        "y": 6411.5
+      },
+      "ABA0001_SECURITY_MASTER": {
+        "x": 60,
+        "y": 6868.5
+      },
+      "ABA0001_SECURITY_MASTER_20230515": {
+        "x": 540,
+        "y": 6868.5
+      },
+      "ABA0001_SECURITY_MASTER_20230516": {
+        "x": 1020,
+        "y": 6868.5
+      },
+      "ABA0001_SECURITY_MASTER_R2_20231212": {
+        "x": 1500,
+        "y": 6868.5
+      },
+      "ABA0006_AUCTION_RESULT": {
+        "x": 60,
+        "y": 8420.5
+      },
+      "ABA0007_DETAIL_AUCTION_RESULT": {
+        "x": 530.625,
+        "y": 8420.5
+      },
+      "ABA0008_AUCTION_AUDIT_LOG": {
+        "x": 1010.625,
+        "y": 8420.5
+      },
+      "ABA0009_EAUCTION_CONFIG": {
+        "x": 1434.375,
+        "y": 8420.5
+      },
+      "ABA0009_EAUCTION_CONFIG_TMP": {
+        "x": 60,
+        "y": 9252.5
+      },
+      "ABA0010_EAUCTION_AUCTION_CUTOFF_TIME": {
+        "x": 432.10526315789474,
+        "y": 9252.5
+      },
+      "ABA0035_SECURITY_MASTER_CTG_STG": {
+        "x": 912.1052631578948,
+        "y": 9252.5
+      },
+      "ABA0036_RETAILBID_FILE": {
+        "x": 1392.1052631578948,
+        "y": 9252.5
+      },
+      "ABA0218_SB_CD_NATION_CTY": {
+        "x": 60,
+        "y": 9934.5
+      },
+      "ABA0221_SB_CD_BATCHJOB_STATUS": {
+        "x": 540,
+        "y": 9934.5
+      },
+      "ABA0224_SB_SUBSCRIPT_BKUP": {
+        "x": 1020,
+        "y": 9934.5
+      },
+      "ABA0225_SB_SUBSCRIPT_DT_BKUP": {
+        "x": 1500,
+        "y": 9934.5
+      },
+      "ABA0226_SB_SUBSCRIPT_DT_ERR_BKUP": {
+        "x": 60,
+        "y": 10826.5
+      },
+      "ABA0227_SB_REDEMPTION_BKUP": {
+        "x": 540,
+        "y": 10826.5
+      },
+      "ABA0228_SB_REDEMPTION_DT_BKUP": {
+        "x": 1020,
+        "y": 10826.5
+      },
+      "ABA0229_SB_REDEMPTION_DT_ERR_BKUP": {
+        "x": 1908.56508,
+        "y": 10842.41812
+      },
+      "ABA0230_SB_HLD_INFO_BKUP": {
+        "x": 60,
+        "y": 11808.5
+      },
+      "ABA0231_SB_HLD_INFO_DT_BACKUP": {
+        "x": 540,
+        "y": 11808.5
+      },
+      "ABA0231_SB_HLD_INFO_DT_BKUP": {
+        "x": 1020,
+        "y": 11808.5
+      },
+      "ABA0232_SB_ALLOTMENT_RESULT_BKUP": {
+        "x": 1500,
+        "y": 11808.5
+      },
+      "ABA0233_SB_BATCH_JOB_BKUP": {
+        "x": 60,
+        "y": 12310.5
+      },
+      "ABA0234_SB_BATCH_JOB_EXECUTION": {
+        "x": 540,
+        "y": 12310.5
+      },
+      "ABA0234_SB_BATCH_JOB_EXECUTION_BKUP": {
+        "x": 1020,
+        "y": 12310.5
+      },
+      "ABA0235_SB_SUBMISSION_SUMMARY_BKUP": {
+        "x": 1500,
+        "y": 12310.5
+      },
+      "ABA0236_SB_HLD_INFO_DT_ERR_BKUP": {
+        "x": 60,
+        "y": 12752.5
+      },
+      "ABA0237_SB_USER": {
+        "x": 540,
+        "y": 12752.5
+      },
+      "ABA0238_SB_LEVEL_ACTION": {
+        "x": 1020,
+        "y": 12752.5
+      },
+      "ABA0239_SB_ACTION_REF": {
+        "x": 1428.125,
+        "y": 12752.5
+      },
+      "ABA0241_SB_RESULT_FILE": {
+        "x": 60,
+        "y": 13284.5
+      },
+      "ABA0241_SB_RESULT_FILE_BKUP": {
+        "x": 540,
+        "y": 13284.5
+      },
+      "ABA0250_SB_AUDIT_LOG": {
+        "x": 1020,
+        "y": 13284.5
+      },
+      "ABA0250_SB_AUDIT_LOG_BKUP": {
+        "x": 1490.625,
+        "y": 13284.5
+      },
+      "ABA0251_SB_CONT_MAKE_CHECK": {
+        "x": 60,
+        "y": 13606.5
+      },
+      "ABA0252_SB_SYSCONF_MAKE_CHECK": {
+        "x": 540,
+        "y": 13606.5
+      },
+      "ABA0282_SB_CD_APPLICATION_TYPE": {
+        "x": 1020,
+        "y": 13606.5
+      },
+      "ABA0283_SB_COUPON_RESULT_FILE": {
+        "x": 1500,
+        "y": 13606.5
+      },
+      "ABA0284_SB_PORTAL_SYNC": {
+        "x": 60,
+        "y": 14138.5
+      },
+      "ABA0284_SB_PORTAL_SYNC_BK": {
+        "x": 540,
+        "y": 14138.5
+      },
+      "ABA0285_SB_USER_SESSION": {
+        "x": 1020,
+        "y": 14138.5
+      },
+      "ABA233_SB_BATCH_JOB_BKUP": {
+        "x": 1500,
+        "y": 14138.5
+      },
+      "AQA0001_LIMIT": {
+        "x": 60,
+        "y": 14400.5
+      },
+      "AQA0002_TRANSACTION": {
+        "x": 515,
+        "y": 14400.5
+      },
+      "AQA0002_TRANSACTION_15_11": {
+        "x": 995,
+        "y": 14400.5
+      },
+      "AQA0002_TRANSACTION_20231209": {
+        "x": 1475,
+        "y": 14400.5
+      },
+      "AQA0002_TRANSACTION_BKP_10_11": {
+        "x": 60,
+        "y": 15532.5
+      },
+      "AQA0003_USER": {
+        "x": 540,
+        "y": 15532.5
+      },
+      "AQA0004_LEVEL_ACTION": {
+        "x": 1020,
+        "y": 15532.5
+      },
+      "AQA0005_REPORT_COUNTER": {
+        "x": 1392.1052631578948,
+        "y": 15532.5
+      },
+      "AQA0006_EAPPS_TRANSACTION": {
+        "x": 60,
+        "y": 16664.5
+      },
+      "AQA0007_COPY_SEC_MASTER_IND": {
+        "x": 540,
+        "y": 16664.5
+      },
+      "AQA0008_SEC_AUCTION_PARA": {
+        "x": 1020,
+        "y": 16664.5
+      },
+      "AQA0009_SEC_AUCTION_PARA_CTG_STG": {
+        "x": 1500,
+        "y": 16664.5
+      },
+      "AQA0010_ACTION_REF": {
+        "x": 60,
+        "y": 17886.5
+      },
+      "AQA0011_USER_SESSION": {
+        "x": 432.10526315789474,
+        "y": 17886.5
+      },
+      "AQA0012_SYNDICATION_INS_RET_DT": {
+        "x": 912.1052631578948,
+        "y": 17886.5
+      },
+      "AQA0013_SYNDICATION_COUPON_DT": {
+        "x": 1392.1052631578948,
+        "y": 17886.5
+      },
+      "AQA0014_SYNDICATION_RPT_COUNT": {
+        "x": 60,
+        "y": 18448.5
+      },
+      "AQA0015_COPY_SYND_SEC_MAST_IND": {
+        "x": 515,
+        "y": 18448.5
+      },
+      "AQA0016_SYNDICATED_SEC_MAST_DT": {
+        "x": 995,
+        "y": 18448.5
+      },
+      "AQA0017_AUCTION_IND": {
+        "x": 1475,
+        "y": 18448.5
+      },
+      "AQA0017_AUCTION_IND_20230817": {
+        "x": 60,
+        "y": 19190.5
+      },
+      "AQA0018_RETAIL_BID_PROC_IND": {
+        "x": 515,
+        "y": 19190.5
+      },
+      "AQA0018_RETAIL_BID_PROC_TMP": {
+        "x": 995,
+        "y": 19190.5
+      },
+      "AQA0019_AUCTION_REPORT_IND": {
+        "x": 1475,
+        "y": 19190.5
+      },
+      "AQA0020_AUCTION_RESULTS_REPORT": {
+        "x": 60,
+        "y": 19392.5
+      },
+      "AQA0020_AUCTION_RESULTS_REPORT_20231115": {
+        "x": 540,
+        "y": 19392.5
+      },
+      "AQA0021_AUCTION_RESULTS_REPORT_CTG_STG": {
+        "x": 1020,
+        "y": 19392.5
+      },
+      "AQA0101_REPO_TRANS": {
+        "x": 1490.625,
+        "y": 19392.5
+      },
+      "AQA0102_USER": {
+        "x": 60,
+        "y": 20614.5
+      },
+      "AQA0103_PRIVATE_KEY": {
+        "x": 540,
+        "y": 20614.5
+      },
+      "AQA0104_ERF_SYSTEM_PARM": {
+        "x": 979.375,
+        "y": 20614.5
+      },
+      "AQA0104_SYSTEM_PARM": {
+        "x": 1459.375,
+        "y": 20614.5
+      },
+      "AQA0105_CYCLE": {
+        "x": 60,
+        "y": 20906.5
+      },
+      "AQA0105_ERF_CYCLE": {
+        "x": 483.75,
+        "y": 20906.5
+      },
+      "AQA0107_AUDIT_LOG": {
+        "x": 907.5,
+        "y": 20906.5
+      },
+      "AQA0107_ERF_AUDIT_LOG": {
+        "x": 1331.25,
+        "y": 20906.5
+      },
+      "AQA0108_ERF_LOG_DETAIL": {
+        "x": 60,
+        "y": 21138.5
+      },
+      "AQA0108_LOG_DETAIL": {
+        "x": 452.5,
+        "y": 21138.5
+      },
+      "AQA0109_HAIRCUT_SETTINGS": {
+        "x": 845,
+        "y": 21138.5
+      },
+      "AQA0111_CANCEL_TRADE": {
+        "x": 1325,
+        "y": 21138.5
+      },
+      "AQA0112_DUR_RATE": {
+        "x": 60,
+        "y": 21460.5
+      },
+      "AQA0113_USER_SESSION": {
+        "x": 530.625,
+        "y": 21460.5
+      },
+      "TEMP1": {
+        "x": 1010.625,
+        "y": 21460.5
+      },
+      "TEMP_AFTERDBEXPORT": {
+        "x": 1364.3092105263158,
+        "y": 21460.5
+      },
+      "TESTSYNC": {
+        "x": 60,
+        "y": 21722.5
+      },
+      "TEST_DB_DUMP": {
+        "x": 540,
+        "y": 21722.5
+      },
+      "TMP_CALL_CENTRE": {
+        "x": 893.6842105263158,
+        "y": 21722.5
+      }
+    },
+    "1765767535885-o1jilrqnk": {
+      "ABA0001_SECURITY_MASTER": {
+        "x": 947.5000000000001,
+        "y": 1089.5
+      },
+      "ABA0002_FRN_ISSUE": {
+        "x": 60,
+        "y": 60
+      },
+      "ABA0005_RSA_TEXT_ENC_TRANS": {
+        "x": 60,
+        "y": 262
+      },
+      "ABA0006_AUCTION_RESULT": {
+        "x": 64.6875,
+        "y": 824
+      },
+      "ABA0008_STAGE_SECURITY_MASTER": {
+        "x": 60,
+        "y": 1146
+      },
+      "ABA0011_DAILY_PRICE": {
+        "x": 60,
+        "y": 2488
+      },
+      "ABA0017_FINAL_DAILY_PRICE": {
+        "x": 60,
+        "y": 2930
+      },
+      "ABA0022_NON_BENCHMARK": {
+        "x": 64.6875,
+        "y": 3732
+      },
+      "ABA0027_BATCH_JOB": {
+        "x": 540,
+        "y": 4125
+      },
+      "ABA0028_BATCH_JOB_EXECUTION": {
+        "x": 60,
+        "y": 4065
+      },
+      "ABA0101_SB_SECURITY_MASTER": {
+        "x": 540,
+        "y": 4387
+      },
+      "ABA0124_SB_COUPON_RATE_DETAILS": {
+        "x": 60,
+        "y": 4597
+      },
+      "ABA0126_SB_REDEMPTION_RESULT": {
+        "x": 60,
+        "y": 4908
+      },
+      "ABA0001_SECURITY_MASTER_20230428": {
+        "x": 60,
+        "y": 5429
+      },
+      "ABA0001_SECURITY_MASTER_20230512": {
+        "x": 540,
+        "y": 5429
+      },
+      "ABA0001_SECURITY_MASTER_20230515": {
+        "x": 60,
+        "y": 6981
+      },
+      "ABA0001_SECURITY_MASTER_20230516": {
+        "x": 540,
+        "y": 6981
+      },
+      "ABA0001_SECURITY_MASTER_20230529": {
+        "x": 60,
+        "y": 8533
+      },
+      "ABA0001_SECURITY_MASTER_20230601": {
+        "x": 540,
+        "y": 8533
+      },
+      "ABA0001_SECURITY_MASTER_R2_20231212": {
+        "x": 60,
+        "y": 10085
+      },
+      "ABA0001_SECURITY_MASTER_T": {
+        "x": 540,
+        "y": 10085
+      },
+      "ABA0004_RETAIL_BID_TRANS": {
+        "x": 60,
+        "y": 11637
+      },
+      "ABA0004_RETAIL_BID_TRANS_20230428": {
+        "x": 540,
+        "y": 11637
+      },
+      "ABA0004_RETAIL_BID_TRANS_BKP": {
+        "x": 60,
+        "y": 12019
+      },
+      "ABA0005_RSA_TEXT_ENC_TRANS_20230428": {
+        "x": 540,
+        "y": 12019
+      },
+      "ABA0006_AUCTION_RESULT_20230428": {
+        "x": 60,
+        "y": 12581
+      },
+      "ABA0007_DETAIL_AUCTION_RESULT": {
+        "x": 530.625,
+        "y": 12581
+      },
+      "ABA0007_DETAIL_AUCTION_RESULT_20230428": {
+        "x": 60,
+        "y": 13413
+      },
+      "ABA0009_BANK_MASTER": {
+        "x": 540,
+        "y": 13413
+      },
+      "ABA0009_BANK_MASTER_BKUP": {
+        "x": 60,
+        "y": 14245
+      },
+      "ABA0009_BANK_MASTER_BKUP1": {
+        "x": 540,
+        "y": 14245
+      },
+      "ABA0009_BANK_MASTER_BKUP2": {
+        "x": 60,
+        "y": 14507
+      },
+      "ABA0009_BANK_MASTER_BKUP3": {
+        "x": 540,
+        "y": 14507
+      },
+      "ABA0009_BANK_MASTER_BKUP4": {
+        "x": 60,
+        "y": 14769
+      },
+      "ABA0010_ANNOUNCE_TEXT": {
+        "x": 551.029411764706,
+        "y": 14776.352941176472
+      },
+      "ABA0012_DP_STATUS": {
+        "x": 60,
+        "y": 15031
+      },
+      "ABA0013_PRIMARY_DEALER": {
+        "x": 540,
+        "y": 15031
+      },
+      "ABA0015_PRICE_SPREAD": {
+        "x": 60,
+        "y": 15293
+      },
+      "ABA0016_DAILY_EXTRA_DATA": {
+        "x": 436.875,
+        "y": 15293
+      },
+      "ABA0018_FINAL_EXTRA_PRICE": {
+        "x": 60,
+        "y": 15615
+      },
+      "ABA0019_PUBLIC_HOLIDAY": {
+        "x": 540,
+        "y": 15615
+      },
+      "ABA0020_STAGING_BANK_MASTER": {
+        "x": 60,
+        "y": 15907
+      },
+      "ABA0021_ISSUE_CALENDAR": {
+        "x": 540,
+        "y": 15907
+      },
+      "ABA0022_NON_BENCHMARK_20230428": {
+        "x": 60,
+        "y": 16409
+      },
+      "ABA0023_AUDIT_ACTION": {
+        "x": 530.625,
+        "y": 16409
+      },
+      "ABA0024_USER_SESSION": {
+        "x": 60,
+        "y": 16641
+      },
+      "ABA0025_OUTSTANDING_SGS": {
+        "x": 540,
+        "y": 16641
+      },
+      "ABA0026_OUTSTANDING_MAS": {
+        "x": 60,
+        "y": 16933
+      },
+      "ABA0029_SORA_RATE": {
+        "x": 421.25,
+        "y": 16933
+      },
+      "ABA0029_SORA_RATE_20230427": {
+        "x": 60,
+        "y": 17465
+      },
+      "ABA0029_SORA_RATE_BKP_20220905": {
+        "x": 540,
+        "y": 17465
+      },
+      "ABA0029_SORA_RATE_BKUP": {
+        "x": 60,
+        "y": 17997
+      },
+      "ABA0030_CORP_PASS_MAPPING": {
+        "x": 540,
+        "y": 17997
+      },
+      "ABA0031_OUTSTANDING_FRN": {
+        "x": 60,
+        "y": 18529
+      },
+      "ABA0031_OUTSTANDING_FRN_BKP": {
+        "x": 421.25,
+        "y": 18529
+      },
+      "ABA0032_EAPPS_CONFIG": {
+        "x": 782.5,
+        "y": 18529
+      },
+      "ABA0033_ISSUANCE_REDEMPT_SGS": {
+        "x": 60,
+        "y": 18971
+      },
+      "ABA0033_ISSUANCE_REDEMPT_SGS_BKP": {
+        "x": 540,
+        "y": 18971
+      },
+      "ABA0034_EAPPS_SUBMISSION_CUTOFF_TIME": {
+        "x": 60,
+        "y": 19263
+      },
+      "ABA0034_STG_SC_SECURITY_MASTER": {
+        "x": 540,
+        "y": 19263
+      },
+      "ABA0035_RETAILBID_FILE": {
+        "x": 60,
+        "y": 20815
+      },
+      "ABA0035_RETAILBID_FILE_TMP": {
+        "x": 540,
+        "y": 20815
+      },
+      "ABA0036_STAGE_SORA_AMMO": {
+        "x": 60,
+        "y": 21167
+      },
+      "ABA0036_STAGE_SORA_AMMO_T": {
+        "x": 540,
+        "y": 21167
+      },
+      "ABA0101_SB_SECURITY_MASTER_T": {
+        "x": 60,
+        "y": 21639
+      },
+      "ABA0108_SB_STAGE_SEC_MASTER": {
+        "x": 540,
+        "y": 21639
+      },
+      "ABA0110_SB_ANNOUNCE_TEXT": {
+        "x": 60,
+        "y": 22831
+      },
+      "ABA0121_SB_ISSUE_CALENDAR": {
+        "x": 515,
+        "y": 22831
+      },
+      "ABA0125_SB_STAGE_COUPON_RATE": {
+        "x": 60,
+        "y": 23303
+      },
+      "ABA0127_SB_SYSTEM_CONFIG": {
+        "x": 413.6842105263158,
+        "y": 23303
+      },
+      "ABA0134_STG_SB_SC_SEC_MASTER": {
+        "x": 60,
+        "y": 23535
+      },
+      "ABA0214_SB_CD_FILE_TYPE": {
+        "x": 540,
+        "y": 23535
+      },
+      "ABA0222_SB_ORG": {
+        "x": 60,
+        "y": 24727
+      },
+      "ABA0223_SB_PGP_CONFIG": {
+        "x": 540,
+        "y": 24727
+      },
+      "ABA0501_ENCRYPTED_REPO_TRANS": {
+        "x": 60,
+        "y": 25169
+      },
+      "ABA0502_PUB_KEY": {
+        "x": 540,
+        "y": 25169
+      },
+      "ABA0503_OPEN_ISSUES": {
+        "x": 60,
+        "y": 25491
+      },
+      "ABA0504_AUCTION_SUMMARY": {
+        "x": 540,
+        "y": 25491
+      },
+      "ABA0505_AUCTION_DETAILS": {
+        "x": 60,
+        "y": 26053
+      },
+      "ABA0506_SYSTEM_PARM": {
+        "x": 540,
+        "y": 26053
+      },
+      "ABA0507_SPLIT_BIDS": {
+        "x": 60,
+        "y": 26795
+      },
+      "ABA0601_ENCRYPTED_REPO_TRANS": {
+        "x": 530.625,
+        "y": 26795
+      },
+      "ABA0603_OPEN_ISSUES": {
+        "x": 60,
+        "y": 27207
+      },
+      "ABA0605_TRADE_DETAILS": {
+        "x": 530.625,
+        "y": 27207
+      },
+      "ABA0606_SYSTEM_PARM": {
+        "x": 60,
+        "y": 28159
+      },
+      "ABA0607_SPLIT_BIDS": {
+        "x": 540,
+        "y": 28159
+      },
+      "ABA0608_LEGAL_LOG": {
+        "x": 60,
+        "y": 28451
+      },
+      "ABA0610_REJECTED_ISSUES": {
+        "x": 499.375,
+        "y": 28451
+      },
+      "ABA2000_TASK_REGISTRY": {
+        "x": 60,
+        "y": 28683
+      },
+      "AQA0001_LIMIT": {
+        "x": 483.75,
+        "y": 28683
+      },
+      "AQA0002_TRANSACTION": {
+        "x": 60,
+        "y": 28945
+      },
+      "AQA0002_TRANSACTION_20230428": {
+        "x": 540,
+        "y": 28945
+      },
+      "AQA0005_REPORT_COUNTER": {
+        "x": 60,
+        "y": 30047
+      },
+      "AQA0006_EAPPS_TRANSACTION": {
+        "x": 515,
+        "y": 30047
+      },
+      "AQA0006_EAPPS_TRANSACTION_20230428": {
+        "x": 60,
+        "y": 31149
+      },
+      "AQA0008_SEC_AUCTION_PARA": {
+        "x": 540,
+        "y": 31149
+      },
+      "AQA0020_AUCTION_RESULTS_REPORT": {
+        "x": 60,
+        "y": 32251
+      },
+      "FINAL_DAILY_PRICE": {
+        "x": 540,
+        "y": 32251
+      },
+      "FX_FACTORS": {
+        "x": 60,
+        "y": 33473
+      },
+      "TEMP": {
+        "x": 413.6842105263158,
+        "y": 33473
+      },
+      "TEMP1": {
+        "x": 767.3684210526316,
+        "y": 33473
+      },
+      "TEMP_SUBSCRIPTION_ENTRY": {
+        "x": 60,
+        "y": 33645
+      },
+      "TEST_CLOB": {
+        "x": 499.375,
+        "y": 33645
+      },
+      "USER_SESSION": {
+        "x": 889.9013157894738,
+        "y": 33645
+      },
+      "ISS_CALENDAR_PARAMS": {
+        "x": 5231.138491058179,
+        "y": 3451.128485622177
+      },
+      "ISS_ANNOUNCEMENT_ALLOTMENT_PARAMS": {
+        "x": 3727.794236268524,
+        "y": 3361.9736559912794
+      },
+      "ISS_COUPON_PAYMENT_DATES": {
+        "x": 675.618069135036,
+        "y": 34.35403279303864
+      },
+      "ISS_CALENDAR_DATA": {
+        "x": -143.30292717555017,
+        "y": 2001.3401239331395
+      },
+      "ISS_ANNOUNCEMENT_DETAILS": {
+        "x": 1174.0486391419665,
+        "y": 1111.9459710333388
+      },
+      "ISS_ISSUANCE_T": {
+        "x": 2968.6806547076403,
+        "y": 1746.168599166603
+      },
+      "ISSUANCE_COUPON_PAYMENT_DATES_T": {
+        "x": 4502.801539959475,
+        "y": 1354.440493065844
+      },
+      "ISSUANCE_COUPON_PAYMENT_DATES": {
+        "x": 4149.310573450745,
+        "y": 1363.2515283572156
+      },
+      "ISS_ISSUANCE": {
+        "x": 2386.0570889220094,
+        "y": 1542.25769032112
+      },
+      "ISSUANCE_STEPUP_RATES": {
+        "x": 3317.5590046468533,
+        "y": 481.2527411759711
+      },
+      "ISSUANCE_STEPUP_RATES_T": {
+        "x": 3763.7852501986604,
+        "y": 468.04385291553893
+      },
+      "ISS_SEC_PARAMS": {
+        "x": 4291.590204359289,
+        "y": 2945.934842439549
+      },
+      "ISS_CALENDAR_PARAMETERS": {
+        "x": -1756.6368877597786,
+        "y": 570.6826697802508
+      },
+      "ISS_ANNOUNCEMENT_DETAILS_T": {
+        "x": 715.3189461496814,
+        "y": 1113.2935872467824
+      },
+      "ISS_ANNOUNCEMENT_STEPUP_RATES": {
+        "x": 1650.682797611504,
+        "y": 35.742614622451356
+      },
+      "ISS_CALENDAR_LISTING": {
+        "x": 718.8318433221962,
+        "y": 2986.2600257272493
+      },
+      "ISS_ANNOUNCEMENT_STEPUP_RATES_T": {
+        "x": 2092.701474915059,
+        "y": 37.62300399555511
+      },
+      "ISS_CALENDAR_PARAMS_T": {
+        "x": 5673.27364898688,
+        "y": 3448.003373559903
+      },
+      "ISS_CALENDAR_LISTING_T": {
+        "x": 1173.5923719862371,
+        "y": 2984.9717137269568
+      },
+      "ISS_SEC_PARAMS_T": {
+        "x": 4737.672296248539,
+        "y": 2944.5477312616667
+      },
+      "ISS_CALENDAR_DATA_T": {
+        "x": -599.5785096465958,
+        "y": 1998.0442525719811
+      },
+      "ISS_COUPON_PAYMENT_DATES_T": {
+        "x": 218.1475187080294,
+        "y": 31.676250239382057
+      },
+      "ISS_CALENDAR_PARAMETERS_T": {
+        "x": -1318.0100766361513,
+        "y": 573.1087040853854
+      },
+      "ISS_ANNOUNCEMENT_ALLOTMENT_PARAMS_T": {
+        "x": 3269.489742927093,
+        "y": 3435.301138598072
+      },
+      "ISS_ALLOTMENT_YIELD_DISTRIBUTION": {
+        "x": 979.4753010578456,
+        "y": 12141.75590672961
+      },
+      "ISS_BID_INSTITUTIONAL": {
+        "x": 1073.8500210626303,
+        "y": 4667.495839810636
+      },
+      "ISS_ALLOTMENT_RUN_T": {
+        "x": 1536.6143556563209,
+        "y": 9931.566812379955
+      },
+      "ISS_BID_RETAIL": {
+        "x": 1624.993162135455,
+        "y": 4665.288176269936
+      }
+    },
+    "1773390344785-ek4txmni4": {
+      "ISS_ALLOTMENT_RUN": {
+        "x": -279.1295220788029,
+        "y": -591.3229074898089
+      },
+      "ISS_AUCTION_RUN": {
+        "x": 2054.143891675294,
+        "y": -2131.201935967262
+      },
+      "ISS_SB_ALLOTMENT_RUN": {
+        "x": 2042.480113821453,
+        "y": -1023.782489204079
+      },
+      "ISS_SYND_ALLOTMENT_RUN": {
+        "x": 2036.1611552589993,
+        "y": -205.4917319012493
+      },
+      "ISS_AUCTION": {
+        "x": 1141.0861406250006,
+        "y": 367.6074398437504
+      },
+      "ISS_ISSUANCE": {
+        "x": 123.31454041416907,
+        "y": -1729.8335182884623
+      },
+      "ISS_SB_ALLOTMENT": {
+        "x": 1123.1215515625017,
+        "y": -911.1811429687484
+      },
+      "ISS_SYND_ALLOTMENT": {
+        "x": 1125.9865519531252,
+        "y": -292.18846484374774
+      },
+      "ISS_RUN": {
+        "x": 1177.784435300398,
+        "y": -1548.668823016193
+      },
+      "ISS_SB_AUCTION_RUN": {
+        "x": 2053.515563221183,
+        "y": -1037.363573940863
+      },
+      "ISS_SYND_AUCTION_RUN": {
+        "x": 2045.5245208555648,
+        "y": -309.04691410605335
+      },
+      "ISS_AUCTION_RESULTS": {
+        "x": -541.5962091773772,
+        "y": -2124.427508233322
+      },
+      "ISS_SB_AUCTION_RESULTS": {
+        "x": -548.0620330181479,
+        "y": -893.2832492905044
+      },
+      "ISS_SYND_AUCTION_RESULTS": {
+        "x": -562.5015755840175,
+        "y": -32.91563732153941
+      },
+      "ISS_RUN_T": {
+        "x": 1547.1080704233525,
+        "y": -1548.3542735931385
+      },
+      "ISS_ISSUANCE_T": {
+        "x": 625.5951756352579,
+        "y": -1737.095491034866
+      },
+      "ISS_AUCTION_RESULTS_T": {
+        "x": -1038.7051001223124,
+        "y": -2126.237435414703
+      },
+      "ISS_SB_AUCTION_RUN_T": {
+        "x": 2548.690940287376,
+        "y": -1047.4218433672677
+      },
+      "ISS_SB_AUCTION_RESULTS_T": {
+        "x": -1030.9181436069662,
+        "y": -895.9869439496663
+      },
+      "ISS_SYND_AUCTION_RUN_T": {
+        "x": 2556.4217727913465,
+        "y": -306.02150952819454
+      },
+      "ISS_SYND_AUCTION_RESULTS_T": {
+        "x": -1078.024285710826,
+        "y": -21.954201924774225
+      },
+      "ISS_AUCTION_RUN_T": {
+        "x": 2551.2803227261084,
+        "y": -2141.5057064883
+      },
+      "ISS_SB_ALLOTMENT_RUN_T": {
+        "x": 2548.730685112848,
+        "y": -1019.1081314258606
+      },
+      "ISS_SYND_ALLOTMENT_RUN_T": {
+        "x": 2549.381642695896,
+        "y": -214.31984737890366
+      },
+      "ISS_SB_ALLOTMENT_RESULTS_T": {
+        "x": -1035.4123689719017,
+        "y": -861.0154800094047
+      },
+      "ISS_SB_ALLOTMENT_RESULTS": {
+        "x": -530.8687524896538,
+        "y": -861.869365089658
+      },
+      "ISS_SYND_ALLOTMENT_RESULTS_T": {
+        "x": -1079.5010369139932,
+        "y": 144.08055146589845
+      },
+      "ISS_SYND_ALLOTMENT_RESULTS": {
+        "x": -544.1574191105653,
+        "y": 133.52559871819358
+      }
+    },
+    "1769748075633-thy4gl0om": {
+      "ISS_ANNOUNCEMENT_ALLOTMENT_PARAMS": {
+        "x": -7304.425831293428,
+        "y": 3419.6657001385192
+      },
+      "ISS_CALENDAR_PARAMS": {
+        "x": -8783.556559660638,
+        "y": 3501.123157995955
+      },
+      "ISS_COUPON_PAYMENT_DATES": {
+        "x": -6401.69238122286,
+        "y": 727.8489854281233
+      },
+      "ISS_CALENDAR_DATA": {
+        "x": -6910.152716003868,
+        "y": 1999.4031947419705
+      },
+      "ISS_ANNOUNCEMENT_DETAILS": {
+        "x": -5716.985414298182,
+        "y": 1432.8881298329306
+      },
+      "ISS_ISSUANCE_T": {
+        "x": -3815.3133244033497,
+        "y": 1704.5847643681707
+      },
+      "ISSUANCE_COUPON_PAYMENT_DATES_T": {
+        "x": -2066.537234476297,
+        "y": 1940.78211408292
+      },
+      "ISSUANCE_COUPON_PAYMENT_DATES": {
+        "x": -2420.0282009850266,
+        "y": 1949.5931493742917
+      },
+      "ISS_ISSUANCE": {
+        "x": -3320.174242800665,
+        "y": 1698.0256609554215
+      },
+      "ISSUANCE_STEPUP_RATES": {
+        "x": -4250.279290927774,
+        "y": 752.5211941308305
+      },
+      "ISSUANCE_STEPUP_RATES_T": {
+        "x": -3804.0530453759675,
+        "y": 739.3123058703984
+      },
+      "ISS_SEC_PARAMS": {
+        "x": -9813.420675168132,
+        "y": 3385.4165265504334
+      },
+      "ISS_CALENDAR_PARAMETERS": {
+        "x": -8647.670941199927,
+        "y": 891.6248285798426
+      },
+      "ISS_ANNOUNCEMENT_DETAILS_T": {
+        "x": -6175.715107290467,
+        "y": 1434.2357460463743
+      },
+      "ISS_ANNOUNCEMENT_STEPUP_RATES": {
+        "x": -5426.627652746392,
+        "y": 729.237567257536
+      },
+      "ISS_CALENDAR_LISTING": {
+        "x": -6271.549621807418,
+        "y": 3127.1350008396867
+      },
+      "ISS_ANNOUNCEMENT_STEPUP_RATES_T": {
+        "x": -4984.608975442837,
+        "y": 731.1179566306398
+      },
+      "ISS_CALENDAR_PARAMS_T": {
+        "x": -8341.421401731937,
+        "y": 3497.998045933681
+      },
+      "ISS_CALENDAR_LISTING_T": {
+        "x": -5816.789093143377,
+        "y": 3125.846688839394
+      },
+      "ISS_SEC_PARAMS_T": {
+        "x": -9367.33858327888,
+        "y": 3384.0294153725517
+      },
+      "ISS_CALENDAR_DATA_T": {
+        "x": -7366.428298474913,
+        "y": 1996.1073233808122
+      },
+      "ISS_COUPON_PAYMENT_DATES_T": {
+        "x": -6859.162931649866,
+        "y": 725.1712028744668
+      },
+      "ISS_CALENDAR_PARAMETERS_T": {
+        "x": -8209.044130076301,
+        "y": 894.0508628849773
+      },
+      "ISS_ANNOUNCEMENT_ALLOTMENT_PARAMS_T": {
+        "x": -7789.929670853231,
+        "y": 3432.4878032348197
+      },
+      "ISS_ALLOTMENT_YIELD_DISTRIBUTION": {
+        "x": -4382.449835560977,
+        "y": 5490.151344308739
+      },
+      "ISS_BID_INSTITUTIONAL": {
+        "x": -4560.269430430917,
+        "y": 3899.2495101710215
+      },
+      "ISS_ALLOTMENT_RUN_T": {
+        "x": -4990.424602821935,
+        "y": 5475.890863120176
+      },
+      "ISS_BID_RETAIL": {
+        "x": -2632.1909834478306,
+        "y": 3826.2815864092026
+      },
+      "CM_BANK_MASTER": {
+        "x": 157.43214578913057,
+        "y": 3357.99249471328
+      },
+      "CM_BATCH_JOB": {
+        "x": 241.38371719424458,
+        "y": 1657.330790030333
+      },
+      "CM_DOCUMENTS": {
+        "x": -1160.6631925775073,
+        "y": 885.8454018373748
+      },
+      "CM_MASTER_CODE_CATEGORY": {
+        "x": 208.4471326317821,
+        "y": 2534.9351750873657
+      },
+      "CM_PROPERTIES": {
+        "x": -354.4131925775073,
+        "y": 881.5954018373749
+      },
+      "CM_PUBLIC_HOLIDAY": {
+        "x": 430.09482568357726,
+        "y": 874.8258408686596
+      },
+      "CM_BANK_MASTER_MAP": {
+        "x": -255.9271413880756,
+        "y": 3603.2619237459453
+      },
+      "CM_BANK_MASTER_MAP_T": {
+        "x": -627.4216594469667,
+        "y": 3598.1073656126314
+      },
+      "CM_BANK_MASTER_T": {
+        "x": 593.4593455514728,
+        "y": 3359.830781659976
+      },
+      "CM_BATCH_JOB_DETAIL": {
+        "x": -251.77256136244205,
+        "y": 1653.246588255005
+      },
+      "CM_BATCH_JOB_DETAIL_T": {
+        "x": -652.6825388742482,
+        "y": 1648.9646702669152
+      },
+      "CM_BATCH_JOB_T": {
+        "x": 640.4375105540753,
+        "y": 1655.58709877835
+      },
+      "CM_DOCUMENTS_T": {
+        "x": -809.2980609985589,
+        "y": 883.3454018373758
+      },
+      "CM_MASTER_CODE": {
+        "x": -328.6634432729247,
+        "y": 2535.573507039114
+      },
+      "CM_MASTER_CODE_CATEGORY_T": {
+        "x": 631.7448353423356,
+        "y": 2537.0441148622676
+      },
+      "CM_MASTER_CODE_T": {
+        "x": -786.9562401632711,
+        "y": 2536.3528150801185
+      },
+      "CM_PROPERTIES_T": {
+        "x": -16.798060998558867,
+        "y": 884.0954018373749
+      },
+      "CM_PUBLIC_HOLIDAY_T": {
+        "x": 744.5594911682674,
+        "y": 872.9655060683452
+      },
+      "SEC_SECURITY_MASTER": {
+        "x": -4779.491717165218,
+        "y": 1700.4815704766536
+      },
+      "SEC_COUPON_SCHEDULE": {
+        "x": -4379.815209715545,
+        "y": 2693.5917710855356
+      },
+      "SEC_COUPON_SCHEDULE_T": {
+        "x": -4820.682659715545,
+        "y": 2694.612241085535
+      },
+      "SEC_SECURITY_MASTER_T": {
+        "x": -4336.991717165218,
+        "y": 1696.4815704766536
+      },
+      "ISS_BID_FILE_REGISTRY": {
+        "x": -2442.576726543559,
+        "y": 845.0993227648131
+      },
+      "ISS_ALLOTMENT_RUN": {
+        "x": -5449.611626969956,
+        "y": 5477.507353667848
+      },
+      "STG_FI_OUT_EA_ES_RA": {
+        "x": 3028.3695652174,
+        "y": 2320.2173913043475
+      },
+      "STG_FI_OUT_INS_EA_RA": {
+        "x": 3437.7445652174,
+        "y": 2320.2173913043475
+      },
+      "STG_FI_OUT_SB_RR": {
+        "x": 3436.4945652173974,
+        "y": 3952.217391304346
+      },
+      "ISS_ALLOTMENT_PD_OBLIGATION": {
+        "x": -6475.713193458399,
+        "y": 5478.886828008979
+      },
+      "ISS_ALLOTMENT_PD_OBLIGATION_T": {
+        "x": -5995.713193458398,
+        "y": 5478.886828008979
+      },
+      "ISS_AUCTION_SAFEGUARD": {
+        "x": -7438.923171596582,
+        "y": 5494.913866940745
+      },
+      "ISS_AUCTION_SAFEGUARD_T": {
+        "x": -6983.923171596582,
+        "y": 5494.913866940745
+      },
+      "ISS_BID_FILE_REGISTRY_T": {
+        "x": -2053.1102678683137,
+        "y": 845.7902412425075
+      },
+      "ISS_BID_INSTITUTIONAL_T": {
+        "x": -4129.403962570514,
+        "y": 3892.128728385111
+      },
+      "ISS_BID_RETAIL_T": {
+        "x": -2186.0337928642857,
+        "y": 3822.830530879296
+      },
+      "STG_FI_IN_EA_AP": {
+        "x": 2640.8695652173965,
+        "y": 878.2173913043474
+      },
+      "STG_FI_IN_SB_AP": {
+        "x": 3080.2445652173965,
+        "y": 878.2173913043474
+      },
+      "STG_FI_IN_SB_HOL": {
+        "x": 3519.6195652173965,
+        "y": 878.2173913043474
+      },
+      "STG_FI_IN_SB_RE": {
+        "x": 3927.7445652173965,
+        "y": 878.2173913043474
+      },
+      "STG_FI_OUT_CAL": {
+        "x": 2160.8695652173965,
+        "y": 2310.2173913043475
+      },
+      "STG_FI_OUT_EA_AA": {
+        "x": 2568.9945652173965,
+        "y": 2310.2173913043475
+      },
+      "STG_FI_OUT_SB_ACK": {
+        "x": 3871.4945652173965,
+        "y": 2310.2173913043475
+      },
+      "STG_FI_OUT_SB_AH": {
+        "x": 2160.8695652173965,
+        "y": 3952.217391304346
+      },
+      "STG_FI_OUT_SB_CPN": {
+        "x": 2568.9945652173965,
+        "y": 3952.217391304346
+      },
+      "STG_FI_OUT_SB_RA": {
+        "x": 2977.1195652173965,
+        "y": 3952.217391304346
+      },
+      "STG_MEPS_IN_BANK": {
+        "x": 3855.8695652173965,
+        "y": 3952.217391304346
+      },
+      "STG_MEPS_IN_COUPONRATES": {
+        "x": 2160.8695652173965,
+        "y": 5534.217391304346
+      },
+      "STG_MEPS_IN_SECINT": {
+        "x": 2600.2445652173965,
+        "y": 5534.217391304346
+      },
+      "STG_MEPS_IN_SECMAST": {
+        "x": 3039.6195652173965,
+        "y": 5534.217391304346
+      },
+      "STG_MEPS_OUT_AUCTION": {
+        "x": 3478.9945652173965,
+        "y": 5534.217391304346
+      },
+      "STG_MEPS_OUT_AUCTION_SBOND": {
+        "x": 3887.1195652173965,
+        "y": 5534.217391304346
+      },
+      "STG_MEPS_OUT_CLOSINGPRICE": {
+        "x": 2160.8695652173965,
+        "y": 6996.217391304346
+      },
+      "STG_MEPS_OUT_MEPS_SORA_INDEX": {
+        "x": 2568.9945652173965,
+        "y": 6996.217391304346
+      },
+      "STG_MEPS_OUT_RDMPARTIAL_SBOND": {
+        "x": 3039.6195652173965,
+        "y": 6996.217391304346
+      },
+      "STG_MEPS_OUT_SECUPDT": {
+        "x": 3447.7445652173965,
+        "y": 6996.217391304346
+      }
+    },
+    "1765767590723-int8dg1yl": {
+      "CM_BANK_MASTER": {
+        "x": 1469.394916961908,
+        "y": 786.7544193935328
+      },
+      "CM_BATCH_JOB": {
+        "x": 1526.8958675896322,
+        "y": 1769.952981367127
+      },
+      "CM_DOCUMENTS": {
+        "x": 156.44736842105266,
+        "y": 78.75000000000003
+      },
+      "CM_MASTER_CODE_CATEGORY": {
+        "x": 1490.852807943038,
+        "y": 2649.3704105898823
+      },
+      "CM_PROPERTIES": {
+        "x": 912.6973684210527,
+        "y": 74.49999999999997
+      },
+      "CM_PUBLIC_HOLIDAY": {
+        "x": 1697.205386682137,
+        "y": 67.7304390312845
+      },
+      "CM_BANK_MASTER_MAP": {
+        "x": 1045.6316297847025,
+        "y": 792.7318484261982
+      },
+      "CM_BANK_MASTER_MAP_T": {
+        "x": 674.1371117258107,
+        "y": 794.0797902928839
+      },
+      "CM_BANK_MASTER_T": {
+        "x": 1905.4221167242504,
+        "y": 788.5927063402286
+      },
+      "CM_BATCH_JOB_DETAIL": {
+        "x": 1030.6331139488138,
+        "y": 1767.6818237575217
+      },
+      "CM_BATCH_JOB_DETAIL_T": {
+        "x": 645.0182507497021,
+        "y": 1763.3999057694314
+      },
+      "CM_BATCH_JOB_T": {
+        "x": 1922.8431858653291,
+        "y": 1770.0223342808658
+      },
+      "CM_DOCUMENTS_T": {
+        "x": 502.8125000000002,
+        "y": 80.00000000000011
+      },
+      "CM_MASTER_CODE": {
+        "x": 953.7422320383314,
+        "y": 2650.0087425416305
+      },
+      "CM_MASTER_CODE_CATEGORY_T": {
+        "x": 1914.1505106535915,
+        "y": 2651.4793503647834
+      },
+      "CM_MASTER_CODE_T": {
+        "x": 510.7445494606793,
+        "y": 2650.788050582635
+      },
+      "CM_PROPERTIES_T": {
+        "x": 1249.0625000000002,
+        "y": 72.00000000000003
+      },
+      "CM_PUBLIC_HOLIDAY_T": {
+        "x": 2011.6700521668276,
+        "y": 65.87010423096984
+      }
+    },
+    "1765767477409-l6jnwi0f9": {
+      "ABA0001_SECURITY_MASTER": {
+        "x": 947.5000000000001,
+        "y": 1089.5
+      },
+      "ABA0002_FRN_ISSUE": {
+        "x": 60,
+        "y": 60
+      },
+      "ABA0005_RSA_TEXT_ENC_TRANS": {
+        "x": 60,
+        "y": 262
+      },
+      "ABA0006_AUCTION_RESULT": {
+        "x": 64.6875,
+        "y": 824
+      },
+      "ABA0008_STAGE_SECURITY_MASTER": {
+        "x": 60,
+        "y": 1146
+      },
+      "ABA0011_DAILY_PRICE": {
+        "x": 60,
+        "y": 2488
+      },
+      "ABA0017_FINAL_DAILY_PRICE": {
+        "x": 60,
+        "y": 2930
+      },
+      "ABA0022_NON_BENCHMARK": {
+        "x": 64.6875,
+        "y": 3732
+      },
+      "ABA0027_BATCH_JOB": {
+        "x": 540,
+        "y": 4125
+      },
+      "ABA0028_BATCH_JOB_EXECUTION": {
+        "x": 60,
+        "y": 4065
+      },
+      "ABA0101_SB_SECURITY_MASTER": {
+        "x": 540,
+        "y": 4387
+      },
+      "ABA0124_SB_COUPON_RATE_DETAILS": {
+        "x": 60,
+        "y": 4597
+      },
+      "ABA0126_SB_REDEMPTION_RESULT": {
+        "x": 60,
+        "y": 4908
+      },
+      "ABA0001_SECURITY_MASTER_20230428": {
+        "x": 60,
+        "y": 5429
+      },
+      "ABA0001_SECURITY_MASTER_20230512": {
+        "x": 540,
+        "y": 5429
+      },
+      "ABA0001_SECURITY_MASTER_20230515": {
+        "x": 60,
+        "y": 6981
+      },
+      "ABA0001_SECURITY_MASTER_20230516": {
+        "x": 540,
+        "y": 6981
+      },
+      "ABA0001_SECURITY_MASTER_20230529": {
+        "x": 60,
+        "y": 8533
+      },
+      "ABA0001_SECURITY_MASTER_20230601": {
+        "x": 540,
+        "y": 8533
+      },
+      "ABA0001_SECURITY_MASTER_R2_20231212": {
+        "x": 60,
+        "y": 10085
+      },
+      "ABA0001_SECURITY_MASTER_T": {
+        "x": 540,
+        "y": 10085
+      },
+      "ABA0004_RETAIL_BID_TRANS": {
+        "x": 60,
+        "y": 11637
+      },
+      "ABA0004_RETAIL_BID_TRANS_20230428": {
+        "x": 540,
+        "y": 11637
+      },
+      "ABA0004_RETAIL_BID_TRANS_BKP": {
+        "x": 60,
+        "y": 12019
+      },
+      "ABA0005_RSA_TEXT_ENC_TRANS_20230428": {
+        "x": 540,
+        "y": 12019
+      },
+      "ABA0006_AUCTION_RESULT_20230428": {
+        "x": 60,
+        "y": 12581
+      },
+      "ABA0007_DETAIL_AUCTION_RESULT": {
+        "x": 530.625,
+        "y": 12581
+      },
+      "ABA0007_DETAIL_AUCTION_RESULT_20230428": {
+        "x": 60,
+        "y": 13413
+      },
+      "ABA0009_BANK_MASTER": {
+        "x": 540,
+        "y": 13413
+      },
+      "ABA0009_BANK_MASTER_BKUP": {
+        "x": 60,
+        "y": 14245
+      },
+      "ABA0009_BANK_MASTER_BKUP1": {
+        "x": 540,
+        "y": 14245
+      },
+      "ABA0009_BANK_MASTER_BKUP2": {
+        "x": 60,
+        "y": 14507
+      },
+      "ABA0009_BANK_MASTER_BKUP3": {
+        "x": 540,
+        "y": 14507
+      },
+      "ABA0009_BANK_MASTER_BKUP4": {
+        "x": 60,
+        "y": 14769
+      },
+      "ABA0010_ANNOUNCE_TEXT": {
+        "x": 551.029411764706,
+        "y": 14776.352941176472
+      },
+      "ABA0012_DP_STATUS": {
+        "x": 60,
+        "y": 15031
+      },
+      "ABA0013_PRIMARY_DEALER": {
+        "x": 540,
+        "y": 15031
+      },
+      "ABA0015_PRICE_SPREAD": {
+        "x": 60,
+        "y": 15293
+      },
+      "ABA0016_DAILY_EXTRA_DATA": {
+        "x": 436.875,
+        "y": 15293
+      },
+      "ABA0018_FINAL_EXTRA_PRICE": {
+        "x": 60,
+        "y": 15615
+      },
+      "ABA0019_PUBLIC_HOLIDAY": {
+        "x": 540,
+        "y": 15615
+      },
+      "ABA0020_STAGING_BANK_MASTER": {
+        "x": 60,
+        "y": 15907
+      },
+      "ABA0021_ISSUE_CALENDAR": {
+        "x": 540,
+        "y": 15907
+      },
+      "ABA0022_NON_BENCHMARK_20230428": {
+        "x": 60,
+        "y": 16409
+      },
+      "ABA0023_AUDIT_ACTION": {
+        "x": 530.625,
+        "y": 16409
+      },
+      "ABA0024_USER_SESSION": {
+        "x": 60,
+        "y": 16641
+      },
+      "ABA0025_OUTSTANDING_SGS": {
+        "x": 540,
+        "y": 16641
+      },
+      "ABA0026_OUTSTANDING_MAS": {
+        "x": 60,
+        "y": 16933
+      },
+      "ABA0029_SORA_RATE": {
+        "x": 421.25,
+        "y": 16933
+      },
+      "ABA0029_SORA_RATE_20230427": {
+        "x": 60,
+        "y": 17465
+      },
+      "ABA0029_SORA_RATE_BKP_20220905": {
+        "x": 540,
+        "y": 17465
+      },
+      "ABA0029_SORA_RATE_BKUP": {
+        "x": 60,
+        "y": 17997
+      },
+      "ABA0030_CORP_PASS_MAPPING": {
+        "x": 540,
+        "y": 17997
+      },
+      "ABA0031_OUTSTANDING_FRN": {
+        "x": 60,
+        "y": 18529
+      },
+      "ABA0031_OUTSTANDING_FRN_BKP": {
+        "x": 421.25,
+        "y": 18529
+      },
+      "ABA0032_EAPPS_CONFIG": {
+        "x": 782.5,
+        "y": 18529
+      },
+      "ABA0033_ISSUANCE_REDEMPT_SGS": {
+        "x": 60,
+        "y": 18971
+      },
+      "ABA0033_ISSUANCE_REDEMPT_SGS_BKP": {
+        "x": 540,
+        "y": 18971
+      },
+      "ABA0034_EAPPS_SUBMISSION_CUTOFF_TIME": {
+        "x": 60,
+        "y": 19263
+      },
+      "ABA0034_STG_SC_SECURITY_MASTER": {
+        "x": 540,
+        "y": 19263
+      },
+      "ABA0035_RETAILBID_FILE": {
+        "x": 60,
+        "y": 20815
+      },
+      "ABA0035_RETAILBID_FILE_TMP": {
+        "x": 540,
+        "y": 20815
+      },
+      "ABA0036_STAGE_SORA_AMMO": {
+        "x": 60,
+        "y": 21167
+      },
+      "ABA0036_STAGE_SORA_AMMO_T": {
+        "x": 540,
+        "y": 21167
+      },
+      "ABA0101_SB_SECURITY_MASTER_T": {
+        "x": 60,
+        "y": 21639
+      },
+      "ABA0108_SB_STAGE_SEC_MASTER": {
+        "x": 540,
+        "y": 21639
+      },
+      "ABA0110_SB_ANNOUNCE_TEXT": {
+        "x": 60,
+        "y": 22831
+      },
+      "ABA0121_SB_ISSUE_CALENDAR": {
+        "x": 515,
+        "y": 22831
+      },
+      "ABA0125_SB_STAGE_COUPON_RATE": {
+        "x": 60,
+        "y": 23303
+      },
+      "ABA0127_SB_SYSTEM_CONFIG": {
+        "x": 413.6842105263158,
+        "y": 23303
+      },
+      "ABA0134_STG_SB_SC_SEC_MASTER": {
+        "x": 60,
+        "y": 23535
+      },
+      "ABA0214_SB_CD_FILE_TYPE": {
+        "x": 540,
+        "y": 23535
+      },
+      "ABA0222_SB_ORG": {
+        "x": 60,
+        "y": 24727
+      },
+      "ABA0223_SB_PGP_CONFIG": {
+        "x": 540,
+        "y": 24727
+      },
+      "ABA0501_ENCRYPTED_REPO_TRANS": {
+        "x": 60,
+        "y": 25169
+      },
+      "ABA0502_PUB_KEY": {
+        "x": 540,
+        "y": 25169
+      },
+      "ABA0503_OPEN_ISSUES": {
+        "x": 60,
+        "y": 25491
+      },
+      "ABA0504_AUCTION_SUMMARY": {
+        "x": 540,
+        "y": 25491
+      },
+      "ABA0505_AUCTION_DETAILS": {
+        "x": 60,
+        "y": 26053
+      },
+      "ABA0506_SYSTEM_PARM": {
+        "x": 540,
+        "y": 26053
+      },
+      "ABA0507_SPLIT_BIDS": {
+        "x": 60,
+        "y": 26795
+      },
+      "ABA0601_ENCRYPTED_REPO_TRANS": {
+        "x": 530.625,
+        "y": 26795
+      },
+      "ABA0603_OPEN_ISSUES": {
+        "x": 60,
+        "y": 27207
+      },
+      "ABA0605_TRADE_DETAILS": {
+        "x": 527.2285094631378,
+        "y": 27208.132163512288
+      },
+      "ABA0606_SYSTEM_PARM": {
+        "x": 60,
+        "y": 28159
+      },
+      "ABA0607_SPLIT_BIDS": {
+        "x": 540,
+        "y": 28159
+      },
+      "ABA0608_LEGAL_LOG": {
+        "x": 60,
+        "y": 28451
+      },
+      "ABA0610_REJECTED_ISSUES": {
+        "x": 499.375,
+        "y": 28451
+      },
+      "ABA2000_TASK_REGISTRY": {
+        "x": 60,
+        "y": 28683
+      },
+      "AQA0001_LIMIT": {
+        "x": 483.75,
+        "y": 28683
+      },
+      "AQA0002_TRANSACTION": {
+        "x": 60,
+        "y": 28945
+      },
+      "AQA0002_TRANSACTION_20230428": {
+        "x": 540,
+        "y": 28945
+      },
+      "AQA0005_REPORT_COUNTER": {
+        "x": 60,
+        "y": 30047
+      },
+      "AQA0006_EAPPS_TRANSACTION": {
+        "x": 515,
+        "y": 30047
+      },
+      "AQA0006_EAPPS_TRANSACTION_20230428": {
+        "x": 60,
+        "y": 31149
+      },
+      "AQA0008_SEC_AUCTION_PARA": {
+        "x": 540,
+        "y": 31149
+      },
+      "AQA0020_AUCTION_RESULTS_REPORT": {
+        "x": 60,
+        "y": 32251
+      },
+      "FINAL_DAILY_PRICE": {
+        "x": 540,
+        "y": 32251
+      },
+      "FX_FACTORS": {
+        "x": 60,
+        "y": 33473
+      },
+      "TEMP": {
+        "x": 413.6842105263158,
+        "y": 33473
+      },
+      "TEMP1": {
+        "x": 767.3684210526316,
+        "y": 33473
+      },
+      "TEMP_SUBSCRIPTION_ENTRY": {
+        "x": 60,
+        "y": 33645
+      },
+      "TEST_CLOB": {
+        "x": 499.375,
+        "y": 33645
+      },
+      "USER_SESSION": {
+        "x": 889.9013157894738,
+        "y": 33645
+      }
+    },
+    "1765767535885-o1jilrqnk_1765767563393-zeqnha67h": {
+      "ABA0001_SECURITY_MASTER": {
+        "x": 947.5000000000001,
+        "y": 1089.5
+      },
+      "ABA0002_FRN_ISSUE": {
+        "x": 60,
+        "y": 60
+      },
+      "ABA0005_RSA_TEXT_ENC_TRANS": {
+        "x": 60,
+        "y": 262
+      },
+      "ABA0006_AUCTION_RESULT": {
+        "x": 64.6875,
+        "y": 824
+      },
+      "ABA0008_STAGE_SECURITY_MASTER": {
+        "x": 60,
+        "y": 1146
+      },
+      "ABA0011_DAILY_PRICE": {
+        "x": 60,
+        "y": 2488
+      },
+      "ABA0017_FINAL_DAILY_PRICE": {
+        "x": 60,
+        "y": 2930
+      },
+      "ABA0022_NON_BENCHMARK": {
+        "x": 64.6875,
+        "y": 3732
+      },
+      "ABA0027_BATCH_JOB": {
+        "x": 540,
+        "y": 4125
+      },
+      "ABA0028_BATCH_JOB_EXECUTION": {
+        "x": 60,
+        "y": 4065
+      },
+      "ABA0101_SB_SECURITY_MASTER": {
+        "x": 540,
+        "y": 4387
+      },
+      "ABA0124_SB_COUPON_RATE_DETAILS": {
+        "x": 60,
+        "y": 4597
+      },
+      "ABA0126_SB_REDEMPTION_RESULT": {
+        "x": 60,
+        "y": 4908
+      },
+      "ABA0001_SECURITY_MASTER_20230428": {
+        "x": 60,
+        "y": 5429
+      },
+      "ABA0001_SECURITY_MASTER_20230512": {
+        "x": 540,
+        "y": 5429
+      },
+      "ABA0001_SECURITY_MASTER_20230515": {
+        "x": 60,
+        "y": 6981
+      },
+      "ABA0001_SECURITY_MASTER_20230516": {
+        "x": 540,
+        "y": 6981
+      },
+      "ABA0001_SECURITY_MASTER_20230529": {
+        "x": 60,
+        "y": 8533
+      },
+      "ABA0001_SECURITY_MASTER_20230601": {
+        "x": 540,
+        "y": 8533
+      },
+      "ABA0001_SECURITY_MASTER_R2_20231212": {
+        "x": 60,
+        "y": 10085
+      },
+      "ABA0001_SECURITY_MASTER_T": {
+        "x": 540,
+        "y": 10085
+      },
+      "ABA0004_RETAIL_BID_TRANS": {
+        "x": 60,
+        "y": 11637
+      },
+      "ABA0004_RETAIL_BID_TRANS_20230428": {
+        "x": 540,
+        "y": 11637
+      },
+      "ABA0004_RETAIL_BID_TRANS_BKP": {
+        "x": 60,
+        "y": 12019
+      },
+      "ABA0005_RSA_TEXT_ENC_TRANS_20230428": {
+        "x": 540,
+        "y": 12019
+      },
+      "ABA0006_AUCTION_RESULT_20230428": {
+        "x": 60,
+        "y": 12581
+      },
+      "ABA0007_DETAIL_AUCTION_RESULT": {
+        "x": 530.625,
+        "y": 12581
+      },
+      "ABA0007_DETAIL_AUCTION_RESULT_20230428": {
+        "x": 60,
+        "y": 13413
+      },
+      "ABA0009_BANK_MASTER": {
+        "x": 540,
+        "y": 13413
+      },
+      "ABA0009_BANK_MASTER_BKUP": {
+        "x": 60,
+        "y": 14245
+      },
+      "ABA0009_BANK_MASTER_BKUP1": {
+        "x": 540,
+        "y": 14245
+      },
+      "ABA0009_BANK_MASTER_BKUP2": {
+        "x": 60,
+        "y": 14507
+      },
+      "ABA0009_BANK_MASTER_BKUP3": {
+        "x": 540,
+        "y": 14507
+      },
+      "ABA0009_BANK_MASTER_BKUP4": {
+        "x": 60,
+        "y": 14769
+      },
+      "ABA0010_ANNOUNCE_TEXT": {
+        "x": 551.029411764706,
+        "y": 14776.352941176472
+      },
+      "ABA0012_DP_STATUS": {
+        "x": 60,
+        "y": 15031
+      },
+      "ABA0013_PRIMARY_DEALER": {
+        "x": 540,
+        "y": 15031
+      },
+      "ABA0015_PRICE_SPREAD": {
+        "x": 60,
+        "y": 15293
+      },
+      "ABA0016_DAILY_EXTRA_DATA": {
+        "x": 436.875,
+        "y": 15293
+      },
+      "ABA0018_FINAL_EXTRA_PRICE": {
+        "x": 60,
+        "y": 15615
+      },
+      "ABA0019_PUBLIC_HOLIDAY": {
+        "x": 540,
+        "y": 15615
+      },
+      "ABA0020_STAGING_BANK_MASTER": {
+        "x": 60,
+        "y": 15907
+      },
+      "ABA0021_ISSUE_CALENDAR": {
+        "x": 540,
+        "y": 15907
+      },
+      "ABA0022_NON_BENCHMARK_20230428": {
+        "x": 60,
+        "y": 16409
+      },
+      "ABA0023_AUDIT_ACTION": {
+        "x": 530.625,
+        "y": 16409
+      },
+      "ABA0024_USER_SESSION": {
+        "x": 60,
+        "y": 16641
+      },
+      "ABA0025_OUTSTANDING_SGS": {
+        "x": 540,
+        "y": 16641
+      },
+      "ABA0026_OUTSTANDING_MAS": {
+        "x": 60,
+        "y": 16933
+      },
+      "ABA0029_SORA_RATE": {
+        "x": 421.25,
+        "y": 16933
+      },
+      "ABA0029_SORA_RATE_20230427": {
+        "x": 60,
+        "y": 17465
+      },
+      "ABA0029_SORA_RATE_BKP_20220905": {
+        "x": 540,
+        "y": 17465
+      },
+      "ABA0029_SORA_RATE_BKUP": {
+        "x": 60,
+        "y": 17997
+      },
+      "ABA0030_CORP_PASS_MAPPING": {
+        "x": 540,
+        "y": 17997
+      },
+      "ABA0031_OUTSTANDING_FRN": {
+        "x": 60,
+        "y": 18529
+      },
+      "ABA0031_OUTSTANDING_FRN_BKP": {
+        "x": 421.25,
+        "y": 18529
+      },
+      "ABA0032_EAPPS_CONFIG": {
+        "x": 782.5,
+        "y": 18529
+      },
+      "ABA0033_ISSUANCE_REDEMPT_SGS": {
+        "x": 60,
+        "y": 18971
+      },
+      "ABA0033_ISSUANCE_REDEMPT_SGS_BKP": {
+        "x": 540,
+        "y": 18971
+      },
+      "ABA0034_EAPPS_SUBMISSION_CUTOFF_TIME": {
+        "x": 60,
+        "y": 19263
+      },
+      "ABA0034_STG_SC_SECURITY_MASTER": {
+        "x": 540,
+        "y": 19263
+      },
+      "ABA0035_RETAILBID_FILE": {
+        "x": 60,
+        "y": 20815
+      },
+      "ABA0035_RETAILBID_FILE_TMP": {
+        "x": 540,
+        "y": 20815
+      },
+      "ABA0036_STAGE_SORA_AMMO": {
+        "x": 60,
+        "y": 21167
+      },
+      "ABA0036_STAGE_SORA_AMMO_T": {
+        "x": 540,
+        "y": 21167
+      },
+      "ABA0101_SB_SECURITY_MASTER_T": {
+        "x": 60,
+        "y": 21639
+      },
+      "ABA0108_SB_STAGE_SEC_MASTER": {
+        "x": 540,
+        "y": 21639
+      },
+      "ABA0110_SB_ANNOUNCE_TEXT": {
+        "x": 60,
+        "y": 22831
+      },
+      "ABA0121_SB_ISSUE_CALENDAR": {
+        "x": 515,
+        "y": 22831
+      },
+      "ABA0125_SB_STAGE_COUPON_RATE": {
+        "x": 60,
+        "y": 23303
+      },
+      "ABA0127_SB_SYSTEM_CONFIG": {
+        "x": 413.6842105263158,
+        "y": 23303
+      },
+      "ABA0134_STG_SB_SC_SEC_MASTER": {
+        "x": 60,
+        "y": 23535
+      },
+      "ABA0214_SB_CD_FILE_TYPE": {
+        "x": 540,
+        "y": 23535
+      },
+      "ABA0222_SB_ORG": {
+        "x": 60,
+        "y": 24727
+      },
+      "ABA0223_SB_PGP_CONFIG": {
+        "x": 540,
+        "y": 24727
+      },
+      "ABA0501_ENCRYPTED_REPO_TRANS": {
+        "x": 60,
+        "y": 25169
+      },
+      "ABA0502_PUB_KEY": {
+        "x": 540,
+        "y": 25169
+      },
+      "ABA0503_OPEN_ISSUES": {
+        "x": 60,
+        "y": 25491
+      },
+      "ABA0504_AUCTION_SUMMARY": {
+        "x": 540,
+        "y": 25491
+      },
+      "ABA0505_AUCTION_DETAILS": {
+        "x": 60,
+        "y": 26053
+      },
+      "ABA0506_SYSTEM_PARM": {
+        "x": 540,
+        "y": 26053
+      },
+      "ABA0507_SPLIT_BIDS": {
+        "x": 60,
+        "y": 26795
+      },
+      "ABA0601_ENCRYPTED_REPO_TRANS": {
+        "x": 530.625,
+        "y": 26795
+      },
+      "ABA0603_OPEN_ISSUES": {
+        "x": 60,
+        "y": 27207
+      },
+      "ABA0605_TRADE_DETAILS": {
+        "x": 530.625,
+        "y": 27207
+      },
+      "ABA0606_SYSTEM_PARM": {
+        "x": 60,
+        "y": 28159
+      },
+      "ABA0607_SPLIT_BIDS": {
+        "x": 540,
+        "y": 28159
+      },
+      "ABA0608_LEGAL_LOG": {
+        "x": 60,
+        "y": 28451
+      },
+      "ABA0610_REJECTED_ISSUES": {
+        "x": 499.375,
+        "y": 28451
+      },
+      "ABA2000_TASK_REGISTRY": {
+        "x": 60,
+        "y": 28683
+      },
+      "AQA0001_LIMIT": {
+        "x": 483.75,
+        "y": 28683
+      },
+      "AQA0002_TRANSACTION": {
+        "x": 60,
+        "y": 28945
+      },
+      "AQA0002_TRANSACTION_20230428": {
+        "x": 540,
+        "y": 28945
+      },
+      "AQA0005_REPORT_COUNTER": {
+        "x": 60,
+        "y": 30047
+      },
+      "AQA0006_EAPPS_TRANSACTION": {
+        "x": 515,
+        "y": 30047
+      },
+      "AQA0006_EAPPS_TRANSACTION_20230428": {
+        "x": 60,
+        "y": 31149
+      },
+      "AQA0008_SEC_AUCTION_PARA": {
+        "x": 540,
+        "y": 31149
+      },
+      "AQA0020_AUCTION_RESULTS_REPORT": {
+        "x": 60,
+        "y": 32251
+      },
+      "FINAL_DAILY_PRICE": {
+        "x": 540,
+        "y": 32251
+      },
+      "FX_FACTORS": {
+        "x": 60,
+        "y": 33473
+      },
+      "TEMP": {
+        "x": 413.6842105263158,
+        "y": 33473
+      },
+      "TEMP1": {
+        "x": 767.3684210526316,
+        "y": 33473
+      },
+      "TEMP_SUBSCRIPTION_ENTRY": {
+        "x": 60,
+        "y": 33645
+      },
+      "TEST_CLOB": {
+        "x": 499.375,
+        "y": 33645
+      },
+      "USER_SESSION": {
+        "x": 889.9013157894738,
+        "y": 33645
+      },
+      "ISS_CALENDAR_PARAMS": {
+        "x": 5231.138491058179,
+        "y": 3451.128485622177
+      },
+      "ISS_ANNOUNCEMENT_ALLOTMENT_PARAMS": {
+        "x": 3727.794236268524,
+        "y": 3361.9736559912794
+      },
+      "ISS_COUPON_PAYMENT_DATES": {
+        "x": 675.618069135036,
+        "y": 34.35403279303864
+      },
+      "ISS_CALENDAR_DATA": {
+        "x": -143.30292717555017,
+        "y": 2001.3401239331395
+      },
+      "ISS_ANNOUNCEMENT_DETAILS": {
+        "x": 1174.0486391419665,
+        "y": 1111.9459710333388
+      },
+      "ISS_ISSUANCE_T": {
+        "x": 2837.63153055019,
+        "y": 1547.5787725587745
+      },
+      "ISSUANCE_COUPON_PAYMENT_DATES_T": {
+        "x": 4502.801539959475,
+        "y": 1354.440493065844
+      },
+      "ISSUANCE_COUPON_PAYMENT_DATES": {
+        "x": 4149.310573450745,
+        "y": 1363.2515283572156
+      },
+      "ISS_ISSUANCE": {
+        "x": 2386.0570889220094,
+        "y": 1542.25769032112
+      },
+      "ISSUANCE_STEPUP_RATES": {
+        "x": 3317.5590046468533,
+        "y": 481.2527411759711
+      },
+      "ISSUANCE_STEPUP_RATES_T": {
+        "x": 3763.7852501986604,
+        "y": 468.04385291553893
+      },
+      "ISS_SEC_PARAMS": {
+        "x": 4291.590204359289,
+        "y": 2945.934842439549
+      },
+      "ISS_CALENDAR_PARAMETERS": {
+        "x": -1756.6368877597786,
+        "y": 570.6826697802508
+      },
+      "ISS_ANNOUNCEMENT_DETAILS_T": {
+        "x": 715.3189461496814,
+        "y": 1113.2935872467824
+      },
+      "ISS_ANNOUNCEMENT_STEPUP_RATES": {
+        "x": 1650.682797611504,
+        "y": 35.742614622451356
+      },
+      "ISS_CALENDAR_LISTING": {
+        "x": 718.8318433221962,
+        "y": 2986.2600257272493
+      },
+      "ISS_ANNOUNCEMENT_STEPUP_RATES_T": {
+        "x": 2092.701474915059,
+        "y": 37.62300399555511
+      },
+      "ISS_CALENDAR_PARAMS_T": {
+        "x": 5673.27364898688,
+        "y": 3448.003373559903
+      },
+      "ISS_CALENDAR_LISTING_T": {
+        "x": 1173.5923719862371,
+        "y": 2984.9717137269568
+      },
+      "ISS_SEC_PARAMS_T": {
+        "x": 4737.672296248539,
+        "y": 2944.5477312616667
+      },
+      "ISS_CALENDAR_DATA_T": {
+        "x": -599.5785096465958,
+        "y": 1998.0442525719811
+      },
+      "ISS_COUPON_PAYMENT_DATES_T": {
+        "x": 218.1475187080294,
+        "y": 31.676250239382057
+      },
+      "ISS_CALENDAR_PARAMETERS_T": {
+        "x": -1318.0100766361513,
+        "y": 573.1087040853854
+      },
+      "ISS_ANNOUNCEMENT_ALLOTMENT_PARAMS_T": {
+        "x": 3269.489742927093,
+        "y": 3435.301138598072
+      },
+      "ISS_ALLOTMENT_YIELD_DISTRIBUTION": {
+        "x": 979.4753010578454,
+        "y": 11228.01686330857
+      },
+      "ISS_BID_INSTITUTIONAL": {
+        "x": 1073.8500210626303,
+        "y": 4667.495839810636
+      },
+      "ISS_ALLOTMENT_RUN_T": {
+        "x": 2085.333862287446,
+        "y": 10072.538067386948
+      },
+      "ISS_BID_RETAIL": {
+        "x": 1624.993162135455,
+        "y": 4665.288176269936
+      },
+      "SEC_SECURITY_MASTER": {
+        "x": 810.0878245285958,
+        "y": 9684.519120502762
+      },
+      "SEC_COUPON_SCHEDULE_T": {
+        "x": -136.23286606972218,
+        "y": 10568.396090722972
+      },
+      "SEC_COUPON_SCHEDULE": {
+        "x": 304.1827710383916,
+        "y": 10565.876713393027
+      },
+      "SEC_SECURITY_MASTER_T": {
+        "x": 328.9229978458205,
+        "y": 9690.35902661507
+      },
+      "ISS_ALLOTMENT_PD_OBLIGATION_T": {
+        "x": 404.7534267860558,
+        "y": 11287.656709191535
+      },
+      "ISS_ALLOTMENT_PD_OBLIGATION": {
+        "x": -29.064816506744023,
+        "y": 11289.306057645364
+      },
+      "ISS_ALLOTMENT_RUN": {
+        "x": 1653.349806270179,
+        "y": 10075.385595627522
+      }
+    },
+    "1765965941795-vkdwrqwnm": {
+      "STG_MEPS_IN_BANK": {
+        "x": 60,
+        "y": 60
+      },
+      "STG_MEPS_IN_COUPONRATES": {
+        "x": 1230.7895887331176,
+        "y": 1157.94862759766
+      },
+      "STG_MEPS_IN_SECINT": {
+        "x": 60,
+        "y": 802
+      },
+      "STG_MEPS_IN_SECMAST": {
+        "x": 499.375,
+        "y": 802
+      },
+      "STG_MEPS_OUT_AUCTION": {
+        "x": 60,
+        "y": 2264
+      },
+      "STG_MEPS_OUT_AUCTION_SBOND": {
+        "x": 468.125,
+        "y": 2264
+      },
+      "STG_MEPS_OUT_CLOSINGPRICE": {
+        "x": 60,
+        "y": 3066
+      },
+      "STG_MEPS_OUT_MEPS_SORA_INDEX": {
+        "x": 468.125,
+        "y": 3066
+      },
+      "STG_MEPS_OUT_RDMPARTIAL_SBOND": {
+        "x": 60,
+        "y": 3688
+      },
+      "STG_MEPS_OUT_SECUPDT": {
+        "x": 468.125,
+        "y": 3688
+      }
+    },
+    "1766373181166-csitrfg2e": {
+      "ISS_BID_INSTITUTIONAL": {
+        "x": 35.264038718140114,
+        "y": 35.26403871814007
+      },
+      "ISS_BID_INSTITUTIONAL_T": {
+        "x": 522.0674175091028,
+        "y": 35.264038718140114
+      },
+      "ISS_BID_RETAIL": {
+        "x": 60,
+        "y": 1072
+      },
+      "ISS_BID_RETAIL_T": {
+        "x": 520.3580428819287,
+        "y": 1048.9892301885018
+      },
+      "ISS_BID_FILE_REGISTRY": {
+        "x": 60,
+        "y": 2144
+      },
+      "ISS_BID_FILE_REGISTRY_T": {
+        "x": 519.5027542849526,
+        "y": 2136.2696747492
+      }
+    },
+    "1765767563393-zeqnha67h": {
+      "SEC_SECURITY_MASTER": {
+        "x": 1020,
+        "y": 356
+      },
+      "SEC_COUPON_SCHEDULE": {
+        "x": 527.9848999999999,
+        "y": 363.97953000000007
+      },
+      "SEC_COUPON_SCHEDULE_T": {
+        "x": 87.11745000000003,
+        "y": 365
+      },
+      "SEC_SECURITY_MASTER_T": {
+        "x": 1462.5,
+        "y": 352
+      }
+    },
+    "1768289772110-lo44ineup": {
+      "CM_BANK_MASTER": {
+        "x": 2103.7819699802385,
+        "y": 1013.6194952956718
+      },
+      "CM_ORGANIZATION": {
+        "x": 1441.2760525629365,
+        "y": 458.52053802975655
+      },
+      "CM_ORGANIZATION_MAP": {
+        "x": 692.0950291829913,
+        "y": 412.6500867461453
+      },
+      "CM_ORGANIZATION_T": {
+        "x": 999.7234804807401,
+        "y": 455.287271948165
+      },
+      "CM_BANK_MASTER_T": {
+        "x": 2540.042293857048,
+        "y": 1014.9742683315669
+      },
+      "CM_ORGANIZATION_MAP_T": {
+        "x": 270.98939669346134,
+        "y": 421.9528746078649
+      },
+      "CM_BANK_MASTER_MAP": {
+        "x": 1446.7515074276023,
+        "y": 1458.585933892226
+      },
+      "CM_BANK_MASTER_MAP_T": {
+        "x": 1070.5480681450629,
+        "y": 1460.1568026561522
+      }
+    }
+  },
+  "ddVisibleColumns": {
+    "1765767477409-l6jnwi0f9": {
+      "visible": [
+        "column",
+        "type",
+        "nullable",
+        "default",
+        "explanation",
+        "possibleValues"
+      ],
+      "knownColumns": [
+        "column",
+        "type",
+        "nullable",
+        "default",
+        "explanation",
+        "mapping",
+        "sampleValues",
+        "possibleValues",
+        "mappedTo"
+      ]
+    },
+    "1769748075633-thy4gl0om": {
+      "visible": [
+        "column",
+        "type",
+        "nullable",
+        "default",
+        "explanation",
+        "possibleValues"
+      ],
+      "knownColumns": [
+        "column",
+        "type",
+        "nullable",
+        "default",
+        "explanation",
+        "mapping",
+        "sampleValues",
+        "possibleValues",
+        "mappedTo"
+      ]
+    },
+    "1768289772110-lo44ineup": {
+      "visible": [
+        "column",
+        "type",
+        "nullable",
+        "default",
+        "explanation",
+        "possibleValues"
+      ],
+      "knownColumns": [
+        "column",
+        "type",
+        "nullable",
+        "default",
+        "explanation",
+        "mapping",
+        "sampleValues",
+        "possibleValues",
+        "mappedTo"
+      ]
+    },
+    "1765965941795-vkdwrqwnm": {
+      "visible": [
+        "column",
+        "type",
+        "nullable",
+        "default",
+        "explanation",
+        "possibleValues"
+      ],
+      "knownColumns": [
+        "column",
+        "type",
+        "nullable",
+        "default",
+        "explanation",
+        "mapping",
+        "sampleValues",
+        "possibleValues",
+        "mappedTo"
+      ]
+    },
+    "1765851568151-05zvcmw1e": {
+      "visible": [
+        "column",
+        "type",
+        "nullable",
+        "default",
+        "explanation",
+        "possibleValues"
+      ],
+      "knownColumns": [
+        "column",
+        "type",
+        "nullable",
+        "default",
+        "explanation",
+        "mapping",
+        "sampleValues",
+        "possibleValues",
+        "mappedTo"
+      ]
+    },
+    "1773390344785-ek4txmni4": {
+      "visible": [
+        "column",
+        "type",
+        "nullable",
+        "default",
+        "explanation",
+        "possibleValues"
+      ],
+      "knownColumns": [
+        "column",
+        "type",
+        "nullable",
+        "default",
+        "explanation",
+        "mapping",
+        "sampleValues",
+        "possibleValues",
+        "mappedTo"
+      ]
+    },
+    "1765767535885-o1jilrqnk": {
+      "visible": [
+        "column",
+        "type",
+        "nullable",
+        "default",
+        "explanation",
+        "possibleValues"
+      ],
+      "knownColumns": [
+        "column",
+        "type",
+        "nullable",
+        "default",
+        "explanation",
+        "mapping",
+        "sampleValues",
+        "possibleValues",
+        "mappedTo"
+      ]
+    },
+    "1773406287753-4unn3chwx": {
+      "visible": [
+        "column",
+        "type",
+        "nullable",
+        "default",
+        "explanation",
+        "mapping",
+        "sampleValues",
+        "possibleValues",
+        "mappedTo"
+      ],
+      "knownColumns": [
+        "column",
+        "type",
+        "nullable",
+        "default",
+        "explanation",
+        "mapping",
+        "sampleValues",
+        "possibleValues",
+        "mappedTo"
+      ]
+    }
+  },
+  "ddColumnWidths": {
+    "1769748075633-thy4gl0om": {},
+    "1765767477409-l6jnwi0f9": {}
+  },
+  "mappingProjects": [
+    {
+      "id": "1765767622907-vqxtzrgnk",
+      "name": "BE_MNETD → sec",
+      "sourceScriptId": "1765767477409-l6jnwi0f9",
+      "targetScriptId": "1765767563393-zeqnha67h",
+      "mappings": [
+        {
+          "id": "1765791332689-kv8llq9lj",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0002_FRN_ISSUE",
+          "sourceColumn": "ABA0002_SECURITY_CODE",
+          "sourceType": "CHAR(8)",
+          "targetScriptId": "1765767563393-zeqnha67h",
+          "targetTable": "sec_security_master",
+          "targetColumn": "issue_code",
+          "targetType": "VARCHAR(8)",
+          "mapType": "manual",
+          "typeCompatibility": "needs_conversion",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": true,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": false,
+            "warnings": [
+              "Target size may be smaller - check for truncation",
+              "Source is Primary Key but target is not"
+            ],
+            "errors": []
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765791332689,
+          "updatedAt": 1765794375564,
+          "remarks": "8-Char Security Code identifier, 1-1 mapping"
+        },
+        {
+          "id": "1765791353087-l16uauitx",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0002_FRN_ISSUE",
+          "sourceColumn": "ABA0002_FIRST_CPN_DATE",
+          "sourceType": "DATE",
+          "targetScriptId": "1765767563393-zeqnha67h",
+          "targetTable": "sec_security_master",
+          "targetColumn": "first_coupon_payment_dt",
+          "targetType": "TIMESTAMP",
+          "mapType": "manual",
+          "typeCompatibility": "compatible",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": false,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": [
+              "Source allows NULL but target is NOT NULL - migration may fail"
+            ]
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765791353087,
+          "updatedAt": 1765864832140,
+          "remarks": "Date - Timestamp Mapping"
+        },
+        {
+          "id": "1765852219722-gukg1kp2n",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0001_SECURITY_MASTER",
+          "sourceColumn": "ABA0001_SECURITY_CODE",
+          "sourceType": "CHAR(8)",
+          "targetScriptId": "1765767563393-zeqnha67h",
+          "targetTable": "sec_security_master",
+          "targetColumn": "issue_code",
+          "targetType": "VARCHAR(8)",
+          "mapType": "manual",
+          "typeCompatibility": "needs_conversion",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": false,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": false,
+            "warnings": [
+              "Target size may be smaller - check for truncation",
+              "Source is Primary Key but target is not"
+            ],
+            "errors": [
+              "Source allows NULL but target is NOT NULL - migration may fail"
+            ]
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765852219722,
+          "updatedAt": 1768752009888,
+          "remarks": "8-Char Security Code identifier, 1-1 direct mapping"
+        },
+        {
+          "id": "1765852245114-w6kgcpj63",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0001_SECURITY_MASTER",
+          "sourceColumn": "ABA0001_ISIN_CODE",
+          "sourceType": "CHAR(12)",
+          "targetScriptId": "1765767563393-zeqnha67h",
+          "targetTable": "sec_security_master",
+          "targetColumn": "isin_code",
+          "targetType": "VARCHAR(12)",
+          "mapType": "manual",
+          "typeCompatibility": "needs_conversion",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": false,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [
+              "Target size may be smaller - check for truncation"
+            ],
+            "errors": [
+              "Source allows NULL but target is NOT NULL - migration may fail"
+            ]
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765852245114,
+          "updatedAt": 1765878334802,
+          "remarks": "12 Char ISIN code, 1 - 1 mapping"
+        },
+        {
+          "id": "1765852394581-l0ay54mhy",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0001_SECURITY_MASTER",
+          "sourceColumn": "ABA0001_TAX_STATUS",
+          "sourceType": "CHAR(1)",
+          "targetScriptId": "1765767563393-zeqnha67h",
+          "targetTable": "sec_security_master",
+          "targetColumn": "tax_status",
+          "targetType": "CHAR(1)",
+          "mapType": "manual",
+          "typeCompatibility": "exact",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": true,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": []
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765852394581,
+          "updatedAt": 1768752028627,
+          "remarks": "1 - 1 Mapping\nY - Yes\nN - No"
+        },
+        {
+          "id": "1765857097893-55pr0bl5b",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0001_SECURITY_MASTER",
+          "sourceColumn": "ABA0001_ETENDER_IND",
+          "sourceType": "CHAR(1)",
+          "targetScriptId": "1765767563393-zeqnha67h",
+          "targetTable": "sec_security_master",
+          "targetColumn": "etender_ind",
+          "targetType": "CHAR(1)",
+          "mapType": "manual",
+          "typeCompatibility": "exact",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": true,
+            "precisionMatch": true,
+            "defaultMatch": false,
+            "constraintMatch": true,
+            "warnings": [
+              "Source has default (Y) but target has none"
+            ],
+            "errors": []
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765857097893,
+          "updatedAt": 1765864971536,
+          "remarks": "1 - 1 Mapping\nY - Yes\nN - No"
+        },
+        {
+          "id": "1765857121367-kpd2loiqv",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0001_SECURITY_MASTER",
+          "sourceColumn": "ABA0001_MATURITY_DATE",
+          "sourceType": "DATE",
+          "targetScriptId": "1765767563393-zeqnha67h",
+          "targetTable": "sec_security_master",
+          "targetColumn": "maturity_dt",
+          "targetType": "TIMESTAMP",
+          "mapType": "manual",
+          "typeCompatibility": "compatible",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": true,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": []
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765857121367,
+          "updatedAt": 1768752027117,
+          "remarks": "Date - Timestamp, 1 - 1 direct mapping"
+        },
+        {
+          "id": "1765857179206-w9o9gvjsv",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0001_SECURITY_MASTER",
+          "sourceColumn": "ABA0001_SECURITY_NAME",
+          "sourceType": "VARCHAR2(30)",
+          "targetScriptId": "1765767563393-zeqnha67h",
+          "targetTable": "sec_security_master",
+          "targetColumn": "issue_desc",
+          "targetType": "VARCHAR(30)",
+          "mapType": "manual",
+          "typeCompatibility": "compatible",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": true,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": []
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765857179206,
+          "updatedAt": 1768752581652,
+          "remarks": "Date - Timestamp, 1 - 1 direct mapping"
+        },
+        {
+          "id": "1765767885948-dtt412bp0",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0021_ISSUE_CALENDAR",
+          "sourceColumn": "ABA0021_SECURITY_CODE",
+          "sourceType": "VARCHAR2(8)",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_calendar_data",
+          "targetColumn": "issue_code",
+          "targetType": "VARCHAR(8)",
+          "mapType": "manual",
+          "typeCompatibility": "compatible",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": true,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": false,
+            "warnings": [
+              "Source is Primary Key but target is not"
+            ],
+            "errors": []
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765767885948,
+          "updatedAt": 1768737663929,
+          "remarks": "8-Char Security Code identifier, 1-1 mapping"
+        },
+        {
+          "id": "1765767888599-5yl4fc51i",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0021_ISSUE_CALENDAR",
+          "sourceColumn": "ABA0021_ISIN_CODE",
+          "sourceType": "VARCHAR2(12)",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_calendar_data",
+          "targetColumn": "isin_code",
+          "targetType": "VARCHAR(12)",
+          "mapType": "manual",
+          "typeCompatibility": "compatible",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": true,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": []
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765767888599,
+          "updatedAt": 1768737662296,
+          "remarks": "12 Char ISIN code, 1-1 mapping"
+        },
+        {
+          "id": "1765767914821-9bj63p5l9",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0021_ISSUE_CALENDAR",
+          "sourceColumn": "ABA0021_TENOR",
+          "sourceType": "NUMBER(3,0)",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_calendar_data",
+          "targetColumn": "tenor",
+          "targetType": "NUMERIC(3)",
+          "mapType": "manual",
+          "typeCompatibility": "compatible",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": true,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": []
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765767914821,
+          "updatedAt": 1768737849499,
+          "remarks": "No. of Tenor period value based on tenor unit, 1-1 mapping"
+        },
+        {
+          "id": "1765767917195-efrrytwkm",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0021_ISSUE_CALENDAR",
+          "sourceColumn": "ABA0021_TENOR_UNIT",
+          "sourceType": "VARCHAR2(1)",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_calendar_data",
+          "targetColumn": "tenor_unit",
+          "targetType": "CHAR(1)",
+          "mapType": "manual",
+          "typeCompatibility": "needs_conversion",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": true,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [
+              "Target size may be smaller - check for truncation"
+            ],
+            "errors": []
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765767917195,
+          "updatedAt": 1768745092626,
+          "remarks": "Y - Y (Year), D - D (Day), M - M (Month)"
+        },
+        {
+          "id": "1765767919380-8ew5wyf54",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0021_ISSUE_CALENDAR",
+          "sourceColumn": "ABA0021_NEW_REOPEN",
+          "sourceType": "VARCHAR2(1)",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_calendar_data",
+          "targetColumn": "new_reopen_flag",
+          "targetType": "CHAR(1)",
+          "mapType": "manual",
+          "typeCompatibility": "needs_conversion",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": true,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [
+              "Target size may be smaller - check for truncation"
+            ],
+            "errors": []
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765767919380,
+          "updatedAt": 1768745093553,
+          "remarks": "1-1 mapping as below:\n\nN - N (New), \nR - R (Reopen)"
+        },
+        {
+          "id": "1765768121788-xtj0pvk8d",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0021_ISSUE_CALENDAR",
+          "sourceColumn": "ABA0021_ISSUE_DATETIME",
+          "sourceType": "DATE",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_calendar_data",
+          "targetColumn": "issue_dt",
+          "targetType": "TIMESTAMP",
+          "mapType": "manual",
+          "typeCompatibility": "compatible",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": true,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": []
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765768121788,
+          "updatedAt": 1768745113325,
+          "remarks": "1-1 Date-Timestamp mapping"
+        },
+        {
+          "id": "1765768126750-wolxo67mi",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0021_ISSUE_CALENDAR",
+          "sourceColumn": "ABA0021_CLOSE_DATETIME",
+          "sourceType": "DATE",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_calendar_data",
+          "targetColumn": "auction_dt",
+          "targetType": "TIMESTAMP",
+          "mapType": "manual",
+          "typeCompatibility": "compatible",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": true,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": []
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765768126750,
+          "updatedAt": 1768745111949,
+          "remarks": "1-1 Date-Timestamp mapping"
+        },
+        {
+          "id": "1765768127846-regwykck1",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0021_ISSUE_CALENDAR",
+          "sourceColumn": "ABA0021_OPEN_DATETIME",
+          "sourceType": "DATE",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_calendar_data",
+          "targetColumn": "announcement_dt",
+          "targetType": "TIMESTAMP",
+          "mapType": "manual",
+          "typeCompatibility": "compatible",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": true,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": []
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765768127846,
+          "updatedAt": 1768745110210,
+          "remarks": "1-1 Date-Timestamp mapping"
+        },
+        {
+          "id": "1765787621700-i49ktpiot",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0021_ISSUE_CALENDAR",
+          "sourceColumn": "ABA0021_ISSUE_TYPE",
+          "sourceType": "VARCHAR2(1)",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_calendar_data",
+          "targetColumn": "sgs_type",
+          "targetType": "VARCHAR(20)",
+          "mapType": "manual",
+          "typeCompatibility": "compatible",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": true,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": []
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765787621700,
+          "updatedAt": 1770980881251,
+          "remarks": "Transformation logic required as below:\n\nT (T-Bill) - null\nB (SGS MD Bond) - SGSTYPE_MD\nI (SGS Infra Bond) - SGSTYPE_INFRA\nG (SGS Green Infra Bond) - SGSTYPE_GREEN_INFRA"
+        },
+        {
+          "id": "1765788368536-1mikhgjhl",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0121_SB_ISSUE_CALENDAR",
+          "sourceColumn": "ABA0121_SECURITY_CODE",
+          "sourceType": "VARCHAR2(8)",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_calendar_data",
+          "targetColumn": "issue_code",
+          "targetType": "VARCHAR(8)",
+          "mapType": "manual",
+          "typeCompatibility": "compatible",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": true,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": false,
+            "warnings": [
+              "Source is Primary Key but target is not"
+            ],
+            "errors": []
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765788368536,
+          "updatedAt": 1770980891661,
+          "remarks": "8-Char Security Code identifier, 1-1 mapping"
+        },
+        {
+          "id": "1765788378182-5vhqqh34s",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0121_SB_ISSUE_CALENDAR",
+          "sourceColumn": "ABA0121_ISIN_CODE",
+          "sourceType": "VARCHAR2(12)",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_calendar_data",
+          "targetColumn": "isin_code",
+          "targetType": "VARCHAR(12)",
+          "mapType": "manual",
+          "typeCompatibility": "compatible",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": true,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": []
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765788378182,
+          "updatedAt": 1765788516360,
+          "remarks": "12 Digit ISIN code, 1-1 mapping"
+        },
+        {
+          "id": "1765788402820-vmt2dqpjn",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0121_SB_ISSUE_CALENDAR",
+          "sourceColumn": "ABA0121_TENOR",
+          "sourceType": "NUMBER(3,0)",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_calendar_data",
+          "targetColumn": "tenor",
+          "targetType": "NUMERIC(3)",
+          "mapType": "manual",
+          "typeCompatibility": "compatible",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": true,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": []
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765788402820,
+          "updatedAt": 1768737554465,
+          "remarks": "No. of Tenor period value based on tenor unit, 1-1 mapping"
+        },
+        {
+          "id": "1765788404148-wo3p2mruq",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0121_SB_ISSUE_CALENDAR",
+          "sourceColumn": "ABA0121_TENOR_UNIT",
+          "sourceType": "VARCHAR2(1)",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_calendar_data",
+          "targetColumn": "tenor_unit",
+          "targetType": "CHAR(1)",
+          "mapType": "manual",
+          "typeCompatibility": "needs_conversion",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": true,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [
+              "Target size may be smaller - check for truncation"
+            ],
+            "errors": []
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765788404148,
+          "updatedAt": 1765879797009,
+          "remarks": "Y - Y (Year), \nD - D (Day), \nM - M (Month)"
+        },
+        {
+          "id": "1765788406623-1r68nfa20",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0121_SB_ISSUE_CALENDAR",
+          "sourceColumn": "ABA0121_NEW_REOPEN",
+          "sourceType": "VARCHAR2(1)",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_calendar_data",
+          "targetColumn": "new_reopen_flag",
+          "targetType": "CHAR(1)",
+          "mapType": "manual",
+          "typeCompatibility": "needs_conversion",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": true,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [
+              "Target size may be smaller - check for truncation"
+            ],
+            "errors": []
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765788406623,
+          "updatedAt": 1765788965541,
+          "remarks": "N - N (New), \nR - R (Reopen)"
+        },
+        {
+          "id": "1765788421507-d9ih66la7",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0121_SB_ISSUE_CALENDAR",
+          "sourceColumn": "ABA0121_OPEN_DATETIME",
+          "sourceType": "DATE",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_calendar_data",
+          "targetColumn": "announcement_dt",
+          "targetType": "TIMESTAMP",
+          "mapType": "manual",
+          "typeCompatibility": "compatible",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": true,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": []
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765788421507,
+          "updatedAt": 1768745120130,
+          "remarks": "1-1 Date-Timestamp mapping"
+        },
+        {
+          "id": "1765788423428-e4b1eo87m",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0121_SB_ISSUE_CALENDAR",
+          "sourceColumn": "ABA0121_CLOSE_DATETIME",
+          "sourceType": "DATE",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_calendar_data",
+          "targetColumn": "auction_dt",
+          "targetType": "TIMESTAMP",
+          "mapType": "manual",
+          "typeCompatibility": "compatible",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": true,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": []
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765788423428,
+          "updatedAt": 1768745121308,
+          "remarks": "1-1 Date-Timestamp mapping"
+        },
+        {
+          "id": "1765788425573-2c0jcodkn",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0121_SB_ISSUE_CALENDAR",
+          "sourceColumn": "ABA0121_ISSUE_DATETIME",
+          "sourceType": "DATE",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_calendar_data",
+          "targetColumn": "issue_dt",
+          "targetType": "TIMESTAMP",
+          "mapType": "manual",
+          "typeCompatibility": "compatible",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": true,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": []
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765788425573,
+          "updatedAt": 1770968783220,
+          "remarks": "1-1 Date-Timestamp mapping"
+        },
+        {
+          "id": "1765856062497-8p0jygm2q",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0001_SECURITY_MASTER",
+          "sourceColumn": "ABA0001_ISSUE_NO",
+          "sourceType": "CHAR(1)",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_issuance",
+          "targetColumn": "issue_no",
+          "targetType": "NUMERIC(3)",
+          "mapType": "manual",
+          "typeCompatibility": "incompatible",
+          "validation": {
+            "typeMatch": false,
+            "sizeMatch": true,
+            "nullableMatch": false,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": false,
+            "warnings": [
+              "Source is Primary Key but target is not"
+            ],
+            "errors": [
+              "No compatibility rule found for CHAR(1) → NUMERIC(3)",
+              "Source allows NULL but target is NOT NULL - migration may fail"
+            ]
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765856062497,
+          "updatedAt": 1769051260996,
+          "remarks": "Transformation logic:\n\nConversion of datatype to numeric"
+        },
+        {
+          "id": "1765856712062-e027t3hpl",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0001_SECURITY_MASTER",
+          "sourceColumn": "ABA0001_ISSUE_DATE",
+          "sourceType": "DATE",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_issuance",
+          "targetColumn": "issue_dt",
+          "targetType": "TIMESTAMP",
+          "mapType": "manual",
+          "typeCompatibility": "compatible",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": true,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": []
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765856712062,
+          "updatedAt": 1768995700293,
+          "remarks": "Date - Timestamp, 1 - 1 direct mapping"
+        },
+        {
+          "id": "1765856721254-q4fsxtf8o",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0001_SECURITY_MASTER",
+          "sourceColumn": "ABA0001_TENDER_DATE",
+          "sourceType": "DATE",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_issuance",
+          "targetColumn": "auction_dt",
+          "targetType": "TIMESTAMP",
+          "mapType": "manual",
+          "typeCompatibility": "compatible",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": true,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": []
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765856721254,
+          "updatedAt": 1768752585985,
+          "remarks": "Date - Timestamp, 1 - 1 direct mapping"
+        },
+        {
+          "id": "1765857450561-zhggkwx4w",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0001_SECURITY_MASTER",
+          "sourceColumn": "ABA0001_TENOR",
+          "sourceType": "NUMBER(3,0)",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_issuance",
+          "targetColumn": "tenor",
+          "targetType": "NUMERIC(3)",
+          "mapType": "manual",
+          "typeCompatibility": "compatible",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": false,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": [
+              "Source allows NULL but target is NOT NULL - migration may fail"
+            ]
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765857450561,
+          "updatedAt": 1769048275033,
+          "remarks": "1 -1 mapping, with following transformation rules to tenor unit - \nFor SGS Bonds, the value will be defined in years. \nFor Treasury Bills and MAS Bills, the value will be defined in days. \n"
+        },
+        {
+          "id": "1765859907505-uecdfl46c",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0001_SECURITY_MASTER",
+          "sourceColumn": "ABA0001_EX_INT_DATE",
+          "sourceType": "DATE",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_issuance",
+          "targetColumn": "ex_int_date",
+          "targetType": "TIMESTAMP",
+          "mapType": "manual",
+          "typeCompatibility": "compatible",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": true,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": []
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765859907505,
+          "updatedAt": 1768751275445,
+          "remarks": "Only applicable for SGS/FRN bonds "
+        },
+        {
+          "id": "1765866808484-oyd9xv08x",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0001_SECURITY_MASTER",
+          "sourceColumn": "ABA0001_CURR",
+          "sourceType": "CHAR(3)",
+          "targetScriptId": "1765767563393-zeqnha67h",
+          "targetTable": "sec_security_master",
+          "targetColumn": "currency",
+          "targetType": "CHAR(3)",
+          "mapType": "manual",
+          "typeCompatibility": "exact",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": true,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": []
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765866808484,
+          "updatedAt": 1768752011059,
+          "remarks": "1 - 1 direct mapping"
+        }
+      ],
+      "tableMappings": [],
+      "typeRules": [],
+      "createdAt": 1765767622907,
+      "updatedAt": 1770980891661,
+      "typeRuleSetId": "1766369544676-tqycbl70v"
+    },
+    {
+      "id": "1765767871600-9qyiot9fa",
+      "name": "BE_MNETD → iss",
+      "sourceScriptId": "1765767477409-l6jnwi0f9",
+      "targetScriptId": "1765767535885-o1jilrqnk",
+      "mappings": [
+        {
+          "id": "1765767885948-dtt412bp0",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0021_ISSUE_CALENDAR",
+          "sourceColumn": "ABA0021_SECURITY_CODE",
+          "sourceType": "VARCHAR2(8)",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_calendar_data",
+          "targetColumn": "issue_code",
+          "targetType": "VARCHAR(8)",
+          "mapType": "manual",
+          "typeCompatibility": "compatible",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": true,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": false,
+            "warnings": [
+              "Source is Primary Key but target is not"
+            ],
+            "errors": []
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765767885948,
+          "updatedAt": 1765864999508,
+          "remarks": "8-Char Security Code identifier, 1-1 mapping"
+        },
+        {
+          "id": "1765767888599-5yl4fc51i",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0021_ISSUE_CALENDAR",
+          "sourceColumn": "ABA0021_ISIN_CODE",
+          "sourceType": "VARCHAR2(12)",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_calendar_data",
+          "targetColumn": "isin_code",
+          "targetType": "VARCHAR(12)",
+          "mapType": "manual",
+          "typeCompatibility": "compatible",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": true,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": []
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765767888599,
+          "updatedAt": 1765864985142,
+          "remarks": "12 Char ISIN code, 1-1 mapping"
+        },
+        {
+          "id": "1765767914821-9bj63p5l9",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0021_ISSUE_CALENDAR",
+          "sourceColumn": "ABA0021_TENOR",
+          "sourceType": "NUMBER(3,0)",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_calendar_data",
+          "targetColumn": "tenor",
+          "targetType": "NUMERIC(3)",
+          "mapType": "manual",
+          "typeCompatibility": "compatible",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": true,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": []
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765767914821,
+          "updatedAt": 1765788956832,
+          "remarks": "No. of Tenor period value based on tenor unit, 1-1 mapping"
+        },
+        {
+          "id": "1765767917195-efrrytwkm",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0021_ISSUE_CALENDAR",
+          "sourceColumn": "ABA0021_TENOR_UNIT",
+          "sourceType": "VARCHAR2(1)",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_calendar_data",
+          "targetColumn": "tenor_unit",
+          "targetType": "CHAR(1)",
+          "mapType": "manual",
+          "typeCompatibility": "needs_conversion",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": true,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [
+              "Target size may be smaller - check for truncation"
+            ],
+            "errors": []
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765767917195,
+          "updatedAt": 1765794704859,
+          "remarks": "Y - Y (Year), D - D (Day), M - M (Month)"
+        },
+        {
+          "id": "1765767919380-8ew5wyf54",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0021_ISSUE_CALENDAR",
+          "sourceColumn": "ABA0021_NEW_REOPEN",
+          "sourceType": "VARCHAR2(1)",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_calendar_data",
+          "targetColumn": "new_reopen_flag",
+          "targetType": "CHAR(1)",
+          "mapType": "manual",
+          "typeCompatibility": "needs_conversion",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": true,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [
+              "Target size may be smaller - check for truncation"
+            ],
+            "errors": []
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765767919380,
+          "updatedAt": 1765793795798,
+          "remarks": "N - N (New), \nR - R (Reopen)"
+        },
+        {
+          "id": "1765768121788-xtj0pvk8d",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0021_ISSUE_CALENDAR",
+          "sourceColumn": "ABA0021_ISSUE_DATETIME",
+          "sourceType": "DATE",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_calendar_data",
+          "targetColumn": "issue_dt",
+          "targetType": "TIMESTAMP",
+          "mapType": "manual",
+          "typeCompatibility": "compatible",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": true,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": []
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765768121788,
+          "updatedAt": 1765788975333,
+          "remarks": "Date - Timestamp, Refer to Issue Datetime"
+        },
+        {
+          "id": "1765768126750-wolxo67mi",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0021_ISSUE_CALENDAR",
+          "sourceColumn": "ABA0021_CLOSE_DATETIME",
+          "sourceType": "DATE",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_calendar_data",
+          "targetColumn": "auction_dt",
+          "targetType": "TIMESTAMP",
+          "mapType": "manual",
+          "typeCompatibility": "compatible",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": true,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": []
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765768126750,
+          "updatedAt": 1765788973875,
+          "remarks": "Date - Timestamp, Refer to Auction datetime"
+        },
+        {
+          "id": "1765768127846-regwykck1",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0021_ISSUE_CALENDAR",
+          "sourceColumn": "ABA0021_OPEN_DATETIME",
+          "sourceType": "DATE",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_calendar_data",
+          "targetColumn": "announcement_dt",
+          "targetType": "TIMESTAMP",
+          "mapType": "manual",
+          "typeCompatibility": "compatible",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": true,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": []
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765768127846,
+          "updatedAt": 1765788967142,
+          "remarks": "Date - Timestamp, Refer to Announcement datetime"
+        },
+        {
+          "id": "1765787621700-i49ktpiot",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0021_ISSUE_CALENDAR",
+          "sourceColumn": "ABA0021_ISSUE_TYPE",
+          "sourceType": "VARCHAR2(1)",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_calendar_data",
+          "targetColumn": "sgs_type",
+          "targetType": "VARCHAR(20)",
+          "mapType": "manual",
+          "typeCompatibility": "compatible",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": true,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": []
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765787621700,
+          "updatedAt": 1765879163936,
+          "remarks": "T (T-Bill) - null\nB (SGS MD Bond) - SGSTYPE_MD\nI (SGS Infra Bond) - SGSTYPE_INFRA\nG (SGS Green Infra Bond) - SGSTYPE_GREEN_INFRA"
+        },
+        {
+          "id": "1765788368536-1mikhgjhl",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0121_SB_ISSUE_CALENDAR",
+          "sourceColumn": "ABA0121_SECURITY_CODE",
+          "sourceType": "VARCHAR2(8)",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_calendar_data",
+          "targetColumn": "issue_code",
+          "targetType": "VARCHAR(8)",
+          "mapType": "manual",
+          "typeCompatibility": "compatible",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": true,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": false,
+            "warnings": [
+              "Source is Primary Key but target is not"
+            ],
+            "errors": []
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765788368536,
+          "updatedAt": 1765788458122,
+          "remarks": "8-Char Security Code identifier, 1-1 mapping"
+        },
+        {
+          "id": "1765788378182-5vhqqh34s",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0121_SB_ISSUE_CALENDAR",
+          "sourceColumn": "ABA0121_ISIN_CODE",
+          "sourceType": "VARCHAR2(12)",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_calendar_data",
+          "targetColumn": "isin_code",
+          "targetType": "VARCHAR(12)",
+          "mapType": "manual",
+          "typeCompatibility": "compatible",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": true,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": []
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765788378182,
+          "updatedAt": 1765788516360,
+          "remarks": "12 Digit ISIN code, 1-1 mapping"
+        },
+        {
+          "id": "1765788402820-vmt2dqpjn",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0121_SB_ISSUE_CALENDAR",
+          "sourceColumn": "ABA0121_TENOR",
+          "sourceType": "NUMBER(3,0)",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_calendar_data",
+          "targetColumn": "tenor",
+          "targetType": "NUMERIC(3)",
+          "mapType": "manual",
+          "typeCompatibility": "compatible",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": true,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": []
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765788402820,
+          "updatedAt": 1765792551276,
+          "remarks": "No. of Tenor period value based on tenor unit, 1-1 mapping"
+        },
+        {
+          "id": "1765788404148-wo3p2mruq",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0121_SB_ISSUE_CALENDAR",
+          "sourceColumn": "ABA0121_TENOR_UNIT",
+          "sourceType": "VARCHAR2(1)",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_calendar_data",
+          "targetColumn": "tenor_unit",
+          "targetType": "CHAR(1)",
+          "mapType": "manual",
+          "typeCompatibility": "needs_conversion",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": true,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [
+              "Target size may be smaller - check for truncation"
+            ],
+            "errors": []
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765788404148,
+          "updatedAt": 1765788960916,
+          "remarks": "Y - Y (Year), \nD - D (Day), \nM - M (Month)"
+        },
+        {
+          "id": "1765788406623-1r68nfa20",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0121_SB_ISSUE_CALENDAR",
+          "sourceColumn": "ABA0121_NEW_REOPEN",
+          "sourceType": "VARCHAR2(1)",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_calendar_data",
+          "targetColumn": "new_reopen_flag",
+          "targetType": "CHAR(1)",
+          "mapType": "manual",
+          "typeCompatibility": "needs_conversion",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": true,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [
+              "Target size may be smaller - check for truncation"
+            ],
+            "errors": []
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765788406623,
+          "updatedAt": 1765788965541,
+          "remarks": "N - N (New), \nR - R (Reopen)"
+        },
+        {
+          "id": "1765788421507-d9ih66la7",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0121_SB_ISSUE_CALENDAR",
+          "sourceColumn": "ABA0121_OPEN_DATETIME",
+          "sourceType": "DATE",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_calendar_data",
+          "targetColumn": "announcement_dt",
+          "targetType": "TIMESTAMP",
+          "mapType": "manual",
+          "typeCompatibility": "compatible",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": true,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": []
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765788421507,
+          "updatedAt": 1765788969468,
+          "remarks": "Date - Timestamp, Refer to Announcement datetime"
+        },
+        {
+          "id": "1765788423428-e4b1eo87m",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0121_SB_ISSUE_CALENDAR",
+          "sourceColumn": "ABA0121_CLOSE_DATETIME",
+          "sourceType": "DATE",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_calendar_data",
+          "targetColumn": "auction_dt",
+          "targetType": "TIMESTAMP",
+          "mapType": "manual",
+          "typeCompatibility": "compatible",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": true,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": []
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765788423428,
+          "updatedAt": 1765788973197,
+          "remarks": "Date - Timestamp, Refer to Auction datetime"
+        },
+        {
+          "id": "1765788425573-2c0jcodkn",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0121_SB_ISSUE_CALENDAR",
+          "sourceColumn": "ABA0121_ISSUE_DATETIME",
+          "sourceType": "DATE",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_calendar_data",
+          "targetColumn": "issue_dt",
+          "targetType": "TIMESTAMP",
+          "mapType": "manual",
+          "typeCompatibility": "compatible",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": true,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": []
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765788425573,
+          "updatedAt": 1765788976416,
+          "remarks": "Date - Timestamp, Refer to Issue Datetime"
+        },
+        {
+          "id": "1765856062497-8p0jygm2q",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0001_SECURITY_MASTER",
+          "sourceColumn": "ABA0001_ISSUE_NO",
+          "sourceType": "CHAR(1)",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_issuance",
+          "targetColumn": "issue_no",
+          "targetType": "NUMERIC(3)",
+          "mapType": "manual",
+          "typeCompatibility": "incompatible",
+          "validation": {
+            "typeMatch": false,
+            "sizeMatch": true,
+            "nullableMatch": false,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": false,
+            "warnings": [
+              "Source is Primary Key but target is not"
+            ],
+            "errors": [
+              "No compatibility rule found for CHAR(1) → NUMERIC(3)",
+              "Source allows NULL but target is NOT NULL - migration may fail"
+            ]
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765856062497,
+          "updatedAt": 1765864502940,
+          "remarks": "1 - 1 direct mapping, need to transform to numeric to store up to 99"
+        },
+        {
+          "id": "1765856712062-e027t3hpl",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0001_SECURITY_MASTER",
+          "sourceColumn": "ABA0001_ISSUE_DATE",
+          "sourceType": "DATE",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_issuance",
+          "targetColumn": "issue_dt",
+          "targetType": "TIMESTAMP",
+          "mapType": "manual",
+          "typeCompatibility": "compatible",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": true,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": []
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765856712062,
+          "updatedAt": 1765878174839,
+          "remarks": "Date - Timestamp, 1 - 1 direct mapping, refer to Issue Date"
+        },
+        {
+          "id": "1765856721254-q4fsxtf8o",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0001_SECURITY_MASTER",
+          "sourceColumn": "ABA0001_TENDER_DATE",
+          "sourceType": "DATE",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_issuance",
+          "targetColumn": "auction_dt",
+          "targetType": "TIMESTAMP",
+          "mapType": "manual",
+          "typeCompatibility": "compatible",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": true,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": []
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765856721254,
+          "updatedAt": 1765878177695,
+          "remarks": "Date - Timestamp, 1 - 1 direct mapping, refer to Auction Date"
+        },
+        {
+          "id": "1765857450561-zhggkwx4w",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0001_SECURITY_MASTER",
+          "sourceColumn": "ABA0001_TENOR",
+          "sourceType": "NUMBER(3,0)",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_issuance",
+          "targetColumn": "tenor",
+          "targetType": "NUMERIC(3)",
+          "mapType": "manual",
+          "typeCompatibility": "compatible",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": false,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": [
+              "Source allows NULL but target is NOT NULL - migration may fail"
+            ]
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765857450561,
+          "updatedAt": 1765878496233,
+          "remarks": "1 -1 mapping, with following transformation rules to tenor unit - \nFor SGS Bonds, the value will be defined in years. \nFor Treasury Bills and MAS Bills, the value will be defined in days. \nFor MAS FRN Bonds, the value will be defined in months.  \n"
+        },
+        {
+          "id": "1765859907505-uecdfl46c",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0001_SECURITY_MASTER",
+          "sourceColumn": "ABA0001_EX_INT_DATE",
+          "sourceType": "DATE",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_issuance",
+          "targetColumn": "ex_int_date",
+          "targetType": "TIMESTAMP",
+          "mapType": "manual",
+          "typeCompatibility": "compatible",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": true,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": []
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765859907505,
+          "updatedAt": 1765864292234,
+          "remarks": "Only applicable for SGS/FRN bonds "
+        },
+        {
+          "id": "1765866477166-e3c2swevu",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0001_SECURITY_MASTER",
+          "sourceColumn": "ABA0001_ANNOUNCE_DATE",
+          "sourceType": "DATE",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_issuance",
+          "targetColumn": "announcement_dt",
+          "targetType": "TIMESTAMP",
+          "mapType": "manual",
+          "typeCompatibility": "compatible",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": false,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": [
+              "Source allows NULL but target is NOT NULL - migration may fail"
+            ]
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765866477166,
+          "updatedAt": 1766109924057,
+          "remarks": "Date - Timestamp, 1 - 1 direct mapping, refer to Announcement Date"
+        },
+        {
+          "id": "1765879724270-8dnv7jjk0",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0121_SB_ISSUE_CALENDAR",
+          "sourceColumn": "ABA0121_ISSUE_TYPE",
+          "sourceType": "VARCHAR2(1)",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_calendar_data",
+          "targetColumn": "issue_type",
+          "targetType": "VARCHAR(20)",
+          "mapType": "manual",
+          "typeCompatibility": "compatible",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": true,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": []
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765879724270,
+          "updatedAt": 1765879782881,
+          "remarks": "S (Saving Bonds) - SECTYPE_SSB"
+        },
+        {
+          "id": "1765880139504-ok5vq4jwh",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0021_ISSUE_CALENDAR",
+          "sourceColumn": "ABA0021_ISSUE_TYPE",
+          "sourceType": "VARCHAR2(1)",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_calendar_data",
+          "targetColumn": "issue_type",
+          "targetType": "VARCHAR(20)",
+          "mapType": "manual",
+          "typeCompatibility": "compatible",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": true,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": []
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765880139504,
+          "updatedAt": 1770970056752,
+          "remarks": "Transformation logic required as below:\n\nT (T-Bill) - SECTYPE_TBILL\nB (SGS MD Bond) - SECTYPE_SGS\nI (SGS Infra Bond) - SECTYPE_SGS\nG (SGS Green Infra Bond) - SECTYPE_SGS"
+        },
+        {
+          "id": "1765880980068-x3s05znst",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0001_SECURITY_MASTER",
+          "sourceColumn": "ABA0001_ACCRUED_INT_DAYS",
+          "sourceType": "NUMBER(3,0)",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_announcement_details",
+          "targetColumn": "accrued_interest_days",
+          "targetType": "NUMERIC(5)",
+          "mapType": "manual",
+          "typeCompatibility": "compatible",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": true,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": []
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765880980068,
+          "updatedAt": 1766109126707,
+          "remarks": "1 - 1 direct mapping"
+        },
+        {
+          "id": "1765938741086-4j32ov0z4",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0001_SECURITY_MASTER",
+          "sourceColumn": "ABA0001_CLOSING_PRICE",
+          "sourceType": "NUMBER(7,4)",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_issuance",
+          "targetColumn": "closing_price",
+          "targetType": "NUMERIC(7",
+          "mapType": "manual",
+          "typeCompatibility": "incompatible",
+          "validation": {
+            "typeMatch": false,
+            "sizeMatch": true,
+            "nullableMatch": false,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": [
+              "No compatibility rule found for NUMBER(7,4) → NUMERIC(7",
+              "Source allows NULL but target is NOT NULL - migration may fail"
+            ]
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765938741086,
+          "updatedAt": 1766109914556,
+          "remarks": "1 - 1 direct mapping"
+        },
+        {
+          "id": "1765938766102-13r3pfxvp",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0001_SECURITY_MASTER",
+          "sourceColumn": "ABA0001_NC_PERCENT",
+          "sourceType": "NUMBER(5,2)",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_issuance",
+          "targetColumn": "non_comp_allotment_pct",
+          "targetType": "NUMERIC(5",
+          "mapType": "manual",
+          "typeCompatibility": "incompatible",
+          "validation": {
+            "typeMatch": false,
+            "sizeMatch": true,
+            "nullableMatch": false,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": [
+              "No compatibility rule found for NUMBER(5,2) → NUMERIC(5",
+              "Source allows NULL but target is NOT NULL - migration may fail"
+            ]
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765938766102,
+          "updatedAt": 1766111859779,
+          "remarks": "1 - 1 direct mapping"
+        },
+        {
+          "id": "1765938777214-e7q1zz6er",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0001_SECURITY_MASTER",
+          "sourceColumn": "ABA0001_NC_QTY_ALLOT",
+          "sourceType": "NUMBER(13,0)",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_issuance",
+          "targetColumn": "non_comp_qty_allotted",
+          "targetType": "NUMERIC(13)",
+          "mapType": "manual",
+          "typeCompatibility": "compatible",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": false,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": [
+              "Source allows NULL but target is NOT NULL - migration may fail"
+            ]
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765938777214,
+          "updatedAt": 1766111885474,
+          "remarks": "1 - 1 direct mapping"
+        },
+        {
+          "id": "1765939346388-8z16fsg8i",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0001_SECURITY_MASTER",
+          "sourceColumn": "ABA0001_AVE_PRICE",
+          "sourceType": "NUMBER(7,4)",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_issuance",
+          "targetColumn": "avg_price",
+          "targetType": "NUMERIC(7",
+          "mapType": "manual",
+          "typeCompatibility": "incompatible",
+          "validation": {
+            "typeMatch": false,
+            "sizeMatch": true,
+            "nullableMatch": false,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": [
+              "No compatibility rule found for NUMBER(7,4) → NUMERIC(7",
+              "Source allows NULL but target is NOT NULL - migration may fail"
+            ]
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765939346388,
+          "updatedAt": 1766109904358,
+          "remarks": "1 - 1 direct mapping"
+        },
+        {
+          "id": "1765939360699-w6jyu3ois",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0001_SECURITY_MASTER",
+          "sourceColumn": "ABA0001_PERCENT_SUB",
+          "sourceType": "NUMBER(5,2)",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_issuance",
+          "targetColumn": "subscription_pct",
+          "targetType": "NUMERIC(5",
+          "mapType": "manual",
+          "typeCompatibility": "incompatible",
+          "validation": {
+            "typeMatch": false,
+            "sizeMatch": true,
+            "nullableMatch": false,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": [
+              "No compatibility rule found for NUMBER(5,2) → NUMERIC(5",
+              "Source allows NULL but target is NOT NULL - migration may fail"
+            ]
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765939360699,
+          "updatedAt": 1766109817171,
+          "remarks": "1 - 1 direct mapping"
+        },
+        {
+          "id": "1765939380559-0nbacujc4",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0001_SECURITY_MASTER",
+          "sourceColumn": "ABA0001_QTY_APPLIED",
+          "sourceType": "NUMBER(13,0)",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_issuance",
+          "targetColumn": "qty_applied",
+          "targetType": "NUMERIC(13)",
+          "mapType": "manual",
+          "typeCompatibility": "compatible",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": false,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": [
+              "Source allows NULL but target is NOT NULL - migration may fail"
+            ]
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765939380559,
+          "updatedAt": 1768752582341,
+          "remarks": "1 - 1 direct mapping"
+        },
+        {
+          "id": "1765944103574-56q7c6xmx",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0001_SECURITY_MASTER",
+          "sourceColumn": "ABA0001_CUTOFF_YIELD",
+          "sourceType": "NUMBER(5,2)",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_issuance",
+          "targetColumn": "cutoff_yield",
+          "targetType": "NUMERIC(5",
+          "mapType": "manual",
+          "typeCompatibility": "incompatible",
+          "validation": {
+            "typeMatch": false,
+            "sizeMatch": true,
+            "nullableMatch": false,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": [
+              "No compatibility rule found for NUMBER(5,2) → NUMERIC(5",
+              "Source allows NULL but target is NOT NULL - migration may fail"
+            ]
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765944103574,
+          "updatedAt": 1766109811989,
+          "remarks": "1 - 1 direct mapping"
+        },
+        {
+          "id": "1765944123382-o4eriywg8",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0001_SECURITY_MASTER",
+          "sourceColumn": "ABA0001_PERCENT_COY",
+          "sourceType": "NUMBER(5,2)",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_issuance",
+          "targetColumn": "cutoff_yield_pct",
+          "targetType": "NUMERIC(5",
+          "mapType": "manual",
+          "typeCompatibility": "incompatible",
+          "validation": {
+            "typeMatch": false,
+            "sizeMatch": true,
+            "nullableMatch": false,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": [
+              "No compatibility rule found for NUMBER(5,2) → NUMERIC(5",
+              "Source allows NULL but target is NOT NULL - migration may fail"
+            ]
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765944123382,
+          "updatedAt": 1766109814649,
+          "remarks": "1 - 1 direct mapping"
+        },
+        {
+          "id": "1765944189939-1rpjiewsc",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0001_SECURITY_MASTER",
+          "sourceColumn": "ABA0001_AVE_YIELD",
+          "sourceType": "NUMBER(5,2)",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_issuance",
+          "targetColumn": "avg_yield",
+          "targetType": "NUMERIC(5",
+          "mapType": "manual",
+          "typeCompatibility": "incompatible",
+          "validation": {
+            "typeMatch": false,
+            "sizeMatch": true,
+            "nullableMatch": false,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": [
+              "No compatibility rule found for NUMBER(5,2) → NUMERIC(5",
+              "Source allows NULL but target is NOT NULL - migration may fail"
+            ]
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765944189939,
+          "updatedAt": 1766109809459,
+          "remarks": "1 - 1 direct mapping"
+        },
+        {
+          "id": "1765944274914-ef2mdfx3z",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0001_SECURITY_MASTER",
+          "sourceColumn": "ABA0001_COY_PRICE",
+          "sourceType": "NUMBER(7,4)",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_issuance",
+          "targetColumn": "cutoff_yield_price",
+          "targetType": "NUMERIC(7",
+          "mapType": "manual",
+          "typeCompatibility": "incompatible",
+          "validation": {
+            "typeMatch": false,
+            "sizeMatch": true,
+            "nullableMatch": false,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": [
+              "No compatibility rule found for NUMBER(7,4) → NUMERIC(7",
+              "Source allows NULL but target is NOT NULL - migration may fail"
+            ]
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765944274914,
+          "updatedAt": 1766109905513,
+          "remarks": "1 - 1 direct mapping"
+        },
+        {
+          "id": "1765959270120-kowish6ax",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0001_SECURITY_MASTER",
+          "sourceColumn": "ABA0001_ANNOUNCE_INDICATOR",
+          "sourceType": "CHAR(1)",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_announcement_details",
+          "targetColumn": "status",
+          "targetType": "VARCHAR(50)",
+          "mapType": "manual",
+          "typeCompatibility": "needs_conversion",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": false,
+            "precisionMatch": true,
+            "defaultMatch": false,
+            "constraintMatch": true,
+            "warnings": [
+              "Target size may be smaller - check for truncation",
+              "Source has default (N) but target has none"
+            ],
+            "errors": [
+              "Source allows NULL but target is NOT NULL - migration may fail"
+            ]
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765959270120,
+          "updatedAt": 1769052966148,
+          "remarks": "Transformation required - \nY - ISSANNSTAT_PUBLISHED\nN - ISSANNSTAT_DRAFT\nnull - ISSANNSTAT_DRAFT"
+        },
+        {
+          "id": "1765962916746-o1bvjya0d",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0001_SECURITY_MASTER",
+          "sourceColumn": "ABA0001_ISSUE_SIZE",
+          "sourceType": "NUMBER(13,0)",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_issuance",
+          "targetColumn": "total_amount_offered",
+          "targetType": "NUMERIC(13)",
+          "mapType": "manual",
+          "typeCompatibility": "compatible",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": true,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": []
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765962916746,
+          "updatedAt": 1768287687647,
+          "remarks": "1 - 1 direct mapping"
+        },
+        {
+          "id": "1765962925359-ghal55q1h",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0001_SECURITY_MASTER",
+          "sourceColumn": "ABA0001_INTEREST_RATE",
+          "sourceType": "NUMBER(7,4)",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_issuance",
+          "targetColumn": "coupon_rate",
+          "targetType": "NUMERIC(7",
+          "mapType": "manual",
+          "typeCompatibility": "incompatible",
+          "validation": {
+            "typeMatch": false,
+            "sizeMatch": true,
+            "nullableMatch": false,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": [
+              "No compatibility rule found for NUMBER(7,4) → NUMERIC(7",
+              "Source allows NULL but target is NOT NULL - migration may fail"
+            ]
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765962925359,
+          "updatedAt": 1766109903129,
+          "remarks": "1 - 1 direct mapping"
+        },
+        {
+          "id": "1765962933786-9e9e4o8lw",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0001_SECURITY_MASTER",
+          "sourceColumn": "ABA0001_LAST_INT_DATE",
+          "sourceType": "DATE",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_issuance",
+          "targetColumn": "last_coupon_payment_dt",
+          "targetType": "TIMESTAMP",
+          "mapType": "manual",
+          "typeCompatibility": "compatible",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": false,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": [
+              "Source allows NULL but target is NOT NULL - migration may fail"
+            ]
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765962933786,
+          "updatedAt": 1766109929346,
+          "remarks": "1 - 1 direct mapping"
+        },
+        {
+          "id": "1765962934764-ncszd0mgz",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0001_SECURITY_MASTER",
+          "sourceColumn": "ABA0001_NEXT_INT_DATE",
+          "sourceType": "DATE",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_issuance",
+          "targetColumn": "next_coupon_payment_dt",
+          "targetType": "TIMESTAMP",
+          "mapType": "manual",
+          "typeCompatibility": "compatible",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": false,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": [
+              "Source allows NULL but target is NOT NULL - migration may fail"
+            ]
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765962934764,
+          "updatedAt": 1766111846387,
+          "remarks": "1 - 1 direct mapping"
+        },
+        {
+          "id": "1765962951369-96esekbev",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0001_SECURITY_MASTER",
+          "sourceColumn": "ABA0001_ACCRUED_INT_DAYS",
+          "sourceType": "NUMBER(3,0)",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_issuance",
+          "targetColumn": "accrued_interest_days",
+          "targetType": "NUMERIC(3)",
+          "mapType": "manual",
+          "typeCompatibility": "compatible",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": false,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": [
+              "Source allows NULL but target is NOT NULL - migration may fail"
+            ]
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765962951369,
+          "updatedAt": 1766111848307,
+          "remarks": "1 - 1 direct mapping"
+        },
+        {
+          "id": "1765962955347-epzyr8qjr",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0001_SECURITY_MASTER",
+          "sourceColumn": "ABA0001_MAS_APPLIED",
+          "sourceType": "NUMBER(13,0)",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_issuance",
+          "targetColumn": "mas_intended_tender_amt",
+          "targetType": "NUMERIC(13)",
+          "mapType": "manual",
+          "typeCompatibility": "compatible",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": false,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": [
+              "Source allows NULL but target is NOT NULL - migration may fail"
+            ]
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765962955347,
+          "updatedAt": 1769047179496,
+          "remarks": "1 - 1 direct mapping"
+        },
+        {
+          "id": "1765963081608-n035urlbp",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0001_SECURITY_MASTER",
+          "sourceColumn": "ABA0001_MAS_ALLOTTED",
+          "sourceType": "NUMBER(13,0)",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_issuance",
+          "targetColumn": "mas_alloted_amt",
+          "targetType": "NUMERIC(13)",
+          "mapType": "manual",
+          "typeCompatibility": "compatible",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": false,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": [
+              "Source allows NULL but target is NOT NULL - migration may fail"
+            ]
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765963081608,
+          "updatedAt": 1766111860828,
+          "remarks": "1 - 1 direct mapping"
+        },
+        {
+          "id": "1766108499010-ymrywdj0r",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0001_SECURITY_MASTER",
+          "sourceColumn": "ABA0001_INT_PAID_IND",
+          "sourceType": "CHAR(1)",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_issuance",
+          "targetColumn": "int_paid_ind",
+          "targetType": "CHAR(1)",
+          "mapType": "manual",
+          "typeCompatibility": "exact",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": false,
+            "precisionMatch": true,
+            "defaultMatch": false,
+            "constraintMatch": true,
+            "warnings": [
+              "Source has default (NULL) but target has none"
+            ],
+            "errors": [
+              "Source allows NULL but target is NOT NULL - migration may fail"
+            ]
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1766108499010,
+          "updatedAt": 1766111851519,
+          "remarks": "1 - 1 direct mapping"
+        },
+        {
+          "id": "1768737342503-kd16d53jd",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0121_SB_ISSUE_CALENDAR",
+          "sourceColumn": "ABA0121_CLOSE_DATETIME",
+          "sourceType": "DATE",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_calendar_data",
+          "targetColumn": "app_closing_dt",
+          "targetType": "TIMESTAMP",
+          "mapType": "manual",
+          "typeCompatibility": "compatible",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": true,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": []
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1768737342503,
+          "updatedAt": 1770968783859,
+          "remarks": "1-1 Date-Timestamp mapping"
+        },
+        {
+          "id": "1768747894682-cm9dajqzw",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0010_ANNOUNCE_TEXT",
+          "sourceColumn": "ABA0010_TEXT",
+          "sourceType": "VARCHAR2(4000)",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_announcement_allotment_params",
+          "targetColumn": "footnote_new",
+          "targetType": "VARCHAR(4000)",
+          "mapType": "manual",
+          "typeCompatibility": "compatible",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": true,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": []
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1768747894682,
+          "updatedAt": 1768749206198,
+          "remarks": "1-1 Direct Mapping"
+        },
+        {
+          "id": "1768747913595-u7pogp93p",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0010_ANNOUNCE_TEXT",
+          "sourceColumn": "ABA0010_USED_BEFORE",
+          "sourceType": "DATE",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_announcement_allotment_params",
+          "targetColumn": "status",
+          "targetType": "VARCHAR(20)",
+          "mapType": "manual",
+          "typeCompatibility": "incompatible",
+          "validation": {
+            "typeMatch": false,
+            "sizeMatch": true,
+            "nullableMatch": false,
+            "precisionMatch": true,
+            "defaultMatch": false,
+            "constraintMatch": false,
+            "warnings": [
+              "Source has default (01/JAN/2099) but target has none",
+              "Source is Primary Key but target is not"
+            ],
+            "errors": [
+              "No compatibility rule found for DATE → VARCHAR(20)",
+              "Source allows NULL but target is NOT NULL - migration may fail"
+            ]
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1768747913595,
+          "updatedAt": 1769048624359,
+          "remarks": "Transformation logic as below - \n\nIf ABA0010_USED_BEFORE before migration date - set to CMSTAT_ACTIVE\n\nelse if ABA0010_USED_BEFORE after migration date - set to CMSTAT_INACTIVE\n\nIf null, set to CMSTAT_INACTIVE"
+        },
+        {
+          "id": "1768747991662-u8tcs4hmj",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0010_ANNOUNCE_TEXT",
+          "sourceColumn": "ABA0010_NAME",
+          "sourceType": "VARCHAR2(8)",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "iss_sec_params",
+          "targetColumn": "security_type",
+          "targetType": "VARCHAR(50)",
+          "mapType": "manual",
+          "typeCompatibility": "compatible",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": true,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": false,
+            "warnings": [
+              "Source is Primary Key but target is not"
+            ],
+            "errors": []
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1768747991662,
+          "updatedAt": 1768748928933,
+          "remarks": "Transformation logic as below, as join key for iss_announcement_allotment_params:\n\nmasbill - SECTYPE_MASBILL\ntbill - SECTYPE_TBILL\nbond - SECTYPE_SGS\ncmtb - SECTYPE_CTMB\nfrn - SECTYPE_FRN"
+        },
+        {
+          "id": "1768750365395-tkjdlob3s",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0001_SECURITY_MASTER",
+          "sourceColumn": "ABA0001_INT_DATE1",
+          "sourceType": "DATE",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "issuance_coupon_payment_dates",
+          "targetColumn": "month",
+          "targetType": "NUMERIC(2)",
+          "mapType": "manual",
+          "typeCompatibility": "incompatible",
+          "validation": {
+            "typeMatch": false,
+            "sizeMatch": true,
+            "nullableMatch": false,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": [
+              "No compatibility rule found for DATE → NUMERIC(2)",
+              "Source allows NULL but target is NOT NULL - migration may fail"
+            ]
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1768750365395,
+          "updatedAt": 1769049687867,
+          "remarks": "Transformation logic:\n\nJoin key: sec_security_master.issue_code & iss_issuance.issue_no\n\nExtract MM from DD/MM/YYYY - MM"
+        },
+        {
+          "id": "1768750367438-2c5bcr7uf",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0001_SECURITY_MASTER",
+          "sourceColumn": "ABA0001_INT_DATE1",
+          "sourceType": "DATE",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "issuance_coupon_payment_dates",
+          "targetColumn": "day",
+          "targetType": "NUMERIC(2)",
+          "mapType": "manual",
+          "typeCompatibility": "incompatible",
+          "validation": {
+            "typeMatch": false,
+            "sizeMatch": true,
+            "nullableMatch": false,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": [
+              "No compatibility rule found for DATE → NUMERIC(2)",
+              "Source allows NULL but target is NOT NULL - migration may fail"
+            ]
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1768750367438,
+          "updatedAt": 1768751949330,
+          "remarks": "Transformation logic:\n\nJoin key: sec_security_master.issue_code & iss_issuance.issue_no\n\nExtract DD from DD/MM/YYYY - DD"
+        },
+        {
+          "id": "1768750375481-diyet1gx9",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0001_SECURITY_MASTER",
+          "sourceColumn": "ABA0001_INT_DATE2",
+          "sourceType": "DATE",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "issuance_coupon_payment_dates",
+          "targetColumn": "month",
+          "targetType": "NUMERIC(2)",
+          "mapType": "manual",
+          "typeCompatibility": "incompatible",
+          "validation": {
+            "typeMatch": false,
+            "sizeMatch": true,
+            "nullableMatch": false,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": [
+              "No compatibility rule found for DATE → NUMERIC(2)",
+              "Source allows NULL but target is NOT NULL - migration may fail"
+            ]
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1768750375481,
+          "updatedAt": 1768751917610,
+          "remarks": "Transformation logic:\n\nJoin key: sec_security_master.issue_code & iss_issuance.issue_no\n\nExtract MM from DD/MM/YYYY - MM"
+        },
+        {
+          "id": "1768750378179-xmdhpcpt7",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0001_SECURITY_MASTER",
+          "sourceColumn": "ABA0001_INT_DATE2",
+          "sourceType": "DATE",
+          "targetScriptId": "1765767535885-o1jilrqnk",
+          "targetTable": "issuance_coupon_payment_dates",
+          "targetColumn": "day",
+          "targetType": "NUMERIC(2)",
+          "mapType": "manual",
+          "typeCompatibility": "incompatible",
+          "validation": {
+            "typeMatch": false,
+            "sizeMatch": true,
+            "nullableMatch": false,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": [
+              "No compatibility rule found for DATE → NUMERIC(2)",
+              "Source allows NULL but target is NOT NULL - migration may fail"
+            ]
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1768750378179,
+          "updatedAt": 1768751939430,
+          "remarks": "Transformation logic:\n\nJoin key: sec_security_master.issue_code & iss_issuance.issue_no\n\nExtract DD from DD/MM/YYYY - DD"
+        }
+      ],
+      "tableMappings": [],
+      "typeRules": [],
+      "createdAt": 1765767871600,
+      "updatedAt": 1770970056752,
+      "typeRuleSetId": "1766369544676-tqycbl70v"
+    },
+    {
+      "id": "1765795508090-n0vgkqfgs",
+      "name": "BE_MNETD → cm",
+      "sourceScriptId": "1765767477409-l6jnwi0f9",
+      "targetScriptId": "1765767590723-int8dg1yl",
+      "mappings": [
+        {
+          "id": "1765966562703-25wixih76",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0009_BANK_MASTER",
+          "sourceColumn": "ABA0009_BANK_CODE",
+          "sourceType": "CHAR(4)",
+          "targetScriptId": "1765767590723-int8dg1yl",
+          "targetTable": "cm_bank_master",
+          "targetColumn": "bank_code",
+          "targetType": "VARCHAR(10)",
+          "mapType": "manual",
+          "typeCompatibility": "needs_conversion",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": true,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": false,
+            "warnings": [
+              "Target size may be smaller - check for truncation",
+              "Source is Primary Key but target is not"
+            ],
+            "errors": []
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765966562703,
+          "updatedAt": 1768713539488,
+          "remarks": "1 - 1 Direct Mapping"
+        },
+        {
+          "id": "1765966567631-5qk3fm4lj",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0009_BANK_MASTER",
+          "sourceColumn": "ABA0009_BANK_NAME",
+          "sourceType": "VARCHAR2(40)",
+          "targetScriptId": "1765767590723-int8dg1yl",
+          "targetTable": "cm_bank_master",
+          "targetColumn": "bank_name",
+          "targetType": "VARCHAR(255)",
+          "mapType": "manual",
+          "typeCompatibility": "compatible",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": true,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": []
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765966567631,
+          "updatedAt": 1769049677220,
+          "remarks": "1 - 1 Direct Mapping"
+        },
+        {
+          "id": "1765966571164-i6jii1iu1",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0009_BANK_MASTER",
+          "sourceColumn": "ABA0009_BANK_SHORTNAME",
+          "sourceType": "VARCHAR2(15)",
+          "targetScriptId": "1765767590723-int8dg1yl",
+          "targetTable": "cm_bank_master",
+          "targetColumn": "bank_shortname",
+          "targetType": "VARCHAR(20)",
+          "mapType": "manual",
+          "typeCompatibility": "compatible",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": true,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": []
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765966571164,
+          "updatedAt": 1769049677706,
+          "remarks": "1 - 1 Direct Mapping"
+        },
+        {
+          "id": "1765966576564-jaa4f1zxa",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0009_BANK_MASTER",
+          "sourceColumn": "ABA0009_AUTODEBIT_INDICATOR",
+          "sourceType": "CHAR(1)",
+          "targetScriptId": "1765767590723-int8dg1yl",
+          "targetTable": "cm_bank_master",
+          "targetColumn": "autodebit_indicator",
+          "targetType": "CHAR(1)",
+          "mapType": "manual",
+          "typeCompatibility": "exact",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": true,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": []
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765966576564,
+          "updatedAt": 1766023865606,
+          "remarks": "1 - 1 Direct Mapping"
+        },
+        {
+          "id": "1765966577608-ac2jlqg7k",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0009_BANK_MASTER",
+          "sourceColumn": "ABA0009_PARTICIPANT_INDICATOR",
+          "sourceType": "CHAR(1)",
+          "targetScriptId": "1765767590723-int8dg1yl",
+          "targetTable": "cm_bank_master",
+          "targetColumn": "participant_indicator",
+          "targetType": "CHAR(1)",
+          "mapType": "manual",
+          "typeCompatibility": "exact",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": true,
+            "precisionMatch": true,
+            "defaultMatch": false,
+            "constraintMatch": true,
+            "warnings": [
+              "Source has default (Y) but target has none"
+            ],
+            "errors": []
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765966577608,
+          "updatedAt": 1766023866622,
+          "remarks": "1 - 1 Direct Mapping"
+        },
+        {
+          "id": "1765966641041-fsbx1rkrs",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0013_PRIMARY_DEALER",
+          "sourceColumn": "ABA0013_MASREPO_IND",
+          "sourceType": "CHAR(1)",
+          "targetScriptId": "1765767590723-int8dg1yl",
+          "targetTable": "cm_bank_master",
+          "targetColumn": "is_mas_repo_eligible",
+          "targetType": "CHAR(1)",
+          "mapType": "manual",
+          "typeCompatibility": "exact",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": true,
+            "nullableMatch": true,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": true,
+            "warnings": [],
+            "errors": []
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1765966641041,
+          "updatedAt": 1766023864690,
+          "remarks": "1 - 1 Direct Mapping"
+        },
+        {
+          "id": "1766023378944-uqeuneos0",
+          "sourceScriptId": "1765767477409-l6jnwi0f9",
+          "sourceTable": "ABA0013_PRIMARY_DEALER",
+          "sourceColumn": "ABA0013_BANK_CODE",
+          "sourceType": "CHAR(4)",
+          "targetScriptId": "1765767590723-int8dg1yl",
+          "targetTable": "cm_bank_master",
+          "targetColumn": "is_primary_dealer",
+          "targetType": "CHAR(1)",
+          "mapType": "manual",
+          "typeCompatibility": "compatible",
+          "validation": {
+            "typeMatch": true,
+            "sizeMatch": false,
+            "nullableMatch": true,
+            "precisionMatch": true,
+            "defaultMatch": true,
+            "constraintMatch": false,
+            "warnings": [
+              "Target size (1) < source size (4) - data may truncate",
+              "Source is Primary Key but target is not"
+            ],
+            "errors": []
+          },
+          "transformations": [],
+          "confidence": 1,
+          "createdAt": 1766023378944,
+          "updatedAt": 1769049680107,
+          "remarks": "Required transformation - \nSET is_primary_dealer to 'Y' if bank_code exists in ABA0013_BANK_CODE"
+        }
+      ],
+      "tableMappings": [],
+      "typeRules": [],
+      "createdAt": 1765795508090,
+      "updatedAt": 1769049680107,
+      "typeRuleSetId": "1766369544676-tqycbl70v"
+    },
+    {
+      "id": "1765951660257-jvta6a7qy",
+      "name": "iss → iss",
+      "sourceScriptId": "1765767535885-o1jilrqnk",
+      "targetScriptId": "1765767535885-o1jilrqnk",
+      "mappings": [],
+      "tableMappings": [],
+      "typeRules": [],
+      "createdAt": 1765951660257,
+      "updatedAt": 1765955702340,
+      "typeRuleSetId": "1766369544676-tqycbl70v"
+    },
+    {
+      "id": "1765952232803-qqofvbzjw",
+      "name": "iss → BE_MNETD",
+      "sourceScriptId": "1765767535885-o1jilrqnk",
+      "targetScriptId": "1765767477409-l6jnwi0f9",
+      "mappings": [],
+      "tableMappings": [],
+      "typeRules": [],
+      "createdAt": 1765952232803,
+      "updatedAt": 1768712265808,
+      "typeRuleSetId": "1766369544676-tqycbl70v"
+    },
+    {
+      "id": "1768712267954-pjks90sz0",
+      "name": "BE_MNETD → BE_MNETD",
+      "sourceScriptId": "1765767477409-l6jnwi0f9",
+      "targetScriptId": "1765767477409-l6jnwi0f9",
+      "mappings": [],
+      "tableMappings": [],
+      "createdAt": 1768712267954,
+      "updatedAt": 1768712267957,
+      "typeRuleSetId": "1766369544676-tqycbl70v"
+    },
+    {
+      "id": "1770953905147-rzi4o01xx",
+      "name": "FE_TRI1 → iss",
+      "sourceScriptId": "1765851568151-05zvcmw1e",
+      "targetScriptId": "1765767535885-o1jilrqnk",
+      "mappings": [],
+      "tableMappings": [],
+      "createdAt": 1770953905147,
+      "updatedAt": 1770953905162,
+      "typeRuleSetId": "1766369544676-tqycbl70v"
+    }
+  ],
+  "typeRuleSets": [
+    {
+      "id": "1766369544676-tqycbl70v",
+      "name": "Default Type Rules",
+      "description": "Shared type compatibility rules across all schemas",
+      "sourceDb": "any",
+      "targetDb": "any",
+      "rules": [
+        {
+          "id": "1766369551939-uvd3jibpg",
+          "name": "",
+          "sourcePattern": "CHAR",
+          "targetPattern": "CHAR",
+          "compatibility": "compatible",
+          "priority": 0,
+          "enabled": true
+        },
+        {
+          "id": "1766369552054-h90cgkd4f",
+          "name": "",
+          "sourcePattern": "DATE",
+          "targetPattern": "TIMESTAMP",
+          "compatibility": "compatible",
+          "priority": 1,
+          "enabled": true
+        },
+        {
+          "id": "1766369552162-7fofe221n",
+          "name": "",
+          "sourcePattern": "VARCHAR2",
+          "targetPattern": "VARCHAR",
+          "compatibility": "compatible",
+          "priority": 2,
+          "enabled": true
+        },
+        {
+          "id": "1766369552270-igvv8pg6q",
+          "name": "",
+          "sourcePattern": "NUMBER",
+          "targetPattern": "NUMERIC",
+          "compatibility": "compatible",
+          "priority": 3,
+          "enabled": true
+        }
+      ],
+      "isBuiltIn": false,
+      "createdAt": 1766369544676,
+      "updatedAt": 1766369565174
+    }
+  ],
+  "flowchartScripts": [],
+  "scriptIndex": [
+    {
+      "id": "1765767477409-l6jnwi0f9",
+      "name": "BE_MNETD",
+      "type": "oracle",
+      "tableCount": 104,
+      "createdAt": 1765767477409,
+      "updatedAt": 1770989969375
+    },
+    {
+      "id": "1765767535885-o1jilrqnk",
+      "name": "iss",
+      "type": "postgresql",
+      "tableCount": 37,
+      "createdAt": 1765767535885,
+      "updatedAt": 1770089734025
+    },
+    {
+      "id": "1765767563393-zeqnha67h",
+      "name": "sec",
+      "type": "postgresql",
+      "tableCount": 4,
+      "createdAt": 1765767563393,
+      "updatedAt": 1769053677149
+    },
+    {
+      "id": "1765767590723-int8dg1yl",
+      "name": "cm",
+      "type": "postgresql",
+      "tableCount": 18,
+      "createdAt": 1765767590723,
+      "updatedAt": 1766130864929
+    },
+    {
+      "id": "1765851568151-05zvcmw1e",
+      "name": "FE_TRI1",
+      "type": "oracle",
+      "tableCount": 120,
+      "createdAt": 1765851568151,
+      "updatedAt": 1772184922447
+    },
+    {
+      "id": "1765854515443-bkhp5cl9s",
+      "name": "tmp - sec_params",
+      "type": "postgresql",
+      "tableCount": 6,
+      "createdAt": 1765854515443,
+      "updatedAt": 1768289749616
+    },
+    {
+      "id": "1765936888739-vujpfmtow",
+      "name": "tmp - secmast",
+      "type": "postgresql",
+      "tableCount": 2,
+      "createdAt": 1765936888739,
+      "updatedAt": 1768289739860
+    },
+    {
+      "id": "1765965941795-vkdwrqwnm",
+      "name": "stg",
+      "type": "postgresql",
+      "tableCount": 10,
+      "createdAt": 1765965941795,
+      "updatedAt": 1766392033155
+    },
+    {
+      "id": "1766373181166-csitrfg2e",
+      "name": "tmp - Bids Collation",
+      "type": "postgresql",
+      "tableCount": 6,
+      "createdAt": 1766373181166,
+      "updatedAt": 1768289731152
+    },
+    {
+      "id": "1768289772110-lo44ineup",
+      "name": "tmp - org & bank",
+      "type": "postgresql",
+      "tableCount": 6,
+      "createdAt": 1768289772110,
+      "updatedAt": 1768467558146
+    },
+    {
+      "id": "1769748075633-thy4gl0om",
+      "name": "OMEGA Full",
+      "type": "postgresql",
+      "tableCount": 122,
+      "createdAt": 1769748075633,
+      "updatedAt": 1773661232580
+    },
+    {
+      "id": "1770023261559-avuy3zfgw",
+      "name": "Trace (For migration)",
+      "type": "postgresql",
+      "tableCount": 1,
+      "createdAt": 1770023261559,
+      "updatedAt": 1770173624158
+    },
+    {
+      "id": "1770900039838-6487cpmsc",
+      "name": "OMEGA Full Temp",
+      "type": "postgresql",
+      "tableCount": 96,
+      "createdAt": 1770900039838,
+      "updatedAt": 1772457216508
+    },
+    {
+      "id": "1773390344785-ek4txmni4",
+      "name": "Draft allotment run and allotment results table",
+      "type": "postgresql",
+      "tableCount": 16,
+      "createdAt": 1773390344785,
+      "updatedAt": 1773717486000
+    },
+    {
+      "id": "1773406287753-4unn3chwx",
+      "name": "BKP OMEGA FULL",
+      "type": "postgresql",
+      "tableCount": 99,
+      "createdAt": 1773406287753,
+      "updatedAt": 1773406287753
+    }
+  ]
+}

@@ -36,6 +36,16 @@ export interface Table {
   _tChecked?: boolean;  // Flag for _t checkbox (auto-checked if table name contains _t)
 }
 
+export interface MasterCode {
+  key: string;
+  definition: string;
+}
+
+export interface MasterCodeCategory {
+  key: string;
+  definition: string;
+}
+
 export interface ScriptData {
   targets: Table[];
   sources: Table[];
@@ -78,6 +88,10 @@ export interface Script {
   maxVersions?: number;
   // Sample data attachments
   sampleDataAttachments?: SampleDataAttachment[];
+  // Master code definitions (Appendix)
+  masterCodes?: MasterCode[];
+  // Master code category definitions (Appendix)
+  masterCodeCategories?: MasterCodeCategory[];
 }
 
 // ============================================

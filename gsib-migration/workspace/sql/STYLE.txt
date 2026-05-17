@@ -1,0 +1,202 @@
+SQL style — house conventions used in run.sql / master_code_cleanup.sql
+=========================================================================
+
+This document captures the formatting and spacing rules followed in the
+hand-written migration scripts under gsib-migration/workspace/sql/.
+Keep new SQL consistent with this so diffs stay clean and reviewable.
+
+
+1. FILE STRUCTURE
+-----------------
+
+- One-line top comment summarising the script's intent. No banner of
+  '====' lines. Example:
+
+      -- iss_sb_redemption migration + status column cleanup.
+
+- Always wrap the body in a single transaction:
+
+      BEGIN;
+      ...
+      COMMIT;
+
+- Sections numbered with a single-line header comment. Each section does
+  one logical thing. Example:
+
+      -- 1. Redemption run: master + audit
+      -- 2. Redemption run issue: master + audit
+      -- 3. Repoint iss_sb_redemption to the new redemption_run table.
+
+  Keep section headers under ~70 chars. No multi-line explanations
+  unless the operation truly needs background.
+
+
+2. KEYWORDS AND CASING
+----------------------
+
+- SQL keywords in UPPERCASE:  CREATE, TABLE, ALTER, COLUMN, INSERT,
+  SELECT, INTO, VALUES, WHERE, FROM, AND, OR, NOT, NULL, DEFAULT,
+  PRIMARY KEY, UNIQUE, REFERENCES, CONSTRAINT, BEGIN, COMMIT,
+  IF EXISTS, IF NOT EXISTS, AS, INTO.
+- Identifiers (schemas, tables, columns) in lowercase_with_underscores.
+- Schema-qualify every table:  iss.iss_sb_redemption_run, not just
+  iss_sb_redemption_run.
+
+
+3. COLUMN-LIST LAYOUT (CREATE TABLE)
+------------------------------------
+
+- One column per line, four-space indent.
+- Two-column alignment within a CREATE TABLE: column name and type are
+  visually aligned so types form a vertical line. Example:
+
+      CREATE TABLE IF NOT EXISTS iss.iss_sb_redemption_run (
+          id                    bigint        NOT NULL ...,
+          uuid                  varchar(36)   DEFAULT gen_random_uuid(),
+          run_no                numeric(2,0)  NOT NULL,
+          process_date          timestamp     NOT NULL,
+          ...
+      );
+
+  The exact width is the longest column name + a 2-char gutter. Pick
+  whichever column is widest and pad the rest to match.
+
+- Constraints come last, after a blank line if the table is long:
+
+          ...
+          PRIMARY KEY (id),
+          UNIQUE (uuid),
+          UNIQUE (process_date, run_no)
+      );
+
+  Use the short form (PRIMARY KEY / UNIQUE / REFERENCES inline) instead
+  of named CONSTRAINTs unless an external script needs to reference the
+  name. Postgres will auto-name them deterministically.
+
+
+4. ALTER TABLE
+--------------
+
+- One statement per line. Don't chain.
+- Verb words aligned within a section:
+
+      ALTER TABLE iss.iss_sb_redemption   DROP CONSTRAINT IF EXISTS fk_sb_redemption_allotment_run;
+      ALTER TABLE iss.iss_sb_redemption   DROP COLUMN     IF EXISTS iss_sb_allotment_run_uuid;
+      ALTER TABLE iss.iss_sb_redemption_t DROP COLUMN     IF EXISTS iss_sb_allotment_run_uuid;
+
+  Spaces pad table names so the action verb (DROP / ADD / RENAME) sits
+  in the same column on consecutive lines. Same trick for the IF EXISTS
+  clause.
+
+- Prefer IF EXISTS / IF NOT EXISTS over hand-rolled DO blocks. Only fall
+  back to a DO block when Postgres doesn't support the guard natively
+  (e.g. CONSTRAINT existence — rare; prefer inline REFERENCES instead).
+
+- Multi-line ALTER for ADD COLUMN + FK (when the column gets a FK):
+
+      ALTER TABLE iss.iss_sb_redemption
+          ADD COLUMN IF NOT EXISTS iss_sb_redemption_run_uuid varchar(36)
+          REFERENCES iss.iss_sb_redemption_run(uuid);
+
+
+5. INSERT
+---------
+
+- INSERT … VALUES on one line per row when rows are short:
+
+      INSERT INTO cm.cm_master_code (... ) VALUES (... );
+      INSERT INTO cm.cm_master_code (... ) VALUES (... );
+
+- INSERT … SELECT … FROM (VALUES …) when bulk-inserting with
+  idempotency. Indent the VALUES rows by three spaces:
+
+      INSERT INTO cm.cm_master_code (id, uuid, master_code_key, ...)
+      SELECT v.id, gen_random_uuid()::text, v.master_code_key, ...
+      FROM (VALUES
+         (150000000001120, 'AUCSTR_NORMAL', 'NORMAL', 'Normal', 10, '...'),
+         (150000000001121, 'AUCSTR_STRONG', 'STRONG', 'Strong', 20, '...'),
+         ...
+      ) AS v(id, master_code_key, code_value, code_description, seq_no, cat_uuid)
+      WHERE NOT EXISTS (
+         SELECT 1 FROM cm.cm_master_code mc WHERE mc.master_code_key = v.master_code_key
+      );
+
+  The leading three-space indent on each VALUES row visually separates
+  the data from the surrounding plumbing.
+
+
+6. STRING LITERALS
+------------------
+
+- Single quotes, not double quotes (Postgres convention).
+- Avoid escaping where possible — if a value contains an apostrophe,
+  use the Postgres E-string or doubled quote ('o''clock').
+- ARGB-style values inside the OMEGA fills aren't relevant to SQL;
+  for hex / opaque tokens, paste verbatim, single-quoted.
+
+
+7. UUIDs AND IDs
+----------------
+
+- New rows: prefer gen_random_uuid() in inserts; only hard-code a UUID
+  when downstream code already knows about it.
+- IDs for migrated rows follow the project's id scheme
+  (150000000000xxx for category, 150000000001xxx for master_code, etc.).
+  Pick the next free slot — don't jump huge ranges.
+
+
+8. COMMENTS
+-----------
+
+- Use '--' (line comments). Avoid /* ... */ blocks.
+- One-line section headers are preferred. If you must add multi-line
+  rationale, keep it under 4 lines.
+- Don't restate what the SQL does — only add the WHY when non-obvious:
+
+      -- §3k. Drop BIDSTAT — replaced by RECSTAT in bid_status /
+      -- record_status columns
+      DELETE FROM cm.cm_master_code WHERE master_code_key IN (...);
+
+- 'WHY' examples worth keeping: motivating ticket / FSD reference,
+  hidden invariant the schema depends on, an alternative considered
+  and rejected.
+
+
+9. IDEMPOTENCY AND RE-RUNNABILITY
+---------------------------------
+
+- run.sql (DDL) — keep it lightly idempotent. CREATE TABLE / ADD COLUMN /
+  DROP COLUMN use IF [NOT] EXISTS. RENAME COLUMN does not have a native
+  guard, so the script will fail on second run; that's acceptable for a
+  one-shot DDL migration because BEGIN/COMMIT rolls back cleanly.
+
+- master_code_cleanup.sql (DML) — fully idempotent. Every section uses
+  WHERE NOT EXISTS for inserts, key-based UPDATE/DELETE for the rest.
+  Re-runnable any number of times.
+
+
+10. NO-NOS
+----------
+
+- No GO / batch separators (that's SQL Server style; we're on Postgres).
+- No semicolons inside DO $$ ... $$ blocks except where required.
+- No INSERT with NULL placeholders for is_deleted / is_migrated / created_*
+  unless the table genuinely has no defaults. Otherwise let the DEFAULT
+  do the work — only set the columns whose value you actually know.
+- No string concatenation to build identifiers (||). Use the literal
+  identifier.
+- No SELECT * in SQL that lives in the repo. Always enumerate columns.
+
+
+EXAMPLE: a small section that follows all rules
+------------------------------------------------
+
+    -- 4. Rename bid_status → record_status on bid tables.
+    ALTER TABLE iss.iss_bid_institutional   RENAME COLUMN bid_status TO record_status;
+    ALTER TABLE iss.iss_bid_institutional_t RENAME COLUMN bid_status TO record_status;
+    ALTER TABLE iss.iss_bid_retail          RENAME COLUMN bid_status TO record_status;
+    ALTER TABLE iss.iss_bid_retail_t        RENAME COLUMN bid_status TO record_status;
+
+Single-line header, schema-qualified tables, table names padded so the
+RENAME verb is column-aligned, uppercase keywords, lowercase identifiers,
+one statement per line, no trailing prose.

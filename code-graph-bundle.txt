@@ -1,0 +1,583 @@
+================================================================================
+ code-graph — minimal code intelligence for this repo
+ (a tiny, file-based replacement for GitNexus)
+================================================================================
+
+WHAT THIS GIVES YOU
+  A local index (graph.json) of symbols + edges across .py / .ts / .tsx / .js
+  / .jsx / .cjs / .mjs files, plus a query CLI for "callers" / "callees" /
+  "impact" / "find". Zero external deps (Python stdlib only). No network.
+
+FILES TO CREATE
+  .code-graph/build.py           ← see SECTION 1
+  .code-graph/query.py           ← see SECTION 2
+  .code-graph/.gitignore         ← see SECTION 3
+  CLAUDE.md  (append snippet)    ← see SECTION 4
+
+USAGE (PowerShell)
+  python .code-graph\build.py                       # rebuild graph.json (~2-5s)
+  python .code-graph\query.py find <substring>      # find symbols by name
+  python .code-graph\query.py callers <name>        # who calls X
+  python .code-graph\query.py callees <name>        # what X calls
+  python .code-graph\query.py impact  <name>        # transitive callers (blast radius)
+
+ACCURACY NOTES
+  • Python (.py) uses ast — exact.
+  • TS/JS uses regex with string/comment stripping — ~80% accurate, noisy on
+    method calls vs. plain identifiers. Good enough for navigation.
+  • Upgrade path if accuracy bites you: replace the regex extractor with
+    tree_sitter (pip install tree_sitter tree_sitter_typescript). The graph
+    schema and query.py stay unchanged.
+
+
+================================================================================
+ SECTION 1 — .code-graph/build.py
+================================================================================
+"""
+Build a code graph (symbols + edges) for this repo.
+
+Output: .code-graph/graph.json
+Schema:
+  {
+    "version": 1,
+    "built_at": "ISO-8601",
+    "root": "<repo absolute path>",
+    "symbols": [
+      {"id": "path/to/file.py:funcName:42", "name": "funcName",
+       "kind": "function|class|method|arrow", "file": "path/to/file.py",
+       "line": 42, "lang": "py|ts|js"}
+    ],
+    "edges": [
+      {"from": "<symbol id or file path>", "to_name": "callee",
+       "type": "CALLS|IMPORTS", "line": 17}
+    ]
+  }
+"""
+from __future__ import annotations
+import ast
+import json
+import os
+import re
+import sys
+import time
+from datetime import datetime, timezone
+from pathlib import Path
+
+# ---------- config ----------
+SKIP_DIRS = {
+    "node_modules", ".git", ".hg", ".svn", "dist", "build", "out",
+    ".next", ".vite", ".turbo", ".cache", ".parcel-cache",
+    "__pycache__", ".mypy_cache", ".pytest_cache", ".ruff_cache",
+    "venv", ".venv", "env", ".env",
+    ".code-graph", "coverage", ".nyc_output",
+    "backups",  # this repo has large generated backups
+}
+SKIP_FILE_PREFIXES = (".tmp-",)  # ignore scratch files at the root
+PY_EXT = {".py"}
+JS_EXT = {".ts", ".tsx", ".js", ".jsx", ".cjs", ".mjs"}
+MAX_FILE_BYTES = 1_500_000  # skip files larger than ~1.5 MB
+
+# JS/TS: identifiers that look like calls but aren't user code
+JS_KEYWORDS = {
+    "if", "while", "for", "switch", "catch", "return", "typeof", "await",
+    "new", "in", "of", "do", "else", "try", "throw", "case", "break",
+    "continue", "function", "class", "const", "let", "var", "import",
+    "export", "default", "async", "yield", "this", "super", "void",
+    "delete", "instanceof", "as", "from", "with", "static", "get", "set",
+    "public", "private", "protected", "readonly", "abstract", "interface",
+    "type", "enum", "implements", "extends", "true", "false", "null",
+    "undefined",
+}
+
+# ---------- helpers ----------
+def rel(p: Path, root: Path) -> str:
+    return p.relative_to(root).as_posix()
+
+def iter_files(root: Path):
+    for dirpath, dirnames, filenames in os.walk(root):
+        # prune in place
+        dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS and not d.startswith(".")]
+        for fn in filenames:
+            if fn.startswith(SKIP_FILE_PREFIXES):
+                continue
+            p = Path(dirpath) / fn
+            ext = p.suffix.lower()
+            if ext not in PY_EXT and ext not in JS_EXT:
+                continue
+            try:
+                if p.stat().st_size > MAX_FILE_BYTES:
+                    continue
+            except OSError:
+                continue
+            yield p, ext
+
+def read_text(p: Path) -> str | None:
+    try:
+        return p.read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        return None
+
+# ---------- python extractor ----------
+class PyExtractor(ast.NodeVisitor):
+    def __init__(self, file_id: str, lang: str):
+        self.file_id = file_id
+        self.lang = lang
+        self.symbols: list[dict] = []
+        self.edges: list[dict] = []
+        self.scope: list[str] = []  # stack of symbol ids; top-level = file_id
+
+    def _push(self, sym_id: str):
+        self.scope.append(sym_id)
+
+    def _pop(self):
+        self.scope.pop()
+
+    def _current(self) -> str:
+        return self.scope[-1] if self.scope else self.file_id
+
+    def _add_def(self, name: str, kind: str, line: int):
+        in_class = kind == "function" and any(
+            s.startswith(self.file_id + ":") and ":class:" in s for s in self.scope
+        )
+        # simpler: if parent scope starts with a class symbol id, this is a method
+        if self.scope and self._current_kind() == "class":
+            kind = "method"
+        sym_id = f"{self.file_id}:{name}:{line}"
+        self.symbols.append({
+            "id": sym_id, "name": name, "kind": kind,
+            "file": self.file_id, "line": line, "lang": self.lang,
+        })
+        return sym_id
+
+    def _current_kind(self) -> str | None:
+        if not self.scope:
+            return None
+        # parse kind from id: file:name:line — we don't store kind in id, so look back
+        # we keep a parallel stack via instance attribute
+        return getattr(self, "_kind_stack", [None])[-1]
+
+    def _push_scope(self, sym_id: str, kind: str):
+        if not hasattr(self, "_kind_stack"):
+            self._kind_stack = []
+        self.scope.append(sym_id)
+        self._kind_stack.append(kind)
+
+    def _pop_scope(self):
+        self.scope.pop()
+        self._kind_stack.pop()
+
+    def visit_ClassDef(self, node: ast.ClassDef):
+        sym_id = self._add_def(node.name, "class", node.lineno)
+        self._push_scope(sym_id, "class")
+        self.generic_visit(node)
+        self._pop_scope()
+
+    def visit_FunctionDef(self, node: ast.FunctionDef):
+        sym_id = self._add_def(node.name, "function", node.lineno)
+        self._push_scope(sym_id, "function")
+        self.generic_visit(node)
+        self._pop_scope()
+
+    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef):
+        sym_id = self._add_def(node.name, "function", node.lineno)
+        self._push_scope(sym_id, "function")
+        self.generic_visit(node)
+        self._pop_scope()
+
+    def visit_Call(self, node: ast.Call):
+        name = self._call_name(node.func)
+        if name:
+            self.edges.append({
+                "from": self._current(), "to_name": name,
+                "type": "CALLS", "line": getattr(node, "lineno", 0),
+            })
+        self.generic_visit(node)
+
+    def visit_Import(self, node: ast.Import):
+        for alias in node.names:
+            self.edges.append({
+                "from": self.file_id, "to_name": alias.name,
+                "type": "IMPORTS", "line": node.lineno,
+            })
+
+    def visit_ImportFrom(self, node: ast.ImportFrom):
+        mod = node.module or ""
+        for alias in node.names:
+            target = f"{mod}.{alias.name}" if mod else alias.name
+            self.edges.append({
+                "from": self.file_id, "to_name": target,
+                "type": "IMPORTS", "line": node.lineno,
+            })
+
+    @staticmethod
+    def _call_name(node) -> str | None:
+        if isinstance(node, ast.Name):
+            return node.id
+        if isinstance(node, ast.Attribute):
+            return node.attr
+        return None
+
+def parse_python(path: Path, file_id: str, src: str) -> tuple[list, list]:
+    try:
+        tree = ast.parse(src, filename=str(path))
+    except SyntaxError:
+        return [], []
+    ex = PyExtractor(file_id, "py")
+    ex.visit(tree)
+    return ex.symbols, ex.edges
+
+# ---------- ts/js extractor (regex) ----------
+RE_LINE_COMMENT = re.compile(r"//[^\n]*")
+RE_BLOCK_COMMENT = re.compile(r"/\*.*?\*/", re.DOTALL)
+RE_DQ_STRING = re.compile(r'"(?:[^"\\\n]|\\.)*"')
+RE_SQ_STRING = re.compile(r"'(?:[^'\\\n]|\\.)*'")
+RE_BT_STRING = re.compile(r"`(?:[^`\\]|\\.)*`", re.DOTALL)
+
+RE_FUNC = re.compile(r"\b(?:export\s+)?(?:default\s+)?(?:async\s+)?function\s*\*?\s*([A-Za-z_$][\w$]*)\s*\(")
+RE_CLASS = re.compile(r"\b(?:export\s+)?(?:default\s+)?(?:abstract\s+)?class\s+([A-Za-z_$][\w$]*)\b")
+RE_INTERFACE = re.compile(r"\b(?:export\s+)?interface\s+([A-Za-z_$][\w$]*)\b")
+RE_TYPE = re.compile(r"\b(?:export\s+)?type\s+([A-Za-z_$][\w$]*)\s*=")
+RE_ARROW = re.compile(r"\b(?:export\s+)?(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*(?::\s*[^=;]+)?=\s*(?:async\s*)?(?:\([^)]*\)|[A-Za-z_$][\w$]*)\s*=>")
+RE_METHOD = re.compile(r"^\s{2,}(?:public\s+|private\s+|protected\s+|static\s+|async\s+|readonly\s+|get\s+|set\s+)*([A-Za-z_$][\w$]*)\s*\([^)]*\)\s*[:{]", re.MULTILINE)
+RE_IMPORT = re.compile(r"""(?:^|\n)\s*import\s+(?:type\s+)?(?:\{[^}]*\}|\*\s+as\s+\w+|[A-Za-z_$][\w$]*)?\s*(?:,\s*\{[^}]*\})?\s*(?:from\s+)?["']([^"']+)["']""")
+RE_REQUIRE = re.compile(r"""\brequire\s*\(\s*["']([^"']+)["']\s*\)""")
+RE_CALL = re.compile(r"\b([A-Za-z_$][\w$]*)\s*\(")
+
+def line_of(text: str, offset: int) -> int:
+    # 1-indexed line number for a character offset
+    return text.count("\n", 0, offset) + 1
+
+def strip_strings_and_comments(src: str) -> str:
+    src = RE_BLOCK_COMMENT.sub(lambda m: " " * len(m.group(0)), src)
+    src = RE_LINE_COMMENT.sub(lambda m: " " * len(m.group(0)), src)
+    # replace string contents with spaces of same length to preserve offsets
+    for rx in (RE_BT_STRING, RE_DQ_STRING, RE_SQ_STRING):
+        src = rx.sub(lambda m: '"' + " " * (len(m.group(0)) - 2) + '"', src)
+    return src
+
+def parse_js(path: Path, file_id: str, raw: str) -> tuple[list, list]:
+    src = strip_strings_and_comments(raw)
+    lang = "ts" if path.suffix.lower() in {".ts", ".tsx"} else "js"
+    symbols: list[dict] = []
+    edges: list[dict] = []
+
+    def add_sym(name: str, kind: str, offset: int):
+        ln = line_of(src, offset)
+        sym_id = f"{file_id}:{name}:{ln}"
+        symbols.append({
+            "id": sym_id, "name": name, "kind": kind,
+            "file": file_id, "line": ln, "lang": lang,
+        })
+
+    for m in RE_FUNC.finditer(src):
+        add_sym(m.group(1), "function", m.start(1))
+    for m in RE_CLASS.finditer(src):
+        add_sym(m.group(1), "class", m.start(1))
+    for m in RE_INTERFACE.finditer(src):
+        add_sym(m.group(1), "interface", m.start(1))
+    for m in RE_TYPE.finditer(src):
+        add_sym(m.group(1), "type", m.start(1))
+    for m in RE_ARROW.finditer(src):
+        add_sym(m.group(1), "arrow", m.start(1))
+    for m in RE_METHOD.finditer(src):
+        nm = m.group(1)
+        if nm in JS_KEYWORDS:
+            continue
+        add_sym(nm, "method", m.start(1))
+
+    # imports
+    for m in RE_IMPORT.finditer(src):
+        edges.append({
+            "from": file_id, "to_name": m.group(1),
+            "type": "IMPORTS", "line": line_of(src, m.start(1)),
+        })
+    for m in RE_REQUIRE.finditer(src):
+        edges.append({
+            "from": file_id, "to_name": m.group(1),
+            "type": "IMPORTS", "line": line_of(src, m.start(1)),
+        })
+
+    # calls — attribute to nearest preceding def in this file
+    defs_sorted = sorted(symbols, key=lambda s: s["line"])
+    def enclosing(ln: int) -> str:
+        # nearest def whose line <= ln; fallback to file_id
+        cur = file_id
+        for s in defs_sorted:
+            if s["line"] <= ln:
+                cur = s["id"]
+            else:
+                break
+        return cur
+
+    for m in RE_CALL.finditer(src):
+        nm = m.group(1)
+        if nm in JS_KEYWORDS:
+            continue
+        ln = line_of(src, m.start(1))
+        edges.append({
+            "from": enclosing(ln), "to_name": nm,
+            "type": "CALLS", "line": ln,
+        })
+
+    return symbols, edges
+
+# ---------- driver ----------
+def main():
+    root = Path.cwd().resolve()
+    out_dir = root / ".code-graph"
+    out_dir.mkdir(exist_ok=True)
+    out_path = out_dir / "graph.json"
+
+    t0 = time.time()
+    all_symbols: list[dict] = []
+    all_edges: list[dict] = []
+    file_count = 0
+
+    for path, ext in iter_files(root):
+        src = read_text(path)
+        if src is None:
+            continue
+        file_id = rel(path, root)
+        try:
+            if ext in PY_EXT:
+                syms, edges = parse_python(path, file_id, src)
+            else:
+                syms, edges = parse_js(path, file_id, src)
+        except Exception as e:  # noqa: BLE001
+            print(f"  ! error parsing {file_id}: {e}", file=sys.stderr)
+            continue
+        all_symbols.extend(syms)
+        all_edges.extend(edges)
+        file_count += 1
+
+    graph = {
+        "version": 1,
+        "built_at": datetime.now(timezone.utc).isoformat(),
+        "root": str(root),
+        "symbols": all_symbols,
+        "edges": all_edges,
+    }
+    out_path.write_text(json.dumps(graph, indent=1), encoding="utf-8")
+    dt = time.time() - t0
+    print(f"code-graph: {file_count} files, {len(all_symbols)} symbols, "
+          f"{len(all_edges)} edges in {dt:.2f}s -> {out_path.relative_to(root)}")
+
+if __name__ == "__main__":
+    main()
+
+
+================================================================================
+ SECTION 2 — .code-graph/query.py
+================================================================================
+"""
+Query the code graph built by build.py.
+
+Subcommands:
+  find <substring>          — list symbols whose name contains <substring>
+  callers <name>            — direct callers of any symbol named <name>
+  callees <name>            — what symbol(s) named <name> call
+  impact  <name> [depth]    — transitive callers (default depth 5)
+  defs    <name>            — definitions of <name>
+"""
+from __future__ import annotations
+import json
+import sys
+from collections import defaultdict
+from pathlib import Path
+
+GRAPH = Path(".code-graph/graph.json")
+
+def load():
+    if not GRAPH.exists():
+        sys.exit(f"!! {GRAPH} not found. Run: python .code-graph/build.py")
+    return json.loads(GRAPH.read_text(encoding="utf-8"))
+
+def by_name(g):
+    idx = defaultdict(list)
+    for s in g["symbols"]:
+        idx[s["name"]].append(s)
+    return idx
+
+def by_id(g):
+    return {s["id"]: s for s in g["symbols"]}
+
+def callers_of_name(g, name):
+    return [e for e in g["edges"] if e["type"] == "CALLS" and e["to_name"] == name]
+
+def callees_of_id(g, sym_id):
+    return [e for e in g["edges"] if e["type"] == "CALLS" and e["from"] == sym_id]
+
+def fmt_sym(s):
+    return f"{s['file']}:{s['line']}  {s['kind']:<10} {s['name']}"
+
+def fmt_edge_from(g, ids_to_sym, e):
+    src = ids_to_sym.get(e["from"])
+    if src:
+        return f"{src['file']}:{e.get('line', src['line'])}  in {src['kind']} {src['name']}"
+    # 'from' is a file path
+    return f"{e['from']}:{e.get('line', '?')}  (module-level)"
+
+# ---------- commands ----------
+def cmd_find(g, args):
+    if not args:
+        sys.exit("usage: query.py find <substring>")
+    needle = args[0].lower()
+    hits = [s for s in g["symbols"] if needle in s["name"].lower()]
+    hits.sort(key=lambda s: (s["file"], s["line"]))
+    for s in hits:
+        print(fmt_sym(s))
+    print(f"-- {len(hits)} match(es)")
+
+def cmd_defs(g, args):
+    if not args:
+        sys.exit("usage: query.py defs <name>")
+    name = args[0]
+    hits = [s for s in g["symbols"] if s["name"] == name]
+    for s in hits:
+        print(fmt_sym(s))
+    if not hits:
+        print(f"(no definitions found for '{name}')")
+
+def cmd_callers(g, args):
+    if not args:
+        sys.exit("usage: query.py callers <name>")
+    name = args[0]
+    ids_to_sym = by_id(g)
+    defs = [s for s in g["symbols"] if s["name"] == name]
+    if defs:
+        print(f"== definitions of '{name}' ==")
+        for s in defs:
+            print("  " + fmt_sym(s))
+    edges = callers_of_name(g, name)
+    print(f"== {len(edges)} caller(s) ==")
+    for e in edges:
+        print("  " + fmt_edge_from(g, ids_to_sym, e))
+
+def cmd_callees(g, args):
+    if not args:
+        sys.exit("usage: query.py callees <name>")
+    name = args[0]
+    defs = [s for s in g["symbols"] if s["name"] == name]
+    if not defs:
+        print(f"(no definitions for '{name}')")
+        return
+    for s in defs:
+        print(f"== callees of {fmt_sym(s)} ==")
+        edges = callees_of_id(g, s["id"])
+        seen = set()
+        for e in edges:
+            key = (e["to_name"], e.get("line", 0))
+            if key in seen:
+                continue
+            seen.add(key)
+            print(f"  -> {e['to_name']}  (line {e.get('line', '?')})")
+        if not edges:
+            print("  (none)")
+
+def cmd_impact(g, args):
+    if not args:
+        sys.exit("usage: query.py impact <name> [depth]")
+    name = args[0]
+    max_depth = int(args[1]) if len(args) > 1 else 5
+
+    callers_by_name: dict[str, list[dict]] = defaultdict(list)
+    for e in g["edges"]:
+        if e["type"] == "CALLS":
+            callers_by_name[e["to_name"]].append(e)
+    ids_to_sym = by_id(g)
+
+    visited_names: set[str] = set()
+    visited_ids: set[str] = set()
+    total = 0
+
+    def walk(n: str, depth: int):
+        nonlocal total
+        if depth > max_depth or n in visited_names:
+            return
+        visited_names.add(n)
+        for e in callers_by_name.get(n, []):
+            src_id = e["from"]
+            if src_id in visited_ids:
+                continue
+            visited_ids.add(src_id)
+            total += 1
+            src = ids_to_sym.get(src_id)
+            indent = "  " * depth
+            if src:
+                print(f"{indent}{src['file']}:{e.get('line', src['line'])}  {src['kind']} {src['name']}")
+                walk(src["name"], depth + 1)
+            else:
+                print(f"{indent}{src_id}:{e.get('line', '?')}  (module-level)")
+
+    print(f"== impact of '{name}' (max depth {max_depth}) ==")
+    walk(name, 0)
+    print(f"-- {total} unique caller(s) reached")
+
+CMDS = {
+    "find": cmd_find,
+    "defs": cmd_defs,
+    "callers": cmd_callers,
+    "callees": cmd_callees,
+    "impact": cmd_impact,
+}
+
+def main():
+    if len(sys.argv) < 2 or sys.argv[1] not in CMDS:
+        sys.exit("usage: query.py <find|defs|callers|callees|impact> <name> [args...]")
+    g = load()
+    CMDS[sys.argv[1]](g, sys.argv[2:])
+
+if __name__ == "__main__":
+    main()
+
+
+================================================================================
+ SECTION 3 — .code-graph/.gitignore
+================================================================================
+graph.json
+
+
+================================================================================
+ SECTION 4 — append to CLAUDE.md
+================================================================================
+## Code intelligence (.code-graph)
+
+This repo has a local symbol+edge index at `.code-graph/graph.json`, built by
+`.code-graph/build.py`. Use it whenever you need to navigate cross-file
+relationships instead of grepping blindly:
+
+  python .code-graph/build.py                       # rebuild (run after big edits)
+  python .code-graph/query.py find <substring>      # locate a symbol
+  python .code-graph/query.py defs    <name>        # where is X defined
+  python .code-graph/query.py callers <name>        # who calls X
+  python .code-graph/query.py callees <name>        # what X calls
+  python .code-graph/query.py impact  <name> [depth]  # transitive callers (blast radius)
+
+Before refactoring or renaming a symbol, run `impact` first to see what depends
+on it. Treat results as a starting point — TS/JS edges are extracted via regex
+(~80% accurate); Python edges via ast (exact).
+
+
+================================================================================
+ OPTIONAL — quick PowerShell wrappers (paste into your shell profile)
+================================================================================
+function cg-build   { python .code-graph\build.py }
+function cg-find    { python .code-graph\query.py find    $args }
+function cg-defs    { python .code-graph\query.py defs    $args }
+function cg-callers { python .code-graph\query.py callers $args }
+function cg-callees { python .code-graph\query.py callees $args }
+function cg-impact  { python .code-graph\query.py impact  $args }
+
+
+================================================================================
+ SETUP RECAP
+================================================================================
+1. mkdir .code-graph
+2. Copy SECTION 1  -> .code-graph\build.py
+3. Copy SECTION 2  -> .code-graph\query.py
+4. Copy SECTION 3  -> .code-graph\.gitignore   (so graph.json doesn't get committed)
+5. Append SECTION 4 to CLAUDE.md
+6. python .code-graph\build.py
+7. Try:  python .code-graph\query.py find ERDViewer
+
+You're done. No installs, no network, no licenses to worry about.
