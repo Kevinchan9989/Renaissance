@@ -1,0 +1,517 @@
+{
+  "_description": "Complete TypeScript type definitions for the Renaissance DM Tool. These define the data model.",
+
+  "coreTypes": {
+    "ScriptType": {
+      "type": "union",
+      "values": ["postgresql", "oracle", "dbml"]
+    },
+
+    "Column": {
+      "type": "interface",
+      "fields": {
+        "name": { "type": "string", "description": "Column name" },
+        "type": { "type": "string", "description": "Data type (e.g., VARCHAR(100), NUMBER(10,2))" },
+        "nullable": { "type": "string", "description": "NOT NULL or empty" },
+        "default": { "type": "string | null", "description": "Default value expression" },
+        "explanation": { "type": "string", "description": "User-entered explanation of the column" },
+        "mapping": { "type": "string", "description": "User-entered mapping notes" },
+        "migrationNeeded": { "type": "boolean", "optional": true, "description": "Whether migration is needed" },
+        "nonMigrationComment": { "type": "string", "optional": true, "description": "Reason if not migrating" },
+        "sampleValues": { "type": "string[]", "optional": true, "description": "Sample values from attached CSV" },
+        "possibleValues": { "type": "string", "optional": true, "description": "User-entered allowed values (e.g., Y/N)" }
+      }
+    },
+
+    "Constraint": {
+      "type": "interface",
+      "fields": {
+        "name": { "type": "string", "description": "Constraint name" },
+        "type": { "type": "union", "values": ["Primary Key", "Foreign Key", "Unique"] },
+        "localCols": { "type": "string", "description": "Local column(s)" },
+        "ref": { "type": "string", "optional": true, "description": "Foreign key reference (e.g., schema.table(col))" }
+      }
+    },
+
+    "Table": {
+      "type": "interface",
+      "fields": {
+        "id": { "type": "number", "description": "Auto-assigned table ID" },
+        "schema": { "type": "string", "description": "Schema name (e.g., cm, sec, iss)" },
+        "tableName": { "type": "string", "description": "Table name" },
+        "description": { "type": "string", "description": "Table description" },
+        "constraints": { "type": "Constraint[]", "description": "Array of constraints" },
+        "columns": { "type": "Column[]", "description": "Array of columns" },
+        "toIgnore": { "type": "boolean", "optional": true, "description": "Flag to ignore for migration" },
+        "explanationCompleted": { "type": "boolean", "optional": true, "description": "Flag for completed explanation" },
+        "_tChecked": { "type": "boolean", "optional": true, "description": "Auto-checked if table name contains _t" }
+      }
+    },
+
+    "MasterCode": {
+      "type": "interface",
+      "fields": {
+        "key": { "type": "string", "description": "Code key (e.g., ALLOT_NEW)" },
+        "definition": { "type": "string", "description": "Code definition/description" }
+      }
+    },
+
+    "MasterCodeCategory": {
+      "type": "interface",
+      "fields": {
+        "key": { "type": "string", "description": "Category key (e.g., ALLOT, SECTYPE)" },
+        "definition": { "type": "string", "description": "Category description" }
+      }
+    },
+
+    "ScriptData": {
+      "type": "interface",
+      "fields": {
+        "targets": { "type": "Table[]", "description": "Target tables (main data)" },
+        "sources": { "type": "Table[]", "description": "Source tables (for mapping)" }
+      }
+    },
+
+    "Script": {
+      "type": "interface",
+      "fields": {
+        "id": { "type": "string", "description": "UUID identifier" },
+        "name": { "type": "string", "description": "Display name" },
+        "type": { "type": "ScriptType", "description": "postgresql | oracle | dbml" },
+        "rawContent": { "type": "string", "description": "Raw DDL text content" },
+        "data": { "type": "ScriptData", "description": "Parsed tables and columns" },
+        "createdAt": { "type": "number", "description": "Unix timestamp" },
+        "updatedAt": { "type": "number", "description": "Unix timestamp" },
+        "currentVersionId": { "type": "string", "optional": true },
+        "versions": { "type": "ScriptVersion[]", "optional": true },
+        "versioningEnabled": { "type": "boolean", "optional": true },
+        "maxVersions": { "type": "number", "optional": true },
+        "sampleDataAttachments": { "type": "SampleDataAttachment[]", "optional": true },
+        "masterCodes": { "type": "MasterCode[]", "optional": true },
+        "masterCodeCategories": { "type": "MasterCodeCategory[]", "optional": true }
+      }
+    }
+  },
+
+  "versioningTypes": {
+    "ScriptVersion": {
+      "type": "interface",
+      "fields": {
+        "id": { "type": "string" },
+        "versionNumber": { "type": "number" },
+        "content": { "type": "string", "description": "Raw DDL at this version" },
+        "data": { "type": "ScriptData", "description": "Parsed data at this version" },
+        "message": { "type": "string", "optional": true },
+        "createdAt": { "type": "number" }
+      }
+    },
+    "VersionDiffStats": {
+      "type": "interface",
+      "fields": {
+        "linesAdded": "number",
+        "linesDeleted": "number",
+        "linesModified": "number",
+        "tablesAdded": "number",
+        "tablesDeleted": "number",
+        "tablesModified": "number"
+      }
+    },
+    "LineDiffType": { "type": "union", "values": ["unchanged", "added", "deleted", "modified"] },
+    "LineDiff": {
+      "type": "interface",
+      "fields": {
+        "type": "LineDiffType",
+        "oldContent": { "type": "string", "optional": true },
+        "newContent": { "type": "string", "optional": true },
+        "oldLineNumber": { "type": "number", "optional": true },
+        "newLineNumber": { "type": "number", "optional": true }
+      }
+    },
+    "DiffHunkType": { "type": "union", "values": ["addition", "deletion", "modification", "context"] },
+    "DiffHunk": {
+      "type": "interface",
+      "fields": {
+        "startLine": "number",
+        "endLine": "number",
+        "lines": "LineDiff[]",
+        "type": "DiffHunkType"
+      }
+    },
+    "VersionCompareResult": {
+      "type": "interface",
+      "fields": {
+        "oldVersion": "ScriptVersion",
+        "newVersion": "ScriptVersion",
+        "hunks": "DiffHunk[]",
+        "stats": "VersionDiffStats",
+        "schemaDiff": { "type": "Record<string, TableDiff>", "optional": true }
+      }
+    },
+    "DiffMarkerType": { "type": "union", "values": ["added", "deleted", "modified"] },
+    "DiffMarker": {
+      "type": "interface",
+      "fields": {
+        "startPercent": "number",
+        "endPercent": "number",
+        "type": "DiffMarkerType",
+        "lineStart": "number",
+        "lineEnd": "number"
+      }
+    }
+  },
+
+  "sampleDataTypes": {
+    "SampleDataMatchResult": {
+      "type": "interface",
+      "fields": {
+        "csvTableName": "string",
+        "matchedScriptTable": { "type": "string | null" },
+        "matchedColumns": { "type": "array of {csvColumn, scriptColumn}" },
+        "unmatchedCsvColumns": "string[]",
+        "unmatchedScriptColumns": "string[]",
+        "matchMethod": { "type": "union", "values": ["name", "columns"], "optional": true },
+        "matchScore": { "type": "number", "optional": true }
+      }
+    },
+    "SampleDataAttachment": {
+      "type": "interface",
+      "fields": {
+        "id": "string",
+        "fileName": "string",
+        "uploadedAt": "number",
+        "matchResults": "SampleDataMatchResult[]",
+        "warnings": "string[]"
+      }
+    }
+  },
+
+  "erdTypes": {
+    "ERDNode": {
+      "type": "interface",
+      "fields": {
+        "id": "string",
+        "table": "Table",
+        "x": "number",
+        "y": "number",
+        "width": "number",
+        "height": "number"
+      }
+    },
+    "ERDEdge": {
+      "type": "interface",
+      "fields": {
+        "id": "string",
+        "source": "string",
+        "sourceColumn": "string",
+        "target": "string",
+        "targetColumn": "string"
+      }
+    }
+  },
+
+  "schemaCompareTypes": {
+    "DiffStatus": { "type": "union", "values": ["IDENTICAL", "MODIFIED", "MISSING", "ADDED", "SOFT_MATCH"] },
+    "ColumnDiffType": { "type": "union", "values": ["SAME", "SOFT", "MODIFIED", "ADDED", "DELETED"] },
+    "ColumnDiff": {
+      "type": "interface",
+      "fields": {
+        "col": "string",
+        "type": "ColumnDiffType",
+        "s": "Column | null",
+        "t": "Column | null",
+        "note": { "type": "string", "optional": true }
+      }
+    },
+    "TableDiff": {
+      "type": "interface",
+      "fields": {
+        "status": "DiffStatus",
+        "src": "Table | null",
+        "tgt": "Table | null",
+        "details": {
+          "type": "object",
+          "optional": true,
+          "fields": {
+            "hasHardDiff": "boolean",
+            "hasSoftDiff": "boolean",
+            "pkDiff": "boolean",
+            "changes": "ColumnDiff[]"
+          }
+        }
+      }
+    }
+  },
+
+  "appStateTypes": {
+    "AppView": { "type": "union", "values": ["scripts", "dictionary", "compare", "erd", "mapping", "flowcharts"] },
+    "AppState": {
+      "type": "interface",
+      "fields": {
+        "scripts": "Script[]",
+        "activeScriptId": "string | null",
+        "view": "AppView",
+        "theme": { "type": "union", "values": ["light", "dark"] }
+      }
+    }
+  },
+
+  "mappingTypes": {
+    "MappingStatus": { "type": "union", "values": ["unmapped", "mapped", "conflict", "auto"] },
+    "TypeCompatibility": { "type": "union", "values": ["exact", "compatible", "needs_conversion", "incompatible"] },
+    "ColumnMapping": {
+      "type": "interface",
+      "fields": {
+        "id": "string",
+        "sourceScriptId": "string",
+        "sourceTable": "string",
+        "sourceColumn": "string",
+        "sourceType": "string",
+        "targetScriptId": "string",
+        "targetTable": "string",
+        "targetColumn": "string",
+        "targetType": "string",
+        "mapType": { "type": "union", "values": ["manual", "auto", "suggested"] },
+        "typeCompatibility": "TypeCompatibility",
+        "validation": "MappingValidation",
+        "validationResolved": { "type": "boolean", "optional": true },
+        "transformations": "Transformation[]",
+        "remarks": { "type": "string", "optional": true },
+        "approvedBy": { "type": "string", "optional": true },
+        "approvedAt": { "type": "number", "optional": true },
+        "confidence": "number",
+        "createdAt": "number",
+        "updatedAt": "number"
+      }
+    },
+    "MappingValidation": {
+      "type": "interface",
+      "fields": {
+        "typeMatch": "boolean",
+        "sizeMatch": "boolean",
+        "nullableMatch": "boolean",
+        "precisionMatch": "boolean",
+        "defaultMatch": "boolean",
+        "constraintMatch": "boolean",
+        "warnings": "string[]",
+        "errors": "string[]"
+      }
+    },
+    "TransformationType": {
+      "type": "union",
+      "values": ["trim", "uppercase", "lowercase", "concat", "substring", "replace", "date_format", "number_format", "type_cast", "default_value", "lookup", "custom"]
+    },
+    "Transformation": {
+      "type": "interface",
+      "fields": {
+        "id": "string",
+        "type": "TransformationType",
+        "sequence": "number",
+        "params": { "type": "Record<string, unknown>", "optional": true },
+        "expression": { "type": "string", "optional": true }
+      }
+    },
+    "MappingProject": {
+      "type": "interface",
+      "fields": {
+        "id": "string",
+        "name": "string",
+        "sourceScriptId": "string",
+        "targetScriptId": "string",
+        "mappings": "ColumnMapping[]",
+        "tableMappings": "TableMapping[]",
+        "typeRuleSetId": { "type": "string", "optional": true },
+        "createdAt": "number",
+        "updatedAt": "number"
+      }
+    },
+    "TableMapping": {
+      "type": "interface",
+      "fields": {
+        "sourceTable": "string",
+        "targetTable": "string",
+        "status": { "type": "union", "values": ["complete", "partial", "unmapped"] },
+        "autoMapCount": "number",
+        "manualMapCount": "number"
+      }
+    }
+  },
+
+  "typeRuleTypes": {
+    "TypeCompatibilityRule": {
+      "type": "interface",
+      "fields": {
+        "id": "string",
+        "name": "string",
+        "description": { "type": "string", "optional": true },
+        "sourcePattern": { "type": "string", "description": "Regex pattern for source type" },
+        "targetPattern": { "type": "string", "description": "Regex pattern for target type" },
+        "compatibility": "TypeCompatibility",
+        "conversionSql": { "type": "string", "optional": true },
+        "warning": { "type": "string", "optional": true },
+        "priority": { "type": "number", "description": "Higher = checked first" },
+        "enabled": "boolean"
+      }
+    },
+    "TypeRuleSet": {
+      "type": "interface",
+      "fields": {
+        "id": "string",
+        "name": "string",
+        "description": { "type": "string", "optional": true },
+        "sourceDb": { "type": "union", "values": ["oracle", "postgresql", "mysql", "sqlserver", "any"] },
+        "targetDb": { "type": "union", "values": ["oracle", "postgresql", "mysql", "sqlserver", "any"] },
+        "rules": "TypeCompatibilityRule[]",
+        "isBuiltIn": "boolean",
+        "createdAt": "number",
+        "updatedAt": "number"
+      }
+    }
+  },
+
+  "mappingCanvasTypes": {
+    "MappingNode": {
+      "type": "interface",
+      "fields": {
+        "id": "string",
+        "type": { "type": "union", "values": ["source", "target"] },
+        "table": "Table",
+        "x": "number",
+        "y": "number",
+        "width": "number",
+        "height": "number",
+        "collapsed": "boolean"
+      }
+    },
+    "MappingEdge": {
+      "type": "interface",
+      "fields": {
+        "id": "string",
+        "mappingId": "string",
+        "sourceNodeId": "string",
+        "sourceColumn": "string",
+        "targetNodeId": "string",
+        "targetColumn": "string",
+        "compatibility": "TypeCompatibility"
+      }
+    },
+    "DragState": {
+      "type": "interface",
+      "fields": {
+        "isDragging": "boolean",
+        "startNodeId": "string | null",
+        "startColumn": "string | null",
+        "startType": { "type": "union | null", "values": ["source", "target"] },
+        "currentX": "number",
+        "currentY": "number"
+      }
+    }
+  },
+
+  "sqlAlignmentTypes": {
+    "DatatypeMapping": {
+      "type": "interface",
+      "fields": {
+        "sourcePattern": { "type": "string", "description": "Regex pattern for source type" },
+        "targetType": { "type": "string", "description": "Target type to map to" }
+      }
+    },
+    "SqlAlignmentConfig": {
+      "type": "interface",
+      "fields": {
+        "direction": { "type": "union", "values": ["toSource", "toTarget"] },
+        "includeNullable": "boolean",
+        "includeDatatype": "boolean",
+        "datatypeMappings": "DatatypeMapping[]"
+      }
+    }
+  },
+
+  "flowchartTypes": {
+    "FlowchartScript": {
+      "type": "interface",
+      "fields": {
+        "id": "string",
+        "name": "string",
+        "rawContent": { "type": "string", "description": "PlantUML source" },
+        "data": "PUMLDiagram",
+        "createdAt": "number",
+        "updatedAt": "number"
+      }
+    },
+    "PUMLNodeType": {
+      "type": "union",
+      "values": ["start", "stop", "activity", "decision", "fork", "join", "note", "partition-start", "partition-end", "while-start", "while-end", "repeat-start", "repeat-end", "detach", "kill"]
+    },
+    "PUMLNode": {
+      "type": "interface",
+      "fields": {
+        "id": "string",
+        "type": "PUMLNodeType",
+        "text": "string",
+        "swimlane": { "type": "string", "optional": true },
+        "partition": { "type": "string", "optional": true },
+        "condition": { "type": "string", "optional": true },
+        "branches": { "type": "PUMLBranch[]", "optional": true },
+        "loopCondition": { "type": "string", "optional": true },
+        "loopExitLabel": { "type": "string", "optional": true }
+      }
+    },
+    "PUMLBranch": {
+      "type": "interface",
+      "fields": {
+        "label": "string",
+        "targetId": "string"
+      }
+    },
+    "PUMLConnection": {
+      "type": "interface",
+      "fields": {
+        "id": "string",
+        "from": "string",
+        "to": "string",
+        "label": { "type": "string", "optional": true },
+        "condition": { "type": "string", "optional": true },
+        "color": { "type": "string", "optional": true },
+        "style": { "type": "union", "values": ["solid", "dashed", "dotted", "hidden"], "optional": true }
+      }
+    },
+    "PUMLSwimlane": {
+      "type": "interface",
+      "fields": {
+        "id": "string",
+        "name": "string",
+        "color": { "type": "string", "optional": true },
+        "order": "number"
+      }
+    },
+    "PUMLPartition": {
+      "type": "interface",
+      "fields": {
+        "id": "string",
+        "name": "string",
+        "nodeIds": "string[]"
+      }
+    },
+    "PUMLNote": {
+      "type": "interface",
+      "fields": {
+        "id": "string",
+        "text": "string",
+        "position": { "type": "union", "values": ["left", "right", "top", "bottom"] },
+        "attachedTo": { "type": "string", "optional": true },
+        "isFloating": "boolean"
+      }
+    },
+    "PUMLDiagram": {
+      "type": "interface",
+      "fields": {
+        "name": "string",
+        "nodes": "PUMLNode[]",
+        "connections": "PUMLConnection[]",
+        "swimlanes": "PUMLSwimlane[]",
+        "partitions": "PUMLPartition[]",
+        "notes": "PUMLNote[]"
+      }
+    }
+  }
+}

@@ -1,0 +1,65 @@
+{
+  "_description": "Type compatibility rules for cross-database mapping (Oracle <-> PostgreSQL)",
+
+  "oracleToPostgres": [
+    { "id": "o2p-varchar-varchar", "name": "VARCHAR2 to VARCHAR", "sourcePattern": "^VARCHAR2?(\\(\\d+\\))?$", "targetPattern": "^VARCHAR(\\(\\d+\\))?$", "compatibility": "compatible", "priority": 100 },
+    { "id": "o2p-char-char", "name": "CHAR to CHAR", "sourcePattern": "^CHAR(\\(\\d+\\))?$", "targetPattern": "^(CHAR|BPCHAR)(\\(\\d+\\))?$", "compatibility": "compatible", "priority": 100 },
+    { "id": "o2p-number-numeric", "name": "NUMBER to NUMERIC", "sourcePattern": "^NUMBER(\\([^)]+\\))?$", "targetPattern": "^(NUMERIC|DECIMAL)(\\([^)]+\\))?$", "compatibility": "compatible", "conversionSql": "CAST(${column} AS NUMERIC)", "priority": 90 },
+    { "id": "o2p-number-integer", "name": "NUMBER(p,0) to INTEGER", "sourcePattern": "^NUMBER(\\(\\d+,?0?\\))?$", "targetPattern": "^(INTEGER|INT|INT4|INT8|BIGINT|SMALLINT)$", "compatibility": "compatible", "warning": "Ensure source has no decimal values", "priority": 85 },
+    { "id": "o2p-date-timestamp", "name": "DATE to TIMESTAMP", "sourcePattern": "^DATE$", "targetPattern": "^TIMESTAMP(\\s+WITH(OUT)?\\s+TIME\\s+ZONE)?$", "compatibility": "compatible", "conversionSql": "CAST(${column} AS TIMESTAMP)", "priority": 80 },
+    { "id": "o2p-date-date", "name": "DATE to DATE", "sourcePattern": "^DATE$", "targetPattern": "^DATE$", "compatibility": "needs_conversion", "warning": "Oracle DATE includes time, PostgreSQL DATE does not", "priority": 80 },
+    { "id": "o2p-timestamp-timestamp", "name": "TIMESTAMP to TIMESTAMP", "sourcePattern": "^TIMESTAMP(\\(\\d+\\))?(\\s+WITH(OUT)?\\s+(LOCAL\\s+)?TIME\\s+ZONE)?$", "targetPattern": "^TIMESTAMP(\\(\\d+\\))?(\\s+WITH(OUT)?\\s+TIME\\s+ZONE)?$", "compatibility": "compatible", "priority": 90 },
+    { "id": "o2p-clob-text", "name": "CLOB to TEXT", "sourcePattern": "^CLOB$", "targetPattern": "^TEXT$", "compatibility": "compatible", "priority": 85 },
+    { "id": "o2p-blob-bytea", "name": "BLOB to BYTEA", "sourcePattern": "^BLOB$", "targetPattern": "^BYTEA$", "compatibility": "compatible", "conversionSql": "CAST(${column} AS BYTEA)", "priority": 85 },
+    { "id": "o2p-float-double", "name": "FLOAT to DOUBLE PRECISION", "sourcePattern": "^(BINARY_FLOAT|BINARY_DOUBLE|FLOAT(\\(\\d+\\))?)$", "targetPattern": "^(DOUBLE\\s+PRECISION|FLOAT8|REAL|FLOAT4)$", "compatibility": "compatible", "priority": 85 },
+    { "id": "o2p-raw-bytea", "name": "RAW to BYTEA", "sourcePattern": "^RAW(\\(\\d+\\))?$", "targetPattern": "^BYTEA$", "compatibility": "compatible", "priority": 80 },
+    { "id": "o2p-blob-varchar", "name": "BLOB to VARCHAR (Incompatible)", "sourcePattern": "^BLOB$", "targetPattern": "^VARCHAR", "compatibility": "incompatible", "warning": "Binary to text conversion not supported", "priority": 100 }
+  ],
+
+  "postgresToOracle": [
+    { "id": "p2o-varchar-varchar2", "name": "VARCHAR to VARCHAR2", "sourcePattern": "^VARCHAR(\\(\\d+\\))?$", "targetPattern": "^VARCHAR2(\\(\\d+\\))?$", "compatibility": "compatible", "priority": 100 },
+    { "id": "p2o-text-clob", "name": "TEXT to CLOB", "sourcePattern": "^TEXT$", "targetPattern": "^CLOB$", "compatibility": "compatible", "priority": 85 },
+    { "id": "p2o-numeric-number", "name": "NUMERIC to NUMBER", "sourcePattern": "^(NUMERIC|DECIMAL)(\\([^)]+\\))?$", "targetPattern": "^NUMBER(\\([^)]+\\))?$", "compatibility": "compatible", "priority": 90 },
+    { "id": "p2o-integer-number", "name": "INTEGER to NUMBER", "sourcePattern": "^(INTEGER|INT|INT4|INT8|BIGINT|SMALLINT)$", "targetPattern": "^NUMBER(\\(\\d+\\))?$", "compatibility": "compatible", "priority": 85 },
+    { "id": "p2o-timestamp-timestamp", "name": "TIMESTAMP to TIMESTAMP", "sourcePattern": "^TIMESTAMP(\\(\\d+\\))?(\\s+WITH(OUT)?\\s+TIME\\s+ZONE)?$", "targetPattern": "^TIMESTAMP(\\(\\d+\\))?(\\s+WITH(OUT)?\\s+(LOCAL\\s+)?TIME\\s+ZONE)?$", "compatibility": "compatible", "priority": 90 },
+    { "id": "p2o-date-date", "name": "DATE to DATE", "sourcePattern": "^DATE$", "targetPattern": "^DATE$", "compatibility": "needs_conversion", "warning": "PostgreSQL DATE has no time, Oracle DATE includes time", "priority": 80 },
+    { "id": "p2o-bytea-blob", "name": "BYTEA to BLOB", "sourcePattern": "^BYTEA$", "targetPattern": "^BLOB$", "compatibility": "compatible", "priority": 85 },
+    { "id": "p2o-boolean-number", "name": "BOOLEAN to NUMBER(1)", "sourcePattern": "^(BOOLEAN|BOOL)$", "targetPattern": "^NUMBER\\(1\\)$", "compatibility": "needs_conversion", "conversionSql": "CASE WHEN ${column} THEN 1 ELSE 0 END", "warning": "Oracle has no native BOOLEAN, use NUMBER(1)", "priority": 80 },
+    { "id": "p2o-serial-number", "name": "SERIAL to NUMBER", "sourcePattern": "^(SERIAL|BIGSERIAL|SMALLSERIAL)$", "targetPattern": "^NUMBER(\\(\\d+\\))?$", "compatibility": "needs_conversion", "warning": "Use Oracle SEQUENCE for auto-increment", "priority": 75 },
+    { "id": "p2o-json-clob", "name": "JSON/JSONB to CLOB", "sourcePattern": "^JSONB?$", "targetPattern": "^CLOB$", "compatibility": "needs_conversion", "warning": "JSON stored as text in Oracle CLOB", "priority": 70 },
+    { "id": "p2o-uuid-varchar2", "name": "UUID to VARCHAR2(36)", "sourcePattern": "^UUID$", "targetPattern": "^VARCHAR2\\(36\\)$", "compatibility": "needs_conversion", "conversionSql": "CAST(${column} AS VARCHAR2(36))", "priority": 75 }
+  ],
+
+  "universalRules": [
+    { "id": "uni-exact-match", "name": "Exact Type Match", "sourcePattern": "^(.+)$", "targetPattern": "^\\1$", "compatibility": "exact", "priority": 1000 },
+    { "id": "uni-varchar-variations", "name": "VARCHAR Variations", "sourcePattern": "^VARCHAR2?(\\(\\d+\\))?$", "targetPattern": "^VARCHAR2?(\\(\\d+\\))?$", "compatibility": "compatible", "priority": 95 },
+    { "id": "uni-integer-family", "name": "Integer Family", "sourcePattern": "^(INTEGER|INT|INT2|INT4|INT8|SMALLINT|BIGINT|TINYINT)$", "targetPattern": "^(INTEGER|INT|INT2|INT4|INT8|SMALLINT|BIGINT|TINYINT)$", "compatibility": "compatible", "warning": "Check value ranges match", "priority": 90 },
+    { "id": "uni-decimal-family", "name": "Decimal Family", "sourcePattern": "^(NUMERIC|DECIMAL|NUMBER)(\\([^)]+\\))?$", "targetPattern": "^(NUMERIC|DECIMAL|NUMBER)(\\([^)]+\\))?$", "compatibility": "compatible", "warning": "Check precision and scale", "priority": 90 },
+    { "id": "uni-float-family", "name": "Float Family", "sourcePattern": "^(FLOAT|REAL|DOUBLE|DOUBLE\\s+PRECISION|FLOAT4|FLOAT8|BINARY_FLOAT|BINARY_DOUBLE)(\\(\\d+\\))?$", "targetPattern": "^(FLOAT|REAL|DOUBLE|DOUBLE\\s+PRECISION|FLOAT4|FLOAT8|BINARY_FLOAT|BINARY_DOUBLE)(\\(\\d+\\))?$", "compatibility": "compatible", "priority": 85 },
+    { "id": "uni-datetime-family", "name": "DateTime Family", "sourcePattern": "^(DATE|DATETIME|TIMESTAMP).*$", "targetPattern": "^(DATE|DATETIME|TIMESTAMP).*$", "compatibility": "compatible", "warning": "Check timezone and precision handling", "priority": 80 },
+    { "id": "uni-text-family", "name": "Large Text Family", "sourcePattern": "^(TEXT|CLOB|NCLOB|LONG)$", "targetPattern": "^(TEXT|CLOB|NCLOB|LONG)$", "compatibility": "compatible", "priority": 85 },
+    { "id": "uni-binary-family", "name": "Binary Family", "sourcePattern": "^(BLOB|BYTEA|BINARY|VARBINARY|RAW)(\\(\\d+\\))?$", "targetPattern": "^(BLOB|BYTEA|BINARY|VARBINARY|RAW)(\\(\\d+\\))?$", "compatibility": "compatible", "priority": 85 },
+    { "id": "uni-boolean", "name": "Boolean Types", "sourcePattern": "^(BOOLEAN|BOOL|BIT)$", "targetPattern": "^(BOOLEAN|BOOL|BIT|NUMBER\\(1\\))$", "compatibility": "compatible", "priority": 80 },
+    { "id": "uni-size-reduction", "name": "Size Reduction Warning", "sourcePattern": "^(VARCHAR|CHAR|VARCHAR2)\\((\\d+)\\)$", "targetPattern": "^(VARCHAR|CHAR|VARCHAR2)\\((\\d+)\\)$", "compatibility": "needs_conversion", "warning": "Target size may be smaller - check for truncation", "priority": 50 }
+  ],
+
+  "typeFamilies": {
+    "string": ["VARCHAR", "VARCHAR2", "CHAR", "BPCHAR", "TEXT", "NVARCHAR", "NCHAR", "CLOB", "NCLOB"],
+    "integer": ["INTEGER", "INT", "INT2", "INT4", "INT8", "SMALLINT", "BIGINT", "TINYINT", "SERIAL", "BIGSERIAL"],
+    "decimal": ["NUMERIC", "DECIMAL", "NUMBER", "MONEY"],
+    "float": ["FLOAT", "REAL", "DOUBLE", "DOUBLE PRECISION", "FLOAT4", "FLOAT8", "BINARY_FLOAT", "BINARY_DOUBLE"],
+    "datetime": ["DATE", "DATETIME", "TIMESTAMP", "TIMESTAMPTZ", "TIME", "TIMETZ", "INTERVAL"],
+    "binary": ["BLOB", "BYTEA", "BINARY", "VARBINARY", "RAW", "LONG RAW"],
+    "boolean": ["BOOLEAN", "BOOL", "BIT"],
+    "json": ["JSON", "JSONB"],
+    "uuid": ["UUID", "UNIQUEIDENTIFIER"],
+    "xml": ["XML", "XMLTYPE"]
+  },
+
+  "compatibilityColors": {
+    "exact": { "stroke": "#16a34a", "fill": "#dcfce7", "label": "Exact Match" },
+    "compatible": { "stroke": "#059669", "fill": "#d1fae5", "label": "Compatible" },
+    "needs_conversion": { "stroke": "#eab308", "fill": "#fef9c3", "label": "Needs Conversion" },
+    "incompatible": { "stroke": "#ef4444", "fill": "#fee2e2", "label": "Incompatible" }
+  }
+}

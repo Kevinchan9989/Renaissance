@@ -1,0 +1,495 @@
+# Master Code Categories — paste into ImportMasterCodeCategoryModal
+# Format: KEY: description (one per line)
+
+ALLOTSTAT: Allotment Status
+APPLNTYPE: Type of Applicant
+APPSRC: Application Source
+APPTYPE: Application Type
+APTMAPACT: Applicant Mapping Action
+APTSTAT: Applicant Status
+BIDEXTSTAT: Bid Submission Window Extension Status
+CALMETHOD: Calendar Generation Method
+CALPERIOD: Calendar Periods
+CMSTAT: Common Status
+CPNFREQ: Coupon Payment Frequency
+CPTYSTAT: Counterparty Status
+CPTYTYPE: Counterparty Type
+CTY: Country Codes
+CUSTCODE: Custody Account Identifier (Trade, Customer, Reserve)
+EXTSTAT: External Display Status
+FILEERR: File Error Description
+FILESRC: File Source
+FILETYPE: Interface File Type
+FREGSTAT: File Registry Status
+HLDTYPE: SSB Holding Type
+ISSANNSTAT: Issuance Announcement Status
+ISSBIDSTAT: Bid Collation Status
+ISSCALSTAT: Issuance Calendar Status
+ISSTYPE: Issuance Types
+MOSALE: Method of Sale
+NTNLTY: Nationality
+RECERR: Record Error Description
+RECSTAT: Redemption Record Status
+SECTYPE: Security Types
+SGSTYPE: SGS Types
+SUBMTHD: Bid Submission Method
+USERACT: Workflow User Actions
+SFGDSTAT: Auction Safeguards Status
+AUCSTR: Auction Strength
+PHSTAT: Public Holiday Status
+ISSFREQ: Issuance Frequency
+CUSTBC: Custody Bank Code
+
+# ─── Master Codes ─── paste into ImportMasterCodeModal
+# Format: KEY: description (one per line)
+
+ALLOTSTAT_CANCELLED: Cancelled
+ALLOTSTAT_CLOSED: Closed
+ALLOTSTAT_ERROR: Error
+ALLOTSTAT_IN_PROGRESS: In progress
+ALLOTSTAT_OPEN: Open
+ALLOTSTAT_PENDING_APPROVAL: Pending approval
+ALLOTSTAT_PENDING_PUBLICATION: Pending publication
+ALLOTSTAT_PENDING_VERIFICATION: Pending verification
+ALLOTSTAT_PUBLISHED: Published
+ALLOTSTAT_UNPUBLISHED: Unpublished
+ALLOTSTAT_WARNING: Warning
+APPLNTYPE_BK: Non-PD Bank
+APPLNTYPE_FAM: Fund and Asset Manager
+APPLNTYPE_FI: Other Financial Institution
+APPLNTYPE_IND: Individual investor
+APPLNTYPE_INS: Insurer
+APPLNTYPE_MAS: Monetary Authority of Singapore
+APPLNTYPE_NFI: Other Non-Financial Institution
+APPLNTYPE_OTH: Others
+APPLNTYPE_PD: Primary Dealer
+APPLNTYPE_SB: Statutory Board, Government Linked Company
+APPLNTYPE_SG: Singapore Sovereign Wealth Fund and Statutory Board
+APPLNTYPE_SSA: Foreign Sovereign, Supranational and Agency
+APPSRC_FILE_UPLOAD: File upload
+APPSRC_INTERFACE: Interface File
+APPSRC_MANUAL_ENTRY: Manual entry
+APPTYPE_CASH: CASH
+APPTYPE_CPFIS_OA: CPFIS-OA
+APPTYPE_CPFIS_SA: CPFIS-SA
+APPTYPE_SRS: SRS
+APTMAPACT_ADD: New
+APTMAPACT_DELETE: Delete
+APTSTAT_APPROVED: Approved
+APTSTAT_NEW: New
+APTSTAT_PENDING_APPROVAL: Pending approval
+BIDEXTSTAT_APPROVED: Approved
+BIDEXTSTAT_PENDING_APPROVAL: Pending Approval
+BIDEXTSTAT_REJECTED: Rejected
+BIDEXTSTAT_WITHDRAWN: Withdrawn
+CALMETHOD_ALGO: Generate with algorithm
+CALMETHOD_MANUAL: Manual entry
+CALMETHOD_UPLOAD: File upload
+CALPERIOD_H1: First Half
+CALPERIOD_H2: Second Half
+CALPERIOD_YEARLY: Yearly
+CMSTAT_ACTIVE: Active
+CMSTAT_DELETED: Deleted
+CMSTAT_INACTIVE: Inactive
+CMSTAT_TEMPORARY: Temporary
+CPNFREQ_ANNUAL: Annual
+CPNFREQ_MONTHLY: Monthly
+CPNFREQ_QUARTERLY: Quarterly
+CPNFREQ_SEMIANNUAL: Semi-annual
+CPTYSTAT_ACTIVE: Active
+CPTYSTAT_NEW: New
+CPTYSTAT_PENDING_APPROVAL: Pending approval
+CPTYSTAT_SUSPENDED: Suspended
+CPTYTYPE_BND: B&D Bank
+CPTYTYPE_PD: Non-retail PD
+CPTYTYPE_RETAIL: Retail PD
+CTY_AD: Andorra
+CTY_AE: United Arab Emirates
+CTY_AF: Afghanistan
+CTY_AG: Antigua and Barbuda
+CTY_AI: Anguilla
+CTY_AL: Albania
+CTY_AM: Armenia
+CTY_AO: Angola
+CTY_AQ: Antarctica
+CTY_AR: Argentina
+CTY_AS: American Samoa
+CTY_AT: Austria
+CTY_AU: Australia
+CTY_AW: Aruba
+CTY_AX: Aland Islands
+CTY_AZ: Azerbaijan
+CTY_BA: Bosnia and Herzegovina
+CTY_BB: Barbados
+CTY_BD: Bangladesh
+CTY_BE: Belgium
+CTY_BF: Burkina Faso
+CTY_BG: Bulgaria
+CTY_BH: Bahrain
+CTY_BI: Burundi
+CTY_BJ: Benin
+CTY_BL: Saint Barthelemy
+CTY_BM: Bermuda
+CTY_BN: Brunei Darussalam
+CTY_BO: Bolivia
+CTY_BQ: Caribbean Netherlands
+CTY_BR: Brazil
+CTY_BS: Bahamas
+CTY_BT: Bhutan
+CTY_BV: Bouvet Island
+CTY_BW: Botswana
+CTY_BY: Belarus
+CTY_BZ: Belize
+CTY_CA: Canada
+CTY_CC: Cocos (Keeling) Islands
+CTY_CD: Congo, Democratic Republic of
+CTY_CF: Central African Republic
+CTY_CG: Congo
+CTY_CH: Switzerland
+CTY_CI: Cote d'Ivoire
+CTY_CK: Cook Islands
+CTY_CL: Chile
+CTY_CM: Cameroon
+CTY_CN: China
+CTY_CO: Colombia
+CTY_CR: Costa Rica
+CTY_CU: Cuba
+CTY_CV: Cape Verde
+CTY_CW: Curacao
+CTY_CX: Christmas Island
+CTY_CY: Cyprus
+CTY_CZ: Czech Republic
+CTY_DE: Germany
+CTY_DJ: Djibouti
+CTY_DK: Denmark
+CTY_DM: Dominica
+CTY_DO: Dominican Republic
+CTY_DZ: Algeria
+CTY_EC: Ecuador
+CTY_EE: Estonia
+CTY_EG: Egypt
+CTY_EH: Western Sahara
+CTY_ER: Eritrea
+CTY_ES: Spain
+CTY_ET: Ethiopia
+CTY_FI: Finland
+CTY_FJ: Fiji
+CTY_FK: Falkland Islands
+CTY_FM: Micronesia, Federated States of
+CTY_FO: Faroe Islands
+CTY_FR: France
+CTY_GA: Gabon
+CTY_GB: United Kingdom
+CTY_GD: Grenada
+CTY_GE: Georgia
+CTY_GF: French Guiana
+CTY_GG: Guernsey
+CTY_GH: Ghana
+CTY_GI: Gibraltar
+CTY_GL: Greenland
+CTY_GM: Gambia
+CTY_GN: Guinea
+CTY_GP: Guadeloupe
+CTY_GQ: Equatorial Guinea
+CTY_GR: Greece
+CTY_GS: South Georgia and the South Sandwich Islands
+CTY_GT: Guatemala
+CTY_GU: Guam
+CTY_GW: Guinea-Bissau
+CTY_GY: Guyana
+CTY_HK: Hong Kong
+CTY_HM: Heard and McDonald Islands
+CTY_HN: Honduras
+CTY_HR: Croatia
+CTY_HT: Haiti
+CTY_HU: Hungary
+CTY_ID: Indonesia
+CTY_IE: Ireland
+CTY_IL: Israel
+CTY_IM: Isle of Man
+CTY_IN: India
+CTY_IO: British Indian Ocean Territory
+CTY_IQ: Iraq
+CTY_IR: Iran
+CTY_IS: Iceland
+CTY_IT: Italy
+CTY_JE: Jersey
+CTY_JM: Jamaica
+CTY_JO: Jordan
+CTY_JP: Japan
+CTY_KE: Kenya
+CTY_KG: Kyrgyzstan
+CTY_KH: Cambodia
+CTY_KI: Kiribati
+CTY_KM: Comoros
+CTY_KN: Saint Kitts and Nevis
+CTY_KP: North Korea
+CTY_KR: South Korea
+CTY_KW: Kuwait
+CTY_KY: Cayman Islands
+CTY_KZ: Kazakhstan
+CTY_LA: Lao Peoples Democratic Republic
+CTY_LB: Lebanon
+CTY_LC: Saint Lucia
+CTY_LI: Liechtenstein
+CTY_LK: Sri Lanka
+CTY_LR: Liberia
+CTY_LS: Lesotho
+CTY_LT: Lithuania
+CTY_LU: Luxembourg
+CTY_LV: Latvia
+CTY_LY: Libya
+CTY_MA: Morocco
+CTY_MC: Monaco
+CTY_MD: Moldova
+CTY_ME: Montenegro
+CTY_MF: Saint-Martin (France)
+CTY_MG: Madagascar
+CTY_MH: Marshall Islands
+CTY_MK: Macedonia
+CTY_ML: Mali
+CTY_MM: Myanmar
+CTY_MN: Mongolia
+CTY_MO: Macau
+CTY_MP: Northern Mariana Islands
+CTY_MQ: Martinique
+CTY_MR: Mauritania
+CTY_MS: Montserrat
+CTY_MT: Malta
+CTY_MU: Mauritius
+CTY_MV: Maldives
+CTY_MW: Malawi
+CTY_MX: Mexico
+CTY_MY: Malaysia
+CTY_MZ: Mozambique
+CTY_NA: Namibia
+CTY_NC: New Caledonia
+CTY_NE: Niger
+CTY_NF: Norfolk Island
+CTY_NG: Nigeria
+CTY_NI: Nicaragua
+CTY_NL: The Netherlands
+CTY_NO: Norway
+CTY_NP: Nepal
+CTY_NR: Nauru
+CTY_NU: Niue
+CTY_NZ: New Zealand
+CTY_OM: Oman
+CTY_PA: Panama
+CTY_PE: Peru
+CTY_PF: French Polynesia
+CTY_PG: Papua New Guinea
+CTY_PH: Philippines
+CTY_PK: Pakistan
+CTY_PL: Poland
+CTY_PM: St. Pierre and Miquelon
+CTY_PN: Pitcairn
+CTY_PR: Puerto Rico
+CTY_PS: Palestine, State of
+CTY_PT: Portugal
+CTY_PW: Palau
+CTY_PY: Paraguay
+CTY_QA: Qatar
+CTY_RE: Reunion
+CTY_RO: Romania
+CTY_RS: Serbia
+CTY_RU: Russian Federation
+CTY_RW: Rwanda
+CTY_SA: Saudi Arabia
+CTY_SB: Solomon Islands
+CTY_SC: Seychelles
+CTY_SD: Sudan
+CTY_SE: Sweden
+CTY_SG: Singapore
+CTY_SH: Saint Helena
+CTY_SI: Slovenia
+CTY_SJ: Svalbard and Jan Mayen Islands
+CTY_SK: Slovakia
+CTY_SL: Sierra Leone
+CTY_SM: San Marino
+CTY_SN: Senegal
+CTY_SO: Somalia
+CTY_SR: Suriname
+CTY_SS: South Sudan
+CTY_ST: Sao Tome and Principe
+CTY_SV: El Salvador
+CTY_SX: Sint Maarten (Dutch part)
+CTY_SY: Syria
+CTY_SZ: Swaziland
+CTY_TC: Turks and Caicos Islands
+CTY_TD: Chad
+CTY_TF: French Southern Territories
+CTY_TG: Togo
+CTY_TH: Thailand
+CTY_TJ: Tajikistan
+CTY_TK: Tokelau
+CTY_TL: Timor-Leste
+CTY_TM: Turkmenistan
+CTY_TN: Tunisia
+CTY_TO: Tonga
+CTY_TR: Turkey
+CTY_TT: Trinidad and Tobago
+CTY_TV: Tuvalu
+CTY_TW: Taiwan
+CTY_TZ: Tanzania
+CTY_UA: Ukraine
+CTY_UG: Uganda
+CTY_UM: United States Minor Outlying Islands
+CTY_US: United States
+CTY_UY: Uruguay
+CTY_UZ: Uzbekistan
+CTY_VA: Vatican
+CTY_VC: Saint Vincent and the Grenadines
+CTY_VE: Venezuela
+CTY_VG: Virgin Islands (British)
+CTY_VI: Virgin Islands (U.S.)
+CTY_VN: Vietnam
+CTY_VU: Vanuatu
+CTY_WF: Wallis and Futuna Islands
+CTY_WS: Samoa
+CTY_YE: Yemen
+CTY_YT: Mayotte
+CTY_ZA: South Africa
+CTY_ZM: Zambia
+CTY_ZW: Zimbabwe
+CTY_ZZ: Unknown or unspecified country
+CUSTCODE_CUS: CUS
+CUSTCODE_RES: RES
+CUSTCODE_TRD: TRD
+EXTSTAT_CANCELLED: Cancelled
+EXTSTAT_OPEN: Open
+EXTSTAT_PENDING_PLACEMENT: Pending placement
+EXTSTAT_PENDING_PUBLIC_OFFER: Pending public offer
+EXTSTAT_PENDING_RESULT: Pending Result
+EXTSTAT_PUBLISHED: Published
+FILEERR_DECRYPT_FAILED: Decryption failed
+FILEERR_INVALID_FORMAT: Invalid file format
+FILESRC_INTERFACE: Interface
+FILESRC_MANUAL_UPLOAD: Manual Upload
+FILETYPE_AA1: Subscription Acknowledgement (CASH)
+FILETYPE_AA2: Subscription Acknowledgement (CPFIS)
+FILETYPE_AA3: Subscription Acknowledgement (SRS)
+FILETYPE_AH1: Holdings Acknowledgement (CASH)
+FILETYPE_AH3: Holdings Acknowledgement (SRS)
+FILETYPE_AP1: Subscription (CASH)
+FILETYPE_AP2: Subscription (CPFIS)
+FILETYPE_AP3: Subscription (SRS)
+FILETYPE_AR1: Redemption Acknowledgement (CASH)
+FILETYPE_AR3: Redemption Acknowledgement (SRS)
+FILETYPE_CAL: Issuance Calendar (SSB/SGS/T-Bills)
+FILETYPE_CPN: Coupon / Redemption Rate (SSB)
+FILETYPE_HOL: SSB Holdings (CASH/SRS)
+FILETYPE_RA1: Allotment Results (CASH)
+FILETYPE_RA2: Allotment Results (CPFIS)
+FILETYPE_RA3: Allotment Results (SRS)
+FILETYPE_RE1: Redemption Submission (CASH)
+FILETYPE_RE2: Redemption Submission (CPFIS)
+FILETYPE_RE3: Redemption Submission (SRS)
+FILETYPE_RR1: Redemption Results (CASH)
+FILETYPE_RR2: Redemption Results (CPFIS)
+FILETYPE_RR3: Redemption Results (SRS)
+FREGSTAT_FAILED: Failed
+FREGSTAT_PARTIALLY_PROCESSED: Partially Processed
+FREGSTAT_PROCESSED: Processed
+HLDTYPE_CAS: Cash
+HLDTYPE_SRS: Supplementary Retirement Scheme
+ISSANNSTAT_DRAFT: Draft
+ISSANNSTAT_MEPS_ERROR: MEPS+ error
+ISSANNSTAT_PENDING_APPROVAL: Pending approval
+ISSANNSTAT_PENDING_MEPS: Pending MEPS+
+ISSANNSTAT_PENDING_PUBLICATION: Pending publication
+ISSANNSTAT_PUBLISHED: Published
+ISSANNSTAT_REJECTED: Rejected
+ISSANNSTAT_UNPUBLISHED: Unpublished
+ISSBIDSTAT_PENDING_APPROVAL: Pending Approval
+ISSBIDSTAT_SUBMITTED: Submitted
+ISSBIDSTAT_REJECTED: Rejected
+ISSBIDSTAT_WITHDRAWN: Withdrawn
+ISSBIDSTAT_COMPLETED: Completed
+ISSBIDSTAT_COMPLETED_OS: Completed (Oversubscription)
+ISSBIDSTAT_COMPLETED_LE: Completed (Limit exceeded)
+ISSBIDSTAT_COMPLETED_PA: Completed (Partially accepted)
+ISSCALSTAT_DRAFT: Draft
+ISSCALSTAT_PENDING_APPROVAL: Pending approval
+ISSCALSTAT_PENDING_PUBLICATION: Pending publication
+ISSCALSTAT_PUBLISHED: Published
+ISSCALSTAT_REJECTED: Rejected
+ISSTYPE_AUCTION: Auction / Allotment
+ISSTYPE_MINIAUCTION: Mini Auction
+ISSTYPE_SYNDICATION: Syndication
+MOSALE_QTY_CEILING: Quantity Ceiling
+MOSALE_UNIFORM_PRICE: Uniform Price
+NTNLTY_F: Foreigner
+NTNLTY_P: Singapore PR
+NTNLTY_S: Singapore Citizen
+RECERR_BRN: Invalid bank ref no
+RECERR_DBHOL: Duplicate record
+RECERR_DBSR: Duplicate record
+RECERR_IAN: Invalid appl name
+RECERR_IAT: Invalid appl type
+RECERR_IBC: Invalid bank code
+RECERR_IBS: Invalid bid sign
+RECERR_IBY: Invalid bid yield
+RECERR_ICI: Invalid cust ind
+RECERR_ICM: Invalid CPF acct no
+RECERR_ICN: Invalid comp nocomp
+RECERR_IHA: Invalid holding amt
+RECERR_IN: Invalid NRIC
+RECERR_INA: Invalid nominal amt
+RECERR_INN: Invalid nationality
+RECERR_IP: Invalid passport
+RECERR_IRC: Invalid rec chksum
+RECERR_IRD: Invalid recvd date
+RECERR_IRT: Invalid recvd time
+RECERR_ISC: Invalid issue code
+RECERR_ISM: Invalid sub method
+RECERR_ISN: Invalid ISIN code
+RECERR_ITD: Invalid tender date
+RECERR_ITT: Invalid trans type
+RECERR_LE: Limit exceeded
+RECERR_OS: Oversubscription
+RECERR_SRM: Invalid SRS acct no
+RECSTAT_F: Fail
+RECSTAT_P: Pass
+SECTYPE_CMTB: CMTB
+SECTYPE_FRN: Floating Rate Note
+SECTYPE_MASBILL: MAS Bill
+SECTYPE_SGS: SGS Bond
+SECTYPE_SSB: SSB
+SECTYPE_TBILL: T-Bill
+SGSTYPE_GREEN_INFRA: Green SGS (Infra)
+SGSTYPE_INFRA: SGS (Infra)
+SGSTYPE_MD: SGS (MD)
+SUBMTHD_A: ATM Applications
+SUBMTHD_B: iBanking Applications
+SUBMTHD_C: Mobile Applications
+SUBMTHD_E: Electronic / Web Application
+SUBMTHD_M: Contingency / Paper Form
+USERACT_ACKNOWLEDGE: For the verification of submitted information
+USERACT_APPROVE: For validation of a checker approve the submission
+USERACT_CANCEL: For cancelling operations, e.g., for cancelling allotments
+USERACT_CREATE: For creating new records, e.g., new Issuance Calendars, Announcements, Bids, security type parameters, counterparty, public holidays, MAS users, and MAS roles
+USERACT_DELETE: For deleting records, e.g., for deleting bills
+USERACT_OVERRIDE: Override with MEPS+ values
+USERACT_REJECT: For validation of a checker reject the submission
+USERACT_SUBMIT: For submitting records for approval (calendars, announcements, bids, extensions)
+USERACT_UNPUBLISH: For unpublishing results, e.g., for unpublishing allotment results
+USERACT_UPDATE: For updating existing records, such as modifying Syndication details, System parameters, security type parameters, counterparty, applicant to PD mappings, public holidays, email notification template, MAS roles, MAS users, batch jobs
+USERACT_UPLOAD: For uploading Bids records, Public Offers, and Placement Tranches
+USERACT_VERIFY: For verifying allotment results
+USERACT_WITHDRAW: For withdrawing approval requests related to Issuance calendar, Announcements, Bids, Syndication details, Action Safeguards, File upload, requests for Bid window extension, allotment cancellation
+SFGDSTAT_PENDING_CONFIG: Pending Configuration
+SFGDSTAT_PENDING_APPROVAL: Pending Approval
+SFGDSTAT_CONFIGURED: Configured
+AUCSTR_NORMAL: Normal
+AUCSTR_STRONG: Strong
+AUCSTR_WEAK: Weak
+PHSTAT_NEW: New
+PHSTAT_PENDING_APPROVAL: Pending Approval
+PHSTAT_APPROVED: Approved
+ISSFREQ_MONTHLY: Monthly
+ISSFREQ_QUARTERLY: Quarterly
+ISSFREQ_SEMI_ANNUALLY: Semi-Annually
+ISSFREQ_ANNUALLY: Annually
+CUSTBC_B: B
+CUSTBC_C: C

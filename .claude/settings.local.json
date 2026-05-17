@@ -33,7 +33,9 @@
       "Bash(xattr:*)",
       "Bash(lsof:*)",
       "Bash(xargs:*)",
-      "Bash(./node_modules/.bin/electron:*)"
+      "Bash(./node_modules/.bin/electron:*)",
+      "Bash(npx tsc:*)",
+      "Bash(awk '/^={20,}/{c++} c==2{p=1} p' .tmp-phaseB-cm___TRACKED_VAR__-answer.txt)"
     ],
     "deny": [],
     "ask": []

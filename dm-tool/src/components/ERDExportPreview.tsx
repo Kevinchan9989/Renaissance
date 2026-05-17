@@ -2235,7 +2235,7 @@ html,body{width:100%;height:100%;font-family:${FONTS.FAMILY};background:${theme.
                                 maxWidth: '55%'
                               }}>
                                 {(isPk || isFk) && (
-                                  <span style={{ fontSize: '10px', flexShrink: 0 }}>
+                                  <span style={{ fontSize: '14px', flexShrink: 0 }}>
                                     {isPk ? '🔑' : '🔗'}
                                   </span>
                                 )}

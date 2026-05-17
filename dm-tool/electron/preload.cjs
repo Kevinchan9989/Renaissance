@@ -28,6 +28,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Git Sync - Get default backups path
   getDefaultBackupsPath: () => ipcRenderer.invoke('get-default-backups-path'),
 
+  // Prune root /backups directory (keepRecent + monthly retention)
+  pruneBackups: (options) => ipcRenderer.invoke('prune-backups', options || {}),
+
+  // Sharded workspace storage (incremental save / load)
+  saveWorkspaceShards: (payload) => ipcRenderer.invoke('save-workspace-shards', payload),
+  loadWorkspaceShards: () => ipcRenderer.invoke('load-workspace-shards'),
+  getStorageMtimes: () => ipcRenderer.invoke('get-storage-mtimes'),
+
   // Legacy workspace functions (for compatibility)
   saveWorkspace: (data) => ipcRenderer.invoke('save-workspace', data),
   loadWorkspace: () => ipcRenderer.invoke('load-workspace'),
@@ -42,6 +50,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
   deleteBackup: (filename) => ipcRenderer.invoke('delete-backup', filename),
   openDataDirectory: () => ipcRenderer.invoke('open-data-directory'),
   getDataDirectory: () => ipcRenderer.invoke('get-data-directory'),
+
+  // SQLite layer (dark-launched — gated by the renderer flag
+  // `dm_tool_use_sqlite_storage`, default OFF in this PR).
+  db: {
+    bootstrap:        () => ipcRenderer.invoke('db-bootstrap'),
+    status:           () => ipcRenderer.invoke('db-status'),
+    loadWorkspace:    () => ipcRenderer.invoke('db-load-workspace'),
+    saveDiff:         (payload) => ipcRenderer.invoke('db-save-diff', payload),
+    getVersionContent:(versionId) => ipcRenderer.invoke('db-get-version-content', versionId),
+    migrateFromShards:() => ipcRenderer.invoke('db-migrate-from-shards'),
+    integrityCheck:   () => ipcRenderer.invoke('db-integrity-check'),
+    vacuum:           (opts) => ipcRenderer.invoke('db-vacuum', opts || {}),
+  },
 
   // Event listeners
   onAutoSaveComplete: (callback) => {

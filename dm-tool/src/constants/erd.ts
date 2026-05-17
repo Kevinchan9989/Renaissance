@@ -24,14 +24,23 @@ export const TABLE_COLORS = [
 ];
 
 // Sizing Constants
+//
+// Second scale-up step (≈+12 % over the previous bump). All paired
+// dimensions move together so the visual ratios stay constant:
+//   COLUMN_HEIGHT / SIZE_SM         = 42 / 18 ≈ 2.33   (row vs body text)
+//   TABLE_HEADER_HEIGHT / TITLE     = 50 / 20 = 2.5    (header band vs title)
+//   TABLE_MIN_WIDTH ÷ TABLE_MAX     = 310 / 560 ≈ 0.55 (same shape envelope)
+// Char-width factors in calculateTableWidth (ERDViewer) and the Y offsets in
+// the table renderer are re-derived from these in lockstep — see comments
+// at each call site.
 export const SIZING = {
-  TABLE_MIN_WIDTH: 250,
-  TABLE_MAX_WIDTH: 440,
-  COLUMN_HEIGHT: 34,
+  TABLE_MIN_WIDTH: 310,
+  TABLE_MAX_WIDTH: 560,
+  COLUMN_HEIGHT: 42,
   TABLE_COLOR_HEIGHT: 6,
-  TABLE_HEADER_HEIGHT: 40,
-  LINE_HEIGHT: 25,
-  PADDING: 5,
+  TABLE_HEADER_HEIGHT: 50,
+  LINE_HEIGHT: 32,
+  PADDING: 7,
   TABLES_GAP_X: 80,
   TABLES_GAP_Y: 60,
   DIAGRAM_PADDING: 60,
@@ -46,10 +55,10 @@ export const SIZING = {
 // Font Sizes
 export const FONTS = {
   FAMILY: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-  SIZE_SM: 14,
-  SIZE_MD: 16,
-  SIZE_LG: 18,
-  SIZE_TABLE_TITLE: 16,
+  SIZE_SM: 18,
+  SIZE_MD: 20,
+  SIZE_LG: 22,
+  SIZE_TABLE_TITLE: 20,
 };
 
 // Light Theme

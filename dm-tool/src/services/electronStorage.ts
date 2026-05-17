@@ -1,4 +1,27 @@
 import { WorkspaceData } from '../utils/storage';
+import type { Script, FlowchartScript, MappingProject, TypeRuleSet } from '../types';
+
+export interface ShardSavePayload {
+  changedScripts: Script[];
+  removedScriptIds: string[];
+  changedFlowcharts: FlowchartScript[];
+  removedFlowchartIds: string[];
+  meta: {
+    theme: 'light' | 'dark';
+    themeVariant: 'slate' | 'vscode-gray';
+    mappingProjects: MappingProject[];
+    typeRuleSets: TypeRuleSet[];
+    erdPositions: Record<string, Record<string, { x: number; y: number }>>;
+    ddVisibleColumns?: unknown;
+    ddColumnWidths?: unknown;
+  };
+  manifest: {
+    version: string;
+    scriptIds: string[];
+    flowchartIds: string[];
+    updatedAt: string;
+  };
+}
 
 /**
  * Electron Storage Service
@@ -16,6 +39,36 @@ export interface ElectronAPI {
   selectFile: () => Promise<{ success: boolean; path?: string; canceled?: boolean; error?: string }>;
   pathExists: (filePath: string) => Promise<{ success: boolean; exists?: boolean; error?: string }>;
   getDefaultBackupsPath: () => Promise<{ success: boolean; path?: string; error?: string }>;
+  pruneBackups: (options?: { keepRecent?: number; dryRun?: boolean }) => Promise<{
+    success: boolean;
+    kept?: string[];
+    deleted?: string[];
+    freedBytes?: number;
+    error?: string;
+  }>;
+
+  // Sharded workspace storage
+  saveWorkspaceShards: (payload: ShardSavePayload) => Promise<{
+    success: boolean;
+    counts?: {
+      scriptsWritten: number;
+      scriptsRemoved: number;
+      flowchartsWritten: number;
+      flowchartsRemoved: number;
+    };
+    error?: string;
+  }>;
+  loadWorkspaceShards: () => Promise<{
+    success: boolean;
+    data?: WorkspaceData;
+    manifestUpdatedAt?: string | null;
+    error?: string;
+  }>;
+  getStorageMtimes: () => Promise<{
+    success: boolean;
+    workspaceMs: number | null;
+    shardsMs: number | null;
+  }>;
 
   // Legacy APIs
   saveWorkspace: (data: WorkspaceData) => Promise<{ success: boolean; path?: string; error?: string }>;
@@ -31,6 +84,32 @@ export interface ElectronAPI {
   getDataDirectory: () => Promise<{ success: boolean; path?: string }>;
   onAutoSaveComplete: (callback: (data: any) => void) => () => void;
   onAutoSaveError: (callback: (error: any) => void) => () => void;
+
+  // SQLite layer (dark-launched — gated by isSqliteStorageEnabled() in storage.ts;
+  // default OFF in this PR. PR2 flips the default to ON post-soak.)
+  db: {
+    bootstrap: () => Promise<DbResult<{ status: DbStatus }>>;
+    status: () => Promise<DbResult<{ status: DbStatus }>>;
+    loadWorkspace: () => Promise<DbResult<{ data: WorkspaceData }>>;
+    saveDiff: (payload: ShardSavePayload) => Promise<DbResult>;
+    getVersionContent: (versionId: string) => Promise<DbResult<{ content: { content: string; data: unknown } | null }>>;
+    migrateFromShards: () => Promise<DbResult<{ counts: Record<string, number>; durationMs: number }>>;
+    integrityCheck: () => Promise<DbResult<{ ok: boolean; details: unknown[] }>>;
+    vacuum: (opts?: { ifNeeded?: boolean }) => Promise<DbResult<{ ran: boolean }>>;
+  };
+}
+
+export type DbResult<T = Record<string, unknown>> =
+  | ({ success: true } & T)
+  | { success: false; error: string };
+
+export interface DbStatus {
+  dbOpen: boolean;
+  dbPath?: string;
+  schemaVersion?: number;
+  scriptCount?: number;
+  columnCount?: number;
+  dbSize?: number;
 }
 
 declare global {
@@ -340,6 +419,83 @@ export async function getDataDirectory(): Promise<string | null> {
   } catch (error) {
     console.error('❌ Error getting data directory:', error);
     return null;
+  }
+}
+
+/**
+ * Prune root /backups directory.
+ * Keeps `keepRecent` newest snapshots plus one per calendar month for older files.
+ * Returns the deleted file list and bytes freed.
+ */
+export async function pruneBackups(
+  options: { keepRecent?: number; dryRun?: boolean } = {}
+): Promise<{ kept: string[]; deleted: string[]; freedBytes: number } | null> {
+  if (!isElectron()) return null;
+  try {
+    const api = getElectronAPI();
+    const result = await api.pruneBackups(options);
+    if (result.success) {
+      return {
+        kept: result.kept || [],
+        deleted: result.deleted || [],
+        freedBytes: result.freedBytes || 0,
+      };
+    }
+    console.error('❌ Backup prune failed:', result.error);
+    return null;
+  } catch (error) {
+    console.error('❌ Error pruning backups:', error);
+    return null;
+  }
+}
+
+/**
+ * Save only changed shards to the sharded workspace store.
+ */
+export async function saveWorkspaceShards(payload: ShardSavePayload): Promise<boolean> {
+  if (!isElectron()) return false;
+  try {
+    const api = getElectronAPI();
+    const result = await api.saveWorkspaceShards(payload);
+    if (!result.success) {
+      console.error('❌ Shard save failed:', result.error);
+      return false;
+    }
+    return true;
+  } catch (error) {
+    console.error('❌ Error saving shards:', error);
+    return false;
+  }
+}
+
+/**
+ * Load workspace from shards. Returns null if no shards manifest exists.
+ */
+export async function loadWorkspaceShards(): Promise<WorkspaceData | null> {
+  if (!isElectron()) return null;
+  try {
+    const api = getElectronAPI();
+    const result = await api.loadWorkspaceShards();
+    if (result.success && result.data) return result.data;
+    return null;
+  } catch (error) {
+    console.error('❌ Error loading shards:', error);
+    return null;
+  }
+}
+
+/**
+ * Compare modification times of monolithic workspace.json vs shards manifest.
+ * Used at startup to pick the newer source.
+ */
+export async function getStorageMtimes(): Promise<{ workspaceMs: number | null; shardsMs: number | null }> {
+  if (!isElectron()) return { workspaceMs: null, shardsMs: null };
+  try {
+    const api = getElectronAPI();
+    const r = await api.getStorageMtimes();
+    return { workspaceMs: r.workspaceMs, shardsMs: r.shardsMs };
+  } catch {
+    return { workspaceMs: null, shardsMs: null };
   }
 }
 

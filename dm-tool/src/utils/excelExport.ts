@@ -1,4 +1,4 @@
-import type { Table } from '../types';
+import type { Table, MasterCode, MasterCodeCategory } from '../types';
 
 // Column keys matching DataDictionary
 export type ExcelColumnKey = 'column' | 'type' | 'nullable' | 'default' | 'explanation' | 'mapping' | 'sampleValues' | 'possibleValues' | 'mappedTo' | 'migrationNeeded' | 'nonMigrationComment';
@@ -26,7 +26,6 @@ const HEADER_BG = 'E2E8F0';        // Light gray for column headers
 const HEADER_FONT_COLOR = '1A202C';
 const CELL_FONT_COLOR = '000000';
 const CODE_FONT_COLOR = '1A365D';
-const COMPLETED_ROW_FILL = 'E8FAF0';
 const LABEL_BG = 'F7FAFC';         // Very light gray for info labels
 const BORDER_COLOR = '000000';      // Black borders
 
@@ -97,13 +96,15 @@ export interface ExcelExportOptions {
   getMappingInfo: (tableName: string, colName: string) => string | null;
   getColumnTags: (table: Table, colName: string) => string[];
   visibleColumns: ExcelColumnKey[];
+  masterCodes?: MasterCode[];
+  masterCodeCategories?: MasterCodeCategory[];
 }
 
 export async function exportDataDictionaryToExcel(options: ExcelExportOptions): Promise<void> {
   const ExcelJS = await import('exceljs');
   const workbook = new ExcelJS.Workbook();
 
-  const { scriptName, tables: allTables, getMappingInfo, getColumnTags, visibleColumns } = options;
+  const { scriptName, tables: allTables, getMappingInfo, getColumnTags, visibleColumns, masterCodes, masterCodeCategories } = options;
 
   // Include all tables (including those marked "To Ignore" so data is preserved)
   const tables = allTables;
@@ -125,16 +126,13 @@ export async function exportDataDictionaryToExcel(options: ExcelExportOptions): 
   // ═══════════════════════════════════════
   {
     const homeSheet = workbook.addWorksheet('Index');
-    const homeCols = 8;
+    const homeCols = 5;
     homeSheet.columns = [
       { width: 8 },   // #
       { width: 20 },  // Schema
       { width: 30 },  // Table Name
-      { width: 40 },  // Description
+      { width: 60 },  // Description (autofit wider)
       { width: 12 },  // Columns
-      { width: 10 },  // _t
-      { width: 16 },  // Expl Completed
-      { width: 12 },  // To Ignore
     ];
 
     let hr = 1;
@@ -157,7 +155,7 @@ export async function exportDataDictionaryToExcel(options: ExcelExportOptions): 
       hr++;
 
       const headerRowNum = hr;
-      const headers = ['#', 'Schema', 'Table Name', 'Description', 'Columns', '_t', 'Expl Completed', 'To Ignore'];
+      const headers = ['#', 'Schema', 'Table Name', 'Description', 'Columns'];
       headers.forEach((h, ci) => {
         const cell = homeSheet.getCell(hr, ci + 1);
         cell.value = h;
@@ -177,9 +175,6 @@ export async function exportDataDictionaryToExcel(options: ExcelExportOptions): 
           t.tableName,
           t.description || '-',
           String(t.columns.length),
-          (t._tChecked ?? t.tableName.toLowerCase().includes('_t')) ? 'Y' : 'N',
-          t.explanationCompleted ? 'Y' : 'N',
-          t.toIgnore ? 'Y' : 'N',
         ];
         vals.forEach((v, ci) => {
           const cell = homeSheet.getCell(hr, ci + 1);
@@ -195,9 +190,6 @@ export async function exportDataDictionaryToExcel(options: ExcelExportOptions): 
           }
           cell.alignment = { vertical: 'middle', horizontal: ci >= 4 ? 'center' : 'left' };
           cell.border = ALL_BORDERS;
-          if (t.explanationCompleted) {
-            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COMPLETED_ROW_FILL } };
-          }
         });
         homeSheet.getRow(hr).height = DATA_ROW_HEIGHT;
         hr++;
@@ -218,6 +210,61 @@ export async function exportDataDictionaryToExcel(options: ExcelExportOptions): 
     if (sources.length > 0) {
       const sourceIndices = tables.map((t, i) => ({ t, i })).filter(x => x.t.isSource).map(x => x.i);
       writeGroup('Source Tables', sources, sourceIndices);
+    }
+
+    // Appendix link in Index
+    if (masterCodes && masterCodes.length > 0) {
+      hr++;
+      applyMergedCell(homeSheet, hr, 1, homeCols, 'Appendix',
+        { name: 'Calibri', size: 11, bold: true, color: { argb: SECTION_FONT_COLOR } },
+        { type: 'pattern', pattern: 'solid', fgColor: { argb: SECTION_BG } },
+      );
+      homeSheet.getRow(hr).height = 24;
+      hr++;
+
+      const appendixCell = homeSheet.getCell(hr, 1);
+      appendixCell.value = {
+        text: 'Master Code Definitions',
+        hyperlink: "#'Appendix'!A1",
+      } as import('exceljs').CellHyperlinkValue;
+      appendixCell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: '2563EB' }, underline: true };
+      appendixCell.alignment = { vertical: 'middle', horizontal: 'left' };
+      appendixCell.border = ALL_BORDERS;
+
+      const countCell = homeSheet.getCell(hr, 2);
+      countCell.value = `${masterCodes.length} code${masterCodes.length !== 1 ? 's' : ''}`;
+      countCell.font = { name: 'Calibri', size: 10, color: { argb: CELL_FONT_COLOR } };
+      countCell.alignment = { vertical: 'middle', horizontal: 'left' };
+      countCell.border = ALL_BORDERS;
+      if (homeCols > 2) {
+        homeSheet.mergeCells(hr, 2, hr, homeCols);
+        for (let c = 3; c <= homeCols; c++) homeSheet.getCell(hr, c).border = ALL_BORDERS;
+      }
+      homeSheet.getRow(hr).height = DATA_ROW_HEIGHT;
+    }
+
+    // Master Code Categories link in Index
+    if (masterCodeCategories && masterCodeCategories.length > 0) {
+      hr++;
+      const catCell = homeSheet.getCell(hr, 1);
+      catCell.value = {
+        text: 'Master Code Categories',
+        hyperlink: "#'Appendix - Categories'!A1",
+      } as import('exceljs').CellHyperlinkValue;
+      catCell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: '2563EB' }, underline: true };
+      catCell.alignment = { vertical: 'middle', horizontal: 'left' };
+      catCell.border = ALL_BORDERS;
+
+      const catCountCell = homeSheet.getCell(hr, 2);
+      catCountCell.value = `${masterCodeCategories.length} categor${masterCodeCategories.length !== 1 ? 'ies' : 'y'}`;
+      catCountCell.font = { name: 'Calibri', size: 10, color: { argb: CELL_FONT_COLOR } };
+      catCountCell.alignment = { vertical: 'middle', horizontal: 'left' };
+      catCountCell.border = ALL_BORDERS;
+      if (homeCols > 2) {
+        homeSheet.mergeCells(hr, 2, hr, homeCols);
+        for (let c = 3; c <= homeCols; c++) homeSheet.getCell(hr, c).border = ALL_BORDERS;
+      }
+      homeSheet.getRow(hr).height = DATA_ROW_HEIGHT;
     }
   }
 
@@ -273,24 +320,30 @@ export async function exportDataDictionaryToExcel(options: ExcelExportOptions): 
       valCell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
       valCell.border = ALL_BORDERS;
       for (let c = 3; c <= infoSpan; c++) sheet.getCell(currentRow, c).border = ALL_BORDERS;
+
+      // Autofit row height for description
+      if (label === 'Description' && value) {
+        const mergedWidth = activeCols.slice(1, infoSpan).reduce((sum, c) => sum + c.width, 0) || 60;
+        const lines = Math.ceil(value.length / (mergedWidth * 0.9)) + (value.split('\n').length - 1);
+        const h = Math.max(DATA_ROW_HEIGHT, Math.min(lines * LINE_HEIGHT, MAX_ROW_HEIGHT));
+        sheet.getRow(currentRow).height = h;
+      }
+
       currentRow++;
     };
 
-    // Order: Schema, Table Name, Total Columns, Description, _t, Expl Completed, To Ignore
     writeInfoRow('Schema', table.schema || '-');
     writeInfoRow('Table Name', table.tableName);
     writeInfoRow('Total Columns', String(table.columns.length));
     writeInfoRow('Description', table.description || '-');
-    writeInfoRow('_t', (table._tChecked ?? table.tableName.toLowerCase().includes('_t')) ? 'Y' : 'N');
-    writeInfoRow('Explanation Completed', table.explanationCompleted ? 'Y' : 'N');
-    writeInfoRow('To Ignore', table.toIgnore ? 'Y' : 'N');
 
     // Blank separator row
     currentRow++;
 
     // ═══ SECTION 2: CONSTRAINTS ═══
 
-    applyMergedCell(sheet, currentRow, 1, colCount, 'Constraints',
+    const constraintSpan = Math.min(4, colCount);
+    applyMergedCell(sheet, currentRow, 1, constraintSpan, 'Constraints',
       { name: 'Calibri', size: 10, bold: true, color: { argb: SECTION_FONT_COLOR } },
       { type: 'pattern', pattern: 'solid', fgColor: { argb: SECTION_BG } },
     );
@@ -299,6 +352,7 @@ export async function exportDataDictionaryToExcel(options: ExcelExportOptions): 
 
     if (table.constraints.length > 0) {
       const constraintHeaders = ['Constraint Name', 'Type', 'Columns', 'Reference'];
+      const constraintColWidths = [28, 16, 36, 42];
       const cCount = Math.min(constraintHeaders.length, colCount);
       constraintHeaders.slice(0, cCount).forEach((h, ci) => {
         const cell = sheet.getCell(currentRow, ci + 1);
@@ -321,11 +375,15 @@ export async function exportDataDictionaryToExcel(options: ExcelExportOptions): 
           cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
           cell.border = ALL_BORDERS;
         });
-        sheet.getRow(currentRow).height = DATA_ROW_HEIGHT;
+        // Autofit row height for constraint data
+        const cRowVals = cValues.slice(0, cCount);
+        const cWidths = constraintColWidths.slice(0, cCount);
+        const cRowHeight = estimateRowHeight(cRowVals, cWidths);
+        sheet.getRow(currentRow).height = cRowHeight;
         currentRow++;
       });
     } else {
-      applyMergedCell(sheet, currentRow, 1, colCount, 'No constraints defined',
+      applyMergedCell(sheet, currentRow, 1, constraintSpan, 'No constraints defined',
         { name: 'Calibri', size: 10, italic: true, color: { argb: '718096' } },
         { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFF' } },
       );
@@ -412,9 +470,6 @@ export async function exportDataDictionaryToExcel(options: ExcelExportOptions): 
           cell.font = { name: 'Calibri', size: 10, color: { argb: CELL_FONT_COLOR } };
         }
 
-        if (table.explanationCompleted) {
-          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COMPLETED_ROW_FILL } };
-        }
       });
 
       const rowHeight = estimateRowHeight(rowValues, colWidths);
@@ -430,6 +485,148 @@ export async function exportDataDictionaryToExcel(options: ExcelExportOptions): 
       };
     }
   });
+
+  // ═══════════════════════════════════════
+  // APPENDIX SHEET (Master Code Definitions)
+  // ═══════════════════════════════════════
+  if (masterCodes && masterCodes.length > 0) {
+    const appSheet = workbook.addWorksheet('Appendix');
+    const appCols = 2;
+    appSheet.columns = [
+      { width: 30 },  // Key
+      { width: 80 },  // Definition
+    ];
+
+    let ar = 1;
+
+    // Navigation
+    const navCell = appSheet.getCell(ar, 1);
+    navCell.value = {
+      text: '\u2190 Back to Index',
+      hyperlink: "#'Index'!A1",
+    } as import('exceljs').CellHyperlinkValue;
+    navCell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: '2563EB' }, underline: true };
+    navCell.alignment = { vertical: 'middle', horizontal: 'left' };
+    appSheet.getRow(ar).height = 20;
+    ar++;
+
+    // Title
+    applyMergedCell(appSheet, ar, 1, appCols, `${scriptName} - Master Code Definitions`,
+      { name: 'Calibri', size: 14, bold: true, color: { argb: TITLE_FONT_COLOR } },
+      { type: 'pattern', pattern: 'solid', fgColor: { argb: TITLE_BG } },
+    );
+    appSheet.getRow(ar).height = 30;
+    ar++;
+
+    // Headers
+    const appHeaders = ['Key', 'Definition'];
+    appHeaders.forEach((h, ci) => {
+      const cell = appSheet.getCell(ar, ci + 1);
+      cell.value = h;
+      cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: HEADER_FONT_COLOR } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: HEADER_BG } };
+      cell.alignment = { vertical: 'middle', horizontal: 'left' };
+      cell.border = ALL_BORDERS;
+    });
+    const appHeaderRow = ar;
+    ar++;
+
+    // Data rows
+    masterCodes.forEach(mc => {
+      const keyCell = appSheet.getCell(ar, 1);
+      keyCell.value = mc.key;
+      keyCell.font = { name: 'Consolas', size: 10, bold: true, color: { argb: CODE_FONT_COLOR } };
+      keyCell.alignment = { vertical: 'top', horizontal: 'left', wrapText: true };
+      keyCell.border = ALL_BORDERS;
+
+      const defCell = appSheet.getCell(ar, 2);
+      defCell.value = mc.definition;
+      defCell.font = { name: 'Calibri', size: 10, color: { argb: CELL_FONT_COLOR } };
+      defCell.alignment = { vertical: 'top', horizontal: 'left', wrapText: true };
+      defCell.border = ALL_BORDERS;
+
+      const rh = estimateRowHeight([mc.key, mc.definition], [30, 80]);
+      appSheet.getRow(ar).height = rh;
+      ar++;
+    });
+
+    // Auto-filter
+    appSheet.autoFilter = {
+      from: { row: appHeaderRow, column: 1 },
+      to: { row: appHeaderRow + masterCodes.length, column: appCols },
+    };
+  }
+
+  // ═══════════════════════════════════════
+  // APPENDIX SHEET (Master Code Categories)
+  // ═══════════════════════════════════════
+  if (masterCodeCategories && masterCodeCategories.length > 0) {
+    const catSheet = workbook.addWorksheet('Appendix - Categories');
+    const catCols = 2;
+    catSheet.columns = [
+      { width: 30 },  // Key
+      { width: 80 },  // Definition
+    ];
+
+    let cr = 1;
+
+    // Navigation
+    const navCell = catSheet.getCell(cr, 1);
+    navCell.value = {
+      text: '\u2190 Back to Index',
+      hyperlink: "#'Index'!A1",
+    } as import('exceljs').CellHyperlinkValue;
+    navCell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: '2563EB' }, underline: true };
+    navCell.alignment = { vertical: 'middle', horizontal: 'left' };
+    catSheet.getRow(cr).height = 20;
+    cr++;
+
+    // Title
+    applyMergedCell(catSheet, cr, 1, catCols, `${scriptName} - Master Code Categories`,
+      { name: 'Calibri', size: 14, bold: true, color: { argb: TITLE_FONT_COLOR } },
+      { type: 'pattern', pattern: 'solid', fgColor: { argb: TITLE_BG } },
+    );
+    catSheet.getRow(cr).height = 30;
+    cr++;
+
+    // Headers
+    const catHeaders = ['Key', 'Definition'];
+    catHeaders.forEach((h, ci) => {
+      const cell = catSheet.getCell(cr, ci + 1);
+      cell.value = h;
+      cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: HEADER_FONT_COLOR } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: HEADER_BG } };
+      cell.alignment = { vertical: 'middle', horizontal: 'left' };
+      cell.border = ALL_BORDERS;
+    });
+    const catHeaderRow = cr;
+    cr++;
+
+    // Data rows
+    masterCodeCategories.forEach(mc => {
+      const keyCell = catSheet.getCell(cr, 1);
+      keyCell.value = mc.key;
+      keyCell.font = { name: 'Consolas', size: 10, bold: true, color: { argb: CODE_FONT_COLOR } };
+      keyCell.alignment = { vertical: 'top', horizontal: 'left', wrapText: true };
+      keyCell.border = ALL_BORDERS;
+
+      const defCell = catSheet.getCell(cr, 2);
+      defCell.value = mc.definition;
+      defCell.font = { name: 'Calibri', size: 10, color: { argb: CELL_FONT_COLOR } };
+      defCell.alignment = { vertical: 'top', horizontal: 'left', wrapText: true };
+      defCell.border = ALL_BORDERS;
+
+      const rh = estimateRowHeight([mc.key, mc.definition], [30, 80]);
+      catSheet.getRow(cr).height = rh;
+      cr++;
+    });
+
+    // Auto-filter
+    catSheet.autoFilter = {
+      from: { row: catHeaderRow, column: 1 },
+      to: { row: catHeaderRow + masterCodeCategories.length, column: catCols },
+    };
+  }
 
   // Generate and download
   const buffer = await workbook.xlsx.writeBuffer();

@@ -1,0 +1,61 @@
+{
+  "_description": "Renaissance DM Tool - GSIB Migration Package Index",
+  "_purpose": "Complete design specifications to recreate the Renaissance DM Tool in a GSIB Coder workspace with VS Code Cloud + Claude Code",
+  "_createdAt": "2026-04-28",
+
+  "files": {
+    "01-project-config.json": "Project structure, dependencies, vite/ts config, storage keys, file tree",
+    "02-type-definitions.json": "All TypeScript interfaces and types (data model)",
+    "03-component-designs.json": "All React component specifications (props, state, behaviors, UI layout)",
+    "04-canvas-components.json": "ERDViewer, ColumnMapper, FlowchartViewer - Konva canvas specs with exact visual details",
+    "05-utils-and-logic.json": "All utility functions, parsers, services - algorithms and signatures",
+    "06-styling-themes.json": "Complete CSS - all classes, colors, fonts, spacing for light/dark themes",
+    "07-versioning-components.json": "Version history, diff, badge, minimap components",
+    "08-type-rules.json": "Oracle<->PostgreSQL type compatibility rules and type families"
+  },
+
+  "recreationPriority": {
+    "phase1_core": {
+      "description": "Data Dictionary (core feature) + DDL parsing + Excel export",
+      "files": ["02-type-definitions.json", "03-component-designs.json (DataDictionary section)", "05-utils-and-logic.json (parsers, excelExport, storage)", "06-styling-themes.json"],
+      "components": ["DataDictionary.tsx", "Sidebar.tsx", "App.tsx", "ExcelExportPreview.tsx", "CodeEditor.tsx"],
+      "utils": ["parsers.ts", "storage.ts", "excelExport.ts", "ddlGenerator.ts"],
+      "estimatedComplexity": "HIGH - DataDictionary alone is 4591 lines"
+    },
+    "phase2_erd": {
+      "description": "ERD/UML diagram viewer",
+      "files": ["04-canvas-components.json (ERDViewer section)"],
+      "components": ["ERDViewer.tsx", "ERDExportPreview.tsx"],
+      "utils": ["parsers.ts (constraint extraction)"],
+      "estimatedComplexity": "MEDIUM - 2132 lines, Konva canvas"
+    },
+    "phase3_scripts": {
+      "description": "Script management with versioning",
+      "files": ["03-component-designs.json (ScriptManager section)", "07-versioning-components.json"],
+      "components": ["ScriptManager.tsx", "CreateScriptModal.tsx", "versioning/*"],
+      "utils": ["versionDiff.ts"],
+      "estimatedComplexity": "MEDIUM"
+    },
+    "phase4_compare": {
+      "description": "Schema comparison tool",
+      "files": ["03-component-designs.json (SchemaCompare section)"],
+      "components": ["SchemaCompare.tsx", "DDLDiffView.tsx"],
+      "utils": ["compare.ts"],
+      "estimatedComplexity": "LOW-MEDIUM"
+    },
+    "phase5_mapping": {
+      "description": "Column mapping canvas (defer for later)",
+      "files": ["04-canvas-components.json (ColumnMapper section)", "08-type-rules.json"],
+      "components": ["ColumnMapper/*"],
+      "utils": ["mapping.ts", "sqlAlignment.ts"],
+      "estimatedComplexity": "VERY HIGH - 6016 lines"
+    }
+  },
+
+  "gsibNotes": {
+    "electronNotNeeded": "Remove Electron entirely - use pure web app or VS Code extension webview",
+    "storageStrategy": "Use VS Code workspace storage API (for extension) or localStorage (for web app)",
+    "noDependencyIssues": "All npm packages are standard open source - should work in GSIB npm registry",
+    "offlineCapable": "App is fully client-side, no API calls needed"
+  }
+}

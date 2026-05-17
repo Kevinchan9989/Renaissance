@@ -1,0 +1,164 @@
+{
+  "id": "1770023261559-avuy3zfgw",
+  "name": "Trace (For migration)",
+  "type": "postgresql",
+  "createdAt": 1770023261559,
+  "updatedAt": 1770173624158,
+  "rawContent": "create table mig_trace_map (\n    -- 1. audit & identification\n    trace_id        bigint generated always as identity primary key,\n    module_id    varchar(50) not null,   -- e.g., 'mig-sgs-chain'\n    created_ts      timestamp default current_timestamp,\n\n    -- 2. source identity (the \"connection\" grouping)\n    source_table    varchar(50),            -- e.g., 'aba0001_security_master'\n    src_col_1       varchar(50),            -- e.g., 'security_code'\n    src_key_1       varchar(100),           -- e.g., 'n518100a'\n    src_col_2       varchar(50),            -- e.g., 'issue_no'\n    src_key_2       varchar(100),           -- e.g., '1'\n    src_col_3       varchar(50),            -- optional 3rd key column name\n    src_key_3       varchar(100),           -- optional 3rd key value\n    \n    -- 3. target identity (the specific record created)\n    target_table    varchar(100) not null,  -- e.g., 'iss.iss_issuance'\n    target_uuid     varchar(36),            -- the generated omega uuid\n    \n    -- 4. hierarchy linkage (the chain)\n    parent_table    varchar(100),           -- e.g., 'sec.sec_security_master'\n    parent_uuid     varchar(36),            -- e.g., 'uuid-111' (links child to parent)\n    \n    -- 5. execution outcome (results)\n    status          varchar(20) check (status in ('success', 'fail', 'warning')),\n    remarks         text                    -- stores error message (e.g., 'unique constraint violated')\n);\n\n-- indexes for performance\ncreate index idx_mig_trace_migration_id on mig_trace_map(migration_id);\ncreate index idx_mig_trace_source_key on mig_trace_map(src_key_1, src_key_2);\ncreate index idx_mig_trace_target_uuid on mig_trace_map(target_uuid);\ncreate index idx_mig_trace_status on mig_trace_map(status);",
+  "data": {
+    "targets": [
+      {
+        "id": 1,
+        "schema": "public",
+        "tableName": "mig_trace_map",
+        "description": "",
+        "constraints": [
+          {
+            "name": "pk_mig_trace_map",
+            "type": "Primary Key",
+            "localCols": "trace_id"
+          }
+        ],
+        "columns": [
+          {
+            "name": "trace_id",
+            "type": "BIGINT",
+            "nullable": "Yes",
+            "default": "IDENTITY",
+            "explanation": "The unique trace ID for each record migrated.",
+            "mapping": ""
+          },
+          {
+            "name": "module_id",
+            "type": "VARCHAR(50)",
+            "nullable": "No",
+            "default": null,
+            "explanation": "The module ID categorized based on each migration path/connection.",
+            "mapping": ""
+          },
+          {
+            "name": "created_ts",
+            "type": "TIMESTAMP",
+            "nullable": "Yes",
+            "default": "current_timestamp",
+            "explanation": "Migration timestamp",
+            "mapping": ""
+          },
+          {
+            "name": "source_table",
+            "type": "VARCHAR(50)",
+            "nullable": "Yes",
+            "default": null,
+            "explanation": "Migration source table name ",
+            "mapping": ""
+          },
+          {
+            "name": "src_col_1",
+            "type": "VARCHAR(50)",
+            "nullable": "Yes",
+            "default": null,
+            "explanation": "Source table column name for identifier 1",
+            "mapping": ""
+          },
+          {
+            "name": "src_key_1",
+            "type": "VARCHAR(100)",
+            "nullable": "Yes",
+            "default": null,
+            "explanation": "Identifier value 1",
+            "mapping": ""
+          },
+          {
+            "name": "src_col_2",
+            "type": "VARCHAR(50)",
+            "nullable": "Yes",
+            "default": null,
+            "explanation": "Source table column name for identifier 2",
+            "mapping": ""
+          },
+          {
+            "name": "src_key_2",
+            "type": "VARCHAR(100)",
+            "nullable": "Yes",
+            "default": null,
+            "explanation": "Identifier value 2",
+            "mapping": ""
+          },
+          {
+            "name": "src_col_3",
+            "type": "VARCHAR(50)",
+            "nullable": "Yes",
+            "default": null,
+            "explanation": "Source table column name for identifier 3",
+            "mapping": ""
+          },
+          {
+            "name": "src_key_3",
+            "type": "VARCHAR(100)",
+            "nullable": "Yes",
+            "default": null,
+            "explanation": "Identifier value 3",
+            "mapping": ""
+          },
+          {
+            "name": "target_table",
+            "type": "VARCHAR(100)",
+            "nullable": "No",
+            "default": null,
+            "explanation": "Migration target table name",
+            "mapping": ""
+          },
+          {
+            "name": "target_uuid",
+            "type": "VARCHAR(36)",
+            "nullable": "Yes",
+            "default": null,
+            "explanation": "Migration target table identifier (UUID)",
+            "mapping": ""
+          },
+          {
+            "name": "parent_table",
+            "type": "VARCHAR(100)",
+            "nullable": "Yes",
+            "default": null,
+            "explanation": "Parent table for internal linkage (Given if there is linkage using the new schema)",
+            "mapping": ""
+          },
+          {
+            "name": "parent_uuid",
+            "type": "VARCHAR(36)",
+            "nullable": "Yes",
+            "default": null,
+            "explanation": "Parent identifier for internal linkage (Given if there is linkage using the new schema)",
+            "mapping": ""
+          },
+          {
+            "name": "status",
+            "type": "VARCHAR(20)",
+            "nullable": "Yes",
+            "default": null,
+            "explanation": "Record migration status",
+            "mapping": ""
+          },
+          {
+            "name": "remarks",
+            "type": "TEXT",
+            "nullable": "Yes",
+            "default": null,
+            "explanation": "External Remarks (System generated/external)",
+            "mapping": ""
+          }
+        ]
+      }
+    ],
+    "sources": []
+  },
+  "masterCodes": [],
+  "masterCodeCategories": [],
+  "sampleDataAttachments": [],
+  "_versionInfo": {
+    "hadVersions": 2,
+    "latestVersionId": "1770173009004-h268eu5ed",
+    "note": "Versions stripped to reduce size. Re-enable versioning after import to start fresh."
+  }
+}

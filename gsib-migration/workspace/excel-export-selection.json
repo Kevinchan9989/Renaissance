@@ -1,0 +1,24 @@
+{
+  "_comment": "R1 export exclusion list — drops ERF, R2-only daily prices, and syndication work. To load: open dm-tool, press F12, paste:  localStorage.setItem('dm_tool_excel_export_selection:OMEGA DDL (Current)', JSON.stringify(<this object minus the _ keys>))  — then reopen the Excel preview.",
+  "_format": {
+    "excludedTableNames": "fully-qualified <schema>.<tableName>",
+    "excludedMasterCodeKeys": "master_code_key, e.g. 'ISSTYPE_SYNDICATION'",
+    "excludedCategoryKeys": "category cate_code (none in R2 yet — SYNDSTAT isn't added)"
+  },
+
+  "excludedTableNames": [
+    "stg.stg_agd_out_it050048",
+    "stg.stg_agd_out_it052048",
+    "stg.stg_fmbs_out_erf",
+    "stg.stg_fmbs_out_erf_agg_bids",
+    "stg.stg_fmbs_out_closingprice",
+    "iss.iss_synd_allotment_run",
+    "iss.iss_synd_allotment_run_t"
+  ],
+
+  "excludedMasterCodeKeys": [
+    "ISSTYPE_SYNDICATION"
+  ],
+
+  "excludedCategoryKeys": []
+}

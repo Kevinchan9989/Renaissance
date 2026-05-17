@@ -1,0 +1,6 @@
+BEGIN;
+
+TRUNCATE TABLE cm.cm_master_code            RESTART IDENTITY CASCADE;
+TRUNCATE TABLE cm.cm_master_code_category   RESTART IDENTITY CASCADE;
+
+COMMIT;

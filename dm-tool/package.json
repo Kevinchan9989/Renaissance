@@ -11,7 +11,9 @@
     "preview": "vite preview",
     "electron:dev": "concurrently \"vite\" \"wait-on http://localhost:3000 && electron .\"",
     "electron:build": "vite build && electron-builder",
-    "electron:start": "electron ."
+    "electron:start": "electron .",
+    "rebuild": "electron-rebuild -f -w better-sqlite3",
+    "test": "node --test electron/__tests__"
   },
   "build": {
     "appId": "com.renaissance.dm-tool",
@@ -37,6 +39,7 @@
   "dependencies": {
     "@dagrejs/dagre": "^1.1.2",
     "@types/prismjs": "^1.26.5",
+    "better-sqlite3": "^11.5.0",
     "elkjs": "^0.11.0",
     "exceljs": "^4.4.0",
     "konva": "^9.3.6",
@@ -48,6 +51,8 @@
     "react-simple-code-editor": "^0.14.1"
   },
   "devDependencies": {
+    "@electron/rebuild": "^3.6.0",
+    "@types/better-sqlite3": "^7.6.11",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
     "@vitejs/plugin-react": "^4.2.0",
